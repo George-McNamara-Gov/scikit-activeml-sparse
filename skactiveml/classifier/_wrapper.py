@@ -847,9 +847,7 @@ class SkorchClassifier(NeuralNet, SkactivemlClassifier):
             else:
                 X_lbld = X[is_lbld]
                 y_lbld = y[is_lbld].astype(np.int64)
-                super(SkorchClassifier, self).fit(
-                    X_lbld, y_lbld, **fit_params
-                )
+                super(SkorchClassifier, self).fit(X_lbld, y_lbld, **fit_params)
                 self.is_fitted_ = True
         except Exception as e:
             super(SkorchClassifier, self).initialize()
@@ -857,9 +855,7 @@ class SkorchClassifier(NeuralNet, SkactivemlClassifier):
             warnings.warn(
                 "The 'base_estimator' could not be fitted because of"
                 " '{}'. Therefore, the class labels of the samples "
-                "are counted and will be used to make predictions. ".format(
-                    e
-                )
+                "are counted and will be used to make predictions. ".format(e)
             )
         return self
 
