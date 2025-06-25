@@ -9,18 +9,20 @@ from collections import deque
 from copy import deepcopy
 
 import numpy as np
-import torch
 from sklearn.base import MetaEstimatorMixin, is_classifier
-from sklearn.utils import check_consistent_length
-from sklearn.utils.metaestimators import available_if
 from sklearn.utils.validation import (
     check_is_fitted,
     check_array,
     has_fit_parameter,
 )
 
-from skorch import NeuralNet
-from torch import nn
+try:
+    from torch import nn
+    from skorch import NeuralNet
+
+    successful_skorch_torch_import = True
+except ImportError:
+    successful_skorch_torch_import = False
 
 from sklearn.utils import check_consistent_length
 from sklearn.exceptions import NotFittedError
@@ -44,7 +46,7 @@ class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
     """Sklearn Classifier
 
     Implementation of a wrapper class for `scikit-learn` classifiers such that
-    missing labels can be handled. Therefor, samples with missing labels are
+    missing labels can be handled. Therefore, samples with missing labels are
     filtered.
 
     Parameters
@@ -734,160 +736,171 @@ class SlidingWindowClassifier(SkactivemlClassifier, MetaEstimatorMixin):
             raise AttributeError(f"{item} does not exist")
 
 
-class SkorchClassifier(NeuralNet, SkactivemlClassifier):
-    """SkorchClassifier
+if successful_skorch_torch_import:
 
-    Implement a wrapper class, to make it possible to use `PyTorch` with
-    `skactiveml`. This is achieved by providing a wrapper around `PyTorch`
-    that has a skactiveml interface and also be able to handle missing labels.
-    This wrapper is based on the open-source library `skorch` [1]_.
+    class SkorchClassifier(NeuralNet, SkactivemlClassifier):
+        """SkorchClassifier
 
-    Parameters
-    ----------
-    module : torch module (class or instance)
-      A PyTorch :class:`~torch.nn.Module`. In general, the
-      uninstantiated class should be passed, although instantiated
-      modules will also work.
-    criterion : nn.Module.__class, default=nn.NLLoss
-      The uninitialized criterion (loss) used to optimize the module.\
-      By default, `nn.NLLLoss` is used as criterion.
-    *args: arguments
-        More possible arguments for initializing your neural network
-        (cf. https://skorch.readthedocs.io/en/stable/net.html).
-    classes : array-like of shape (n_classes,), default=None
-        Holds the label for each class. If none, the classes are determined
-        during the fit.
-    missing_label : scalar or string or np.nan or None, default=np.nan
-        Value to represent a missing label.
-    cost_matrix : array-like of shape (n_classes, n_classes)
-        Cost matrix with `cost_matrix[i,j]` indicating cost of predicting class
-        `classes[j]` for a sample of class `classes[i]`. Can be only set, if
-        `classes` is not none.
-    random_state : int or RandomState instance or None, default=None
-        Determines random number for 'predict' method. Pass an int for
-        reproducible results across multiple method calls.
-    **kwargs : keyword arguments
-        More possible parameters to customizing your neural network
-        (cf. https://skorch.readthedocs.io/en/stable/net.html).
+        Implement a wrapper class, to make it possible to use `PyTorch` with
+        `skactiveml`. This is achieved by providing a wrapper around `PyTorch`
+        that has a skactiveml interface and also be able to handle missing
+        labels. This wrapper is based on the open-source library `skorch` [1]_.
 
-    References
-    ----------
-    .. [1] Marian Tietz, Thomas J. Fan, Daniel Nouri, Benjamin Bossan, and
-       skorch Developers. skorch: A scikit-learn compatible neural network
-       library that wraps PyTorch, July 2017.
-    """
+        Parameters
+        ----------
+        module : torch module (class or instance)
+            A PyTorch :class:`~torch.nn.Module`. In general, the uninstantiated
+            class should be passed, although instantiated modules will also
+            work.
+        criterion : torch.nn.Module.__class__, default=torch.nn.NLLoss
+            The uninitialized criterion (loss) used to optimize the module. By
+            default, `torch.nn.NLLoss` is used as criterion.
+        *args: arguments
+            More possible arguments for initializing your neural network (cf.
+            https://skorch.readthedocs.io/en/stable/net.html).
+        classes : array-like of shape (n_classes,), default=None
+            Holds the label for each class. If none, the classes are determined
+            during the fit.
+        missing_label : scalar or string or np.nan or None, default=np.nan
+            Value to represent a missing label.
+        cost_matrix : array-like of shape (n_classes, n_classes)
+            Cost matrix with `cost_matrix[i,j]` indicating cost of predicting
+            class `classes[j]` for a sample of class `classes[i]`. Can be only
+            set, if `classes` is not none.
+        random_state : int or RandomState instance or None, default=None
+            Determines random number for 'predict' method. Pass an int for
+            reproducible results across multiple method calls.
+        **kwargs : keyword arguments
+            More possible parameters to customize your neural network (cf.
+            https://skorch.readthedocs.io/en/stable/net.html).
 
-    def __init__(
-        self,
-        module,
-        criterion=nn.NLLLoss,
-        classes=None,
-        missing_label=MISSING_LABEL,
-        cost_matrix=None,
-        random_state=None,
-        **kwargs,
-    ):
-        super(SkorchClassifier, self).__init__(
-            module,
-            criterion,
-            **kwargs,
-        )
+        References
+        ----------
+        .. [1] Marian Tietz, Thomas J. Fan, Daniel Nouri, Benjamin Bossan, and
+            skorch Developers. skorch: A scikit-learn compatible neural network
+            library that wraps PyTorch, July 2017.
+        """
 
-        SkactivemlClassifier.__init__(
+        def __init__(
             self,
-            classes=classes,
-            missing_label=missing_label,
-            cost_matrix=cost_matrix,
-            random_state=random_state,
-        )
+            module,
+            criterion=nn.NLLLoss,
+            classes=None,
+            missing_label=MISSING_LABEL,
+            cost_matrix=None,
+            random_state=None,
+            **kwargs,
+        ):
+            super(SkorchClassifier, self).__init__(
+                module,
+                criterion,
+                **kwargs,
+            )
 
-    def fit(self, X, y, **fit_params):
-        """Initialize and fit the module.
+            SkactivemlClassifier.__init__(
+                self,
+                classes=classes,
+                missing_label=missing_label,
+                cost_matrix=cost_matrix,
+                random_state=random_state,
+            )
 
-        If the module was already initialized, by calling fit, the
-        module will be re-initialized (unless ``warm_start`` is True).
+        def fit(self, X, y, **fit_params):
+            """Initialize and fit the module.
 
-        Parameters
-        ----------
-        X : matrix-like, shape (n_samples, n_features)
-            Training data set, usually complete, i.e. including the labeled and
-            unlabeled samples
-        y : array-like of shape (n_samples, )
-            Labels of the training data set (possibly including unlabeled ones
-            indicated by self.missing_label)
-        fit_params : dict-like
-            Further parameters as input to the 'fit' method of the 'estimator'.
+            If the module was already initialized, by calling fit, the module
+            will be re-initialized (unless ``warm_start`` is True).
 
-        Returns
-        -------
-        self: SkorchClassifier,
-            The SkorchClassifier is fitted on the training data.
-        """
+            Parameters
+            ----------
+            X : matrix-like, shape (n_samples, n_features)
+                Training data set, usually complete, i.e. including the labeled
+                and unlabeled samples
+            y : array-like of shape (n_samples, )
+                Labels of the training data set (possibly including unlabeled
+                ones indicated by self.missing_label)
+            fit_params : dict-like
+                Further parameters as input to the 'fit' method of the
+                'estimator'.
 
-        # check input parameters
-        self.check_X_dict_ = {
-            "ensure_min_samples": 0,
-            "ensure_min_features": 0,
-            "allow_nd": True,
-            "dtype": None,
-        }
-        X, y, sample_weight = self._validate_data(
-            X=X,
-            y=y,
-            check_X_dict=self.check_X_dict_,
-        )
+            Returns
+            -------
+            self: SkorchClassifier,
+                The SkorchClassifier is fitted on the training data.
+            """
 
-        is_lbld = is_labeled(y, missing_label=self.missing_label)
-        self._label_counts = [
-            np.sum(y[is_lbld] == c) for c in range(len(self.classes))
-        ]
-        try:
-            if np.sum(is_lbld) == 0:
-                raise ValueError("There is no labeled data.")
-            else:
-                X_lbld = X[is_lbld]
-                y_lbld = y[is_lbld].astype(np.int64)
-                super(SkorchClassifier, self).fit(X_lbld, y_lbld, **fit_params)
-                self.is_fitted_ = True
-        except Exception as e:
-            super(SkorchClassifier, self).initialize()
-            self.is_fitted_ = False
+            # check input parameters
+            self.check_X_dict_ = {
+                "ensure_min_samples": 0,
+                "ensure_min_features": 0,
+                "allow_nd": True,
+                "dtype": None,
+            }
+            X, y, sample_weight = self._validate_data(
+                X=X,
+                y=y,
+                check_X_dict=self.check_X_dict_,
+            )
+
+            is_lbld = is_labeled(y, missing_label=self.missing_label_)
+            self._label_counts = [
+                np.sum(y[is_lbld] == c) for c in range(len(self.classes_))
+            ]
+            try:
+                if np.sum(is_lbld) == 0:
+                    raise ValueError("There is no labeled data.")
+                    # TODO: initialize network even without labeled data
+                else:
+                    X_lbld = X[is_lbld]
+                    y_lbld = y[is_lbld].astype(np.int64)
+                    super(SkorchClassifier, self).fit(
+                        X_lbld, y_lbld, **fit_params
+                    )
+                    self.is_fitted_ = True
+            except Exception as e:
+                super(SkorchClassifier, self).initialize()
+                self.is_fitted_ = False
+                warnings.warn(
+                    "The 'base_estimator' could not be fitted because of"
+                    " '{}'. Therefore, the class labels of the samples "
+                    "are counted and will be used to make predictions.".format(
+                        e
+                    )
+                )
+            return self
+
+        def predict(self, X):
+            """Return class label predictions for the input data X.
+
+            Parameters
+            ----------
+            X :  array-like, shape (n_samples, n_features)
+                Input samples.
+
+            Returns
+            -------
+            y :  array-like, shape (n_samples)
+                Predicted class labels of the input samples.
+            """
+            return SkactivemlClassifier.predict(self, X)
+
+        def predict_proba(self, X):
+            X = check_array(X, **self.check_X_dict_)
+            if self.is_fitted_:
+                return super(SkorchClassifier, self).predict_proba(X)
+
             warnings.warn(
-                "The 'base_estimator' could not be fitted because of"
-                " '{}'. Therefore, the class labels of the samples "
-                "are counted and will be used to make predictions. ".format(e)
+                f"Since the 'base_estimator' could not be fitted when"
+                f" calling the `fit` method, the class label "
+                f"distribution`_label_counts={self._label_counts}` is used to "
+                f"make the predictions."
             )
-        return self
-
-    def predict(self, X):
-        """Return class label predictions for the input data X.
-
-        Parameters
-        ----------
-        X :  array-like, shape (n_samples, n_features)
-            Input samples.
-
-        Returns
-        -------
-        y :  array-like, shape (n_samples)
-            Predicted class labels of the input samples.
-        """
-        return SkactivemlClassifier.predict(self, X)
-
-    def predict_proba(self, X):
-        X = check_array(X, **self.check_X_dict_)
-        if self.is_fitted_:
-            return super(SkorchClassifier, self).predict_proba(X)
-
-        warnings.warn(
-            f"Since the 'base_estimator' could not be fitted when"
-            f" calling the `fit` method, the class label "
-            f"distribution`_label_counts={self._label_counts}` is used to "
-            f"make the predictions."
-        )
-        if sum(self._label_counts) == 0:
-            return np.ones([len(X), len(self.classes_)]) / len(self.classes)
-        else:
-            return np.tile(
-                self._label_counts / np.sum(self._label_counts), [len(X), 1]
-            )
+            if sum(self._label_counts) == 0:
+                return np.ones([len(X), len(self.classes_)]) / len(
+                    self.classes_
+                )
+            else:
+                return np.tile(
+                    self._label_counts / np.sum(self._label_counts),
+                    [len(X), 1],
+                )

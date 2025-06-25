@@ -460,7 +460,7 @@ def batch_bald(
         if i > 0:
             latest_index = query_indices[-1]
             batch_joint_entropy.add_variables(
-                log_probs_N_K_C[latest_index : latest_index + 1]
+                log_probs_N_K_C[latest_index:latest_index+1]
             )
 
         shared_conditinal_entropies = conditional_entropies_N[
@@ -645,7 +645,7 @@ class _DynamicJointEntropy:
         C = self.log_probs_max_N_K_C.shape[2]
         add_N = log_probs_N_K_C.shape[0]
 
-        self.log_probs_max_N_K_C[self.N : self.N + add_N] = log_probs_N_K_C
+        self.log_probs_max_N_K_C[self.N:self.N+add_N] = log_probs_N_K_C
         self.N += add_N
 
         num_exact_samples = C**self.N
