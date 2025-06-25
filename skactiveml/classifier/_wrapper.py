@@ -16,13 +16,13 @@ from sklearn.utils.validation import (
     has_fit_parameter,
 )
 
+successful_skorch_torch_import = False
 try:
     from torch import nn
     from skorch import NeuralNet
 
     successful_skorch_torch_import = True
-except ImportError:
-    successful_skorch_torch_import = False
+except ImportError: pass
 
 from sklearn.utils import check_consistent_length
 from sklearn.exceptions import NotFittedError

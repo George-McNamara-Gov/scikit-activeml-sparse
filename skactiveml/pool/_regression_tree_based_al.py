@@ -295,7 +295,7 @@ class RegressionTreeBasedAL(SingleAnnotatorPoolQueryStrategy):
                     X_M = X[labeled_idxs]
                     X_M = np.append(X_M, X_cand[query_indices[:l_idx]], axis=0)
                     X_M = np.append(
-                        X_M, X_cand[query_indices[l_idx+1:]], axis=0
+                        X_M, X_cand[query_indices[l_idx + 1 :]], axis=0
                     )
                     X_cand_l = X_cand[l_cand == l_idx]
                     _, delta_l = pairwise_distances_argmin_min(

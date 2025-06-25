@@ -4,17 +4,19 @@ import numpy as np
 from sklearn.datasets import make_blobs
 from sklearn.utils.validation import NotFittedError
 
+successful_skorch_torch_import = False
 try:
     import torch
     from torch import nn
     from skorch.helper import predefined_split
     from skorch.dataset import Dataset
     from skactiveml.classifier.multiannotator import CrowdLayerClassifier
+
     successful_skorch_torch_import = True
-except ImportError:
-    successful_skorch_torch_import = False
+except ImportError: pass
 
 if successful_skorch_torch_import:
+
     class TestCrowdLayerClassifier(unittest.TestCase):
         def setUp(self):
             self.X, self.y_true = make_blobs(n_samples=300, random_state=0)
@@ -131,7 +133,6 @@ if successful_skorch_torch_import:
             )
             clf.fit(self.X, self.y)
             self.assertIsNone(clf.check_is_fitted())
-
 
     class TestNeuralNet(nn.Module):
         def __init__(self):

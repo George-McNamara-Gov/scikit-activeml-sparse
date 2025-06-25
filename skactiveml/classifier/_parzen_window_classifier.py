@@ -230,7 +230,7 @@ class ParzenWindowClassifier(ClassFrequencyEstimator):
             F = K @ self.V_
         else:
             indices = np.argpartition(K, -self.n_neighbors, axis=1)
-            indices = indices[:, -self.n_neighbors:]
+            indices = indices[:, -self.n_neighbors :]
             F = np.empty((np.size(X, 0), len(self.classes_)))
             for i in range(np.size(X, 0)):
                 F[i, :] = K[i, indices[i]] @ self.V_[indices[i], :]

@@ -260,9 +260,7 @@ def _bootstrap_estimators(
         else:
             weight_for_learner = sample_weight[subset_indices]
             est_b.fit(
-                X_for_learner,
-                y_for_learner,
-                sample_weight=weight_for_learner
+                X_for_learner, y_for_learner, sample_weight=weight_for_learner
             )
 
     return bootstrap_est

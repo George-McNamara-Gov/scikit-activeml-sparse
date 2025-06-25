@@ -20,13 +20,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.naive_bayes import GaussianNB
 from sklearn.utils.validation import NotFittedError, check_is_fitted
 
+successful_skorch_torch_import = False
 try:
     import torch
     from torch import nn
     from skactiveml.classifier import SkorchClassifier
+
     successful_skorch_torch_import = True
-except ImportError:
-    successful_skorch_torch_import = False
+except ImportError: pass
 
 from skactiveml.classifier import (
     SklearnClassifier,
@@ -927,6 +928,7 @@ class TestSlidingWindowClassifier(
 
 
 if successful_skorch_torch_import:
+
     class TestSkorchClassifier(unittest.TestCase):
         def setUp(self):
             self.X, self.y_true = make_blobs(
@@ -1017,7 +1019,6 @@ if successful_skorch_torch_import:
             predict_proba = clf.predict_proba(self.X)
             self.assertEqual(len(predict_proba), len(self.X))
             self.assertEqual(predict_proba.shape[1], 3)
-
 
     class TestNeuralNet(nn.Module):
         def __init__(self):

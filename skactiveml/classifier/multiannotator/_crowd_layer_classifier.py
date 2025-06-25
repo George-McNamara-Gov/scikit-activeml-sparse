@@ -1,5 +1,6 @@
 import numpy as np
 
+successful_skorch_torch_import = False
 try:
     from skorch import NeuralNet
     from skorch.dataset import unpack_data
@@ -9,8 +10,7 @@ try:
     from torch.nn import functional as F
 
     successful_skorch_torch_import = True
-except ImportError:
-    successful_skorch_torch_import = False
+except ImportError: pass
 
 from ...base import AnnotatorModelMixin
 from ...classifier import SkorchClassifier
