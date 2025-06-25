@@ -10,7 +10,8 @@ try:
     from torch.nn import functional as F
 
     successful_skorch_torch_import = True
-except ImportError: pass
+except ImportError:
+    pass  # pragma: no cover
 
 from ...base import AnnotatorModelMixin
 from ...classifier import SkorchClassifier

@@ -22,7 +22,8 @@ try:
     from skorch import NeuralNet
 
     successful_skorch_torch_import = True
-except ImportError: pass
+except ImportError:
+    pass  # pragma: no cover
 
 from sklearn.utils import check_consistent_length
 from sklearn.exceptions import NotFittedError

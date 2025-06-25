@@ -27,7 +27,8 @@ try:
     from skactiveml.classifier import SkorchClassifier
 
     successful_skorch_torch_import = True
-except ImportError: pass
+except ImportError:
+    pass  # pragma: no cover
 
 from skactiveml.classifier import (
     SklearnClassifier,

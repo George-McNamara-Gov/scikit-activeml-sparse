@@ -13,7 +13,8 @@ try:
     from skactiveml.classifier.multiannotator import CrowdLayerClassifier
 
     successful_skorch_torch_import = True
-except ImportError: pass
+except ImportError:
+    pass  # pragma: no cover
 
 if successful_skorch_torch_import:
 
