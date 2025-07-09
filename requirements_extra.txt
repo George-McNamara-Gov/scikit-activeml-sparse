@@ -3,13 +3,13 @@ pytest
 pytest-cov
 pytest-xdist
 jupyter
-sphinx==5.3.0
-sphinxcontrib-bibtex~=2.3
-numpydoc~=1.1
-nbsphinx~=0.8
-nbformat~=5.4.0
-sphinx-gallery~=0.11
-pybtex~=0.23
-pydata_sphinx_theme==0.12
+sphinx>=8.1, <=8.2
+sphinxcontrib-bibtex~=2.6
+numpydoc~=1.9
+nbsphinx~=0.9
+nbformat~=5.10
+sphinx-gallery~=0.19
+pybtex~=0.25
+pydata_sphinx_theme~=0.16
 gitpython
 black

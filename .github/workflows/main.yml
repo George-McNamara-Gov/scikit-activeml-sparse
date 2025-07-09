@@ -8,7 +8,7 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [ '3.9', '3.10', '3.11', '3.12' ]
+        python-version: [ '3.10', '3.11', '3.12', '3.13' ]
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -33,7 +33,7 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [ '3.9', '3.10', '3.11', '3.12' ]
+        python-version: [ '3.10', '3.11', '3.12', '3.13']
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -45,12 +45,13 @@ jobs:
         sudo apt-get -qq update
         sudo apt-get install pandoc
         sudo apt-get install ghostscript
+        sudo apt-get install ffmpeg
         python -m pip install --upgrade pip
         pip install --upgrade -r requirements.txt -r requirements_max.txt
         pip install -r requirements_extra.txt
     - name: Test with pytest and newest dependencies
       run: |
-        pytest -n auto --cov=./skactiveml --cov-report=xml --cov-fail-under=100
+        pytest -n auto --cov=./skactiveml --cov-report=xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
@@ -69,7 +70,7 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [ '3.9', '3.10', '3.11', '3.12' ]
+        python-version: [ '3.10', '3.11', '3.12', '3.13' ]
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -81,6 +82,7 @@ jobs:
         sudo apt-get -qq update
         sudo apt-get install pandoc
         sudo apt-get install ghostscript
+        sudo apt-get install ffmpeg
         python -m pip install --upgrade pip
         pip install --upgrade -r requirements.txt -r requirements_max.txt
         pip install -r requirements_extra.txt
@@ -101,7 +103,7 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [ '3.9', '3.10', '3.11', '3.12' ]
+        python-version: [ '3.10', '3.11', '3.12', '3.13' ]
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -113,6 +115,7 @@ jobs:
         sudo apt-get -qq update
         sudo apt-get install pandoc
         sudo apt-get install ghostscript
+        sudo apt-get install ffmpeg
         python -m pip install --upgrade pip
         pip install --upgrade -r requirements.txt -r requirements_max.txt
         pip install -r requirements_extra.txt

@@ -38,6 +38,7 @@ from .utils import (
 # '__all__' is necessary to create the sphinx docs.
 __all__ = [
     "QueryStrategy",
+    "PoolQueryStrategy",
     "SingleAnnotatorPoolQueryStrategy",
     "MultiAnnotatorPoolQueryStrategy",
     "BudgetManager",
@@ -104,7 +105,7 @@ class PoolQueryStrategy(QueryStrategy):
         X : array-like of shape (n_samples, n_features)
             Training data set, usually complete, i.e. including the labeled and
             unlabeled samples.
-        y : array-like of shape (n_samples, *)
+        y : array-like of shape (n_samples, ...)
             Labels of the training data set (possibly including unlabeled ones
             indicated by self.MISSING_LABEL.
         candidates : None or array-like of shape (n_candidates), dtype=int or \
@@ -114,7 +115,7 @@ class PoolQueryStrategy(QueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, the
+            - If `candidates` is of shape `(n_candidates, ...)`, the
               candidate samples are directly given in `candidates` (not
               necessarily contained in `X`). This is not supported by all
               query strategies.
@@ -133,7 +134,7 @@ class PoolQueryStrategy(QueryStrategy):
         -------
         X : np.ndarray of shape (n_samples, n_features)
             Checked training data set.
-        y : np.ndarray of shape (n_samples, *)
+        y : np.ndarray of shape (n_samples, ...)
             Checked labels of the training data set.
         candidates : None or np.ndarray of shape (n_candidates), dtype=int or\
                 np.ndarray of shape (n_candidates, n_features)
@@ -218,7 +219,7 @@ class SingleAnnotatorPoolQueryStrategy(PoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, the
+            - If `candidates` is of shape `(n_candidates, ...)`, the
               candidate samples are directly given in `candidates` (not
               necessarily contained in `X`). This is not supported by all
               query strategies.
@@ -282,7 +283,7 @@ class SingleAnnotatorPoolQueryStrategy(PoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, the
+            - If `candidates` is of shape `(n_candidates, ...)`, the
               candidate samples are directly given in `candidates` (not
               necessarily contained in `X`). This is not supported by all
               query strategies.
@@ -360,7 +361,7 @@ class SingleAnnotatorPoolQueryStrategy(PoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, the
+            - If `candidates` is of shape `(n_candidates, ...)`, the
               candidate samples are directly given in `candidates` (not
               necessarily contained in `X`).
         X : np.ndarray of shape (n_samples, n_features)

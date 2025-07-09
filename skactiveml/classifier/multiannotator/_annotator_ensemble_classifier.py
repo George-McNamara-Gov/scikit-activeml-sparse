@@ -5,7 +5,7 @@ Classifier Ensemble for Multiple Annotators
 from copy import deepcopy
 
 import numpy as np
-from sklearn.ensemble._base import _BaseHeterogeneousEnsemble
+from sklearn.base import MetaEstimatorMixin, is_classifier, is_regressor
 from sklearn.utils.validation import (
     check_array,
     check_is_fitted,
@@ -20,9 +20,7 @@ from ...utils import (
 )
 
 
-class AnnotatorEnsembleClassifier(
-    _BaseHeterogeneousEnsemble, SkactivemlClassifier
-):
+class AnnotatorEnsembleClassifier(MetaEstimatorMixin, SkactivemlClassifier):
     """Ensemble of Annotator-wise Classifier
 
     This strategy consists of fitting one classifier per annotator.
@@ -45,7 +43,7 @@ class AnnotatorEnsembleClassifier(
         Value to represent a missing label.
     cost_matrix : array-like of shape (n_classes, n_classes)
         Cost matrix with `cost_matrix[i,j]` indicating cost of predicting class
-        `classes[j]`  for a sample of class `classes[i]. Can be only set, if
+        `classes[j]`  for a sample of class `classes[i]`. Can be only set, if
         classes is not none.
     random_state : int or RandomState instance or None, default=None
         Determines random number for `predict` method. Pass an int for
@@ -57,11 +55,10 @@ class AnnotatorEnsembleClassifier(
         Holds the label for each class after fitting.
     cost_matrix_ : np.ndarray of shape (classes, classes)
         Cost matrix with `cost_matrix_[i,j]` indicating cost of predicting
-        class `classes_[j]`  for a sample of class `classes_[i].
+        class `classes_[j]`  for a sample of class `classes_[i]`.
     estimators_ : list of estimators
         The elements of the estimators parameter, having been fitted on the
-        training data. If an estimator has been set to `'drop'`, it will not
-        appear in `estimators_`.
+        training data.
     """
 
     def __init__(
@@ -73,7 +70,6 @@ class AnnotatorEnsembleClassifier(
         cost_matrix=None,
         random_state=None,
     ):
-        _BaseHeterogeneousEnsemble.__init__(self, estimators=estimators)
         SkactivemlClassifier.__init__(
             self,
             classes=classes,
@@ -81,6 +77,7 @@ class AnnotatorEnsembleClassifier(
             cost_matrix=cost_matrix,
             random_state=random_state,
         )
+        self.estimators = estimators
         self.voting = voting
 
     def fit(self, X, y, sample_weight=None):
@@ -88,7 +85,7 @@ class AnnotatorEnsembleClassifier(
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, *)
+        X : array-like of shape (n_samples, ...)
             The feature matrix representing the samples.
         y : array-like of shape (n_samples, n_estimators)
             It contains the class labels of the training samples.
@@ -135,7 +132,7 @@ class AnnotatorEnsembleClassifier(
             f"{len(self.estimators)}) but has shape {y.shape}."
         )
         if (
-            self.named_estimators is not None
+            self.estimators is not None
             and y.ndim <= 1
             or y.shape[1] != len(self.estimators)
         ):
@@ -192,8 +189,26 @@ class AnnotatorEnsembleClassifier(
         return P
 
     def _validate_estimators(self):
-        _BaseHeterogeneousEnsemble._validate_estimators(self)
-        for name, est in self.estimators:
+        if len(self.estimators) == 0:
+            raise ValueError(
+                "The list of estimators `self.estimators`, needs to be a "
+                "non-empty list of (name, estimator) tuples."
+                f"Instead, {self.estimators} was passed."
+            )
+
+        for i_elem, elem in enumerate(self.estimators):
+            if (
+                not hasattr(elem, "__len__")
+                or len(elem) != 2
+                or not isinstance(elem[0], str)
+            ):
+                raise ValueError(
+                    "The list of estimators `self.estimators`, needs to be a"
+                    "non-empty list of (name, estimator) tuples. Instead, "
+                    f"{self.estimators} was passed with element {elem} at "
+                    f"position {i_elem}."
+                )
+            est = elem[1]
             if not isinstance(est, SkactivemlClassifier):
                 raise TypeError(f"'{est}' is not a 'SkactivemlClassifier'.")
             if self.voting == "soft" and not hasattr(est, "predict_proba"):

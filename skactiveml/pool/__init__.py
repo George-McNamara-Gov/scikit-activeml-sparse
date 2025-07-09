@@ -9,7 +9,11 @@ from ._bald import GreedyBALD, BatchBALD, batch_bald
 from ._cost_embedding_al import CostEmbeddingAL
 from ._discriminative_al import DiscriminativeAL
 from ._epistemic_uncertainty_sampling import EpistemicUncertaintySampling
-from ._expected_error_reduction import MonteCarloEER, ValueOfInformationEER
+from ._expected_error_reduction import (
+    ExpectedErrorReduction,
+    MonteCarloEER,
+    ValueOfInformationEER,
+)
 from ._expected_model_change_maximization import (
     ExpectedModelChangeMaximization,
 )
@@ -53,6 +57,7 @@ __all__ = [
     "uncertainty_scores",
     "expected_average_precision",
     "EpistemicUncertaintySampling",
+    "ExpectedErrorReduction",
     "MonteCarloEER",
     "ValueOfInformationEER",
     "QueryByCommittee",

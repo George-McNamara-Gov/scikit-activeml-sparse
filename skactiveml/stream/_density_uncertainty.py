@@ -1106,7 +1106,7 @@ class CognitiveDualQueryStrategyRan(CognitiveDualQueryStrategy):
     See Also
     --------
     .budgetmanager.RandomBudgetManager : The default budget manager.
-    .budgetmanager.CognitiveDualQueryStrategy : The base class for this
+    .CognitiveDualQueryStrategy : The base class for this
         strategy.
 
     References
@@ -1208,7 +1208,7 @@ class CognitiveDualQueryStrategyFixUn(CognitiveDualQueryStrategy):
     See Also
     --------
     .budgetmanager.FixedUncertaintyBudgetManager : The default budget manager
-    .budgetmanager.CognitiveDualQueryStrategy : The base class for this
+    .CognitiveDualQueryStrategy : The base class for this
         strategy.
 
     References
@@ -1322,7 +1322,7 @@ class CognitiveDualQueryStrategyVarUn(CognitiveDualQueryStrategy):
     See Also
     --------
     .budgetmanager.RandomBudgetManager : The default budget manager.
-    .budgetmanager.CognitiveDualQueryStrategy : The base class for this
+    .CognitiveDualQueryStrategy : The base class for this
         strategy.
 
     References
@@ -1423,7 +1423,7 @@ class CognitiveDualQueryStrategyRanVarUn(CognitiveDualQueryStrategy):
     See Also
     --------
     .budgetmanager.RandomBudgetManager : The default budget manager.
-    .budgetmanager.CognitiveDualQueryStrategy : The base class for this
+    .CognitiveDualQueryStrategy : The base class for this
         strategy.
 
     References

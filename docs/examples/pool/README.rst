@@ -1,10 +1,10 @@
-Pool Based AL Strategies
+Pool-based AL Strategies
 ------------------------
 
 **Legend for classification plots**
 
-.. image:: ../examples/pool_classification_legend.png
+.. image:: /examples/pool_classification_legend.png
 
 **Legend for regression plots**
 
-.. image:: ../examples/pool_regression_legend.png
+.. image:: /examples/pool_regression_legend.png

@@ -98,7 +98,7 @@ class KLDivergenceMaximization(SingleAnnotatorPoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, the
+            - If `candidates` is of shape `(n_candidates, ...)`, the
               candidate samples are directly given in `candidates` (not
               necessarily contained in `X`). This is not supported by all
               query strategies.
@@ -129,7 +129,7 @@ class KLDivergenceMaximization(SingleAnnotatorPoolQueryStrategy):
               in `X`.
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `utilities` refers to the samples in `X`.
-            - If `candidates` is of shape `(n_candidates, *)`, `utilities`
+            - If `candidates` is of shape `(n_candidates, ...)`, `utilities`
               refers to the indexing in `candidates`.
         """
         X, y, candidates, batch_size, return_utilities = self._validate_data(

@@ -381,7 +381,7 @@ class FixedUncertainty(UncertaintyZliobaite):
     based on the classifier's predictions. The sample is queried when the
     probability of the most likely class exceeds a threshold calculated based
     on the budget and the number of classes. See also
-    :class:`.FixedUncertaintyBudgetManager`
+    :class:`.budgetmanager.FixedUncertaintyBudgetManager`
 
     Parameters
     ----------
@@ -459,7 +459,7 @@ class VariableUncertainty(UncertaintyZliobaite):
     the classifier's predictions. The sample is queried when the probability
     of the most likely class exceeds a time-dependent threshold calculated
     based on the budget, number of observed and acquired samples. See also
-    :class:`.VariableUncertaintyBudgetManager`
+    :class:`.budgetmanager.VariableUncertaintyBudgetManager`
 
     Parameters
     ----------
@@ -512,14 +512,14 @@ class RandomVariableUncertainty(UncertaintyZliobaite):
     time-dependent threshold calculated based on the budget, and the number of
     observed and acquired samples. The threshold is randomized by being
     multiplied with a random number sampled from N(1,delta). See also
-    :class:`.RandomVariableUncertaintyBudgetManager`
+    :class:`.budgetmanager.RandomVariableUncertaintyBudgetManager`
 
     Parameters
     ----------
     budget_manager : BudgetManager, default=None
         The BudgetManager which models the budgeting constraint used in the
         stream-based active learning setting. if set to `None`,
-        `RandomVariableUncertaintyBudgetManager` will be used by default.  The
+        `RandomVariableUncertaintyBudgetManager` will be used by default. The
         budget manager will be initialized based on the following conditions:
 
         - If only a `budget` is given, the default budget manager is
@@ -564,7 +564,8 @@ class Split(UncertaintyZliobaite):
     exceeds a time-dependent threshold calculated based on the budget, number
     of observed and acquired samples. It is a hybrid strategy that combines
     `VariableUncertainty` with randomly sampling samples with a given
-    probability. See also :class:`.SplitBudgetManager`
+    probability. See also
+    :class:`.budgetmanager.SplitBudgetManager`
 
     Parameters
     ----------

@@ -74,8 +74,8 @@ class GreedySamplingX(SingleAnnotatorPoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, `candidates` is
-              considered as the candidate samples in `(X,y)`.
+            - If `candidates` is of shape `(n_candidates, ...)`, `candidates`
+              is considered as the candidate samples in `(X,y)`.
         batch_size : int, default=1
             The number of samples to be selected in one AL cycle.
         return_utilities : bool, default=False
@@ -103,7 +103,7 @@ class GreedySamplingX(SingleAnnotatorPoolQueryStrategy):
               in `X`.
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `utilities` refers to the samples in `X`.
-            - If `candidates` is of shape `(n_candidates, *)`, `utilities`
+            - If `candidates` is of shape `(n_candidates, ...)`, `utilities`
               refers to the indexing in `candidates`.
         """
         X, y, candidates, batch_size, return_utilities = self._validate_data(
@@ -240,8 +240,8 @@ class GreedySamplingTarget(SingleAnnotatorPoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, `candidates` is
-              considered as the candidate samples in `(X,y)`.
+            - If `candidates` is of shape `(n_candidates, ...)`, `candidates`
+              is considered as the candidate samples in `(X,y)`.
         batch_size : int, default=1
             The number of samples to be selected in one AL cycle.
         return_utilities : bool, default=False
@@ -269,7 +269,7 @@ class GreedySamplingTarget(SingleAnnotatorPoolQueryStrategy):
               in `X`.
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `utilities` refers to the samples in `X`.
-            - If `candidates` is of shape `(n_candidates, *)`, `utilities`
+            - If `candidates` is of shape `(n_candidates, ...)`, `utilities`
               refers to the indexing in `candidates`.
         """
         X, y, candidates, batch_size, return_utilities = self._validate_data(

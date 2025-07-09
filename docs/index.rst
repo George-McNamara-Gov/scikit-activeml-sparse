@@ -5,7 +5,7 @@
    Home <self>
    Tutorials <tutorials>
    Strategy Overview <generated/strategy_overview>
-   generated/api_reference
+   generated/api/skactiveml
    generated/sphinx_gallery_examples/index
    contributing
    Changelog <https://github.com/scikit-activeml/scikit-activeml/releases>
@@ -23,13 +23,8 @@
    :end-before: examples_end
 
 .. include:: ../README.rst
-   :start-after: dev_start
-   :end-before: dev_end
-
-.. include:: ../README.rst
    :start-after: citing_start
    :end-before: citing_end
-
 
 Indices and tables
 ==================

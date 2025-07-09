@@ -16,10 +16,7 @@
 "$install_dependencies|# !pip install scikit-activeml"
 
 # %%
-# .. raw:: html
-#
-#   <hr style="border-style: solid; border-top: 1px solid; border-right: 0; border-bottom: 0; border-left: 0;">
-#
+# ---
 
 # %%
 import numpy as np

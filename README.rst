@@ -20,14 +20,14 @@ scikit-activeml: A Library and Toolbox for Active Learning Algorithms
 .. |Codecov| image:: https://codecov.io/gh/scikit-activeml/scikit-activeml/branch/master/graph/badge.svg
    :target: https://app.codecov.io/gh/scikit-activeml/scikit-activeml
 
-.. |PythonVersion| image:: https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue.svg
-   :target: https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue
+.. |PythonVersion| image:: https://img.shields.io/badge/python-03.10%20%7C%203.11%20%7C%203.12%20%7C3.13-blue.svg
+   :target: https://pypi.org/project/scikit-activeml/
 
 .. |PyPi| image:: https://badge.fury.io/py/scikit-activeml.svg
-   :target: https://badge.fury.io/py/scikit-activeml
+   :target: https://pypi.org/project/scikit-activeml/
 
-.. |Paper| image:: https://img.shields.io/badge/paper-10.20944/preprints202103.0194.v1-blue.svg
-   :target: https://www.preprints.org/manuscript/202103.0194/v1
+.. |Paper| image:: https://img.shields.io/badge/paper-10.20944/preprints202507.0252.v1-blue.svg
+   :target: https://www.preprints.org/manuscript/202507.0252/v1
 
 .. |Black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
