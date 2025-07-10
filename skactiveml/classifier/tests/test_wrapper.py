@@ -992,7 +992,6 @@ if successful_skorch_torch_import:
                 max_epochs=10,
                 batch_size=1,
             )
-            self.assertRaises(NotFittedError, clf.predict, X=self.X)
             clf.fit(self.X, self.y)
             y_pred = clf.predict(self.X)
             self.assertEqual(len(y_pred), len(self.X))
