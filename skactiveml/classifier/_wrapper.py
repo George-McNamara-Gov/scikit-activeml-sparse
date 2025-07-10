@@ -885,7 +885,6 @@ if successful_skorch_torch_import:
                 Predicted class labels of the input samples.
             """
             P = self.predict_proba(X)
-            print(P)
             if not hasattr(self, "random_state_"):
                 self.random_state_ = check_random_state(self.random_state)
             if not hasattr(self, "check_X_dict_"):
