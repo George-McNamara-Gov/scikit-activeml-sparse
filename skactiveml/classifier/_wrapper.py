@@ -739,6 +739,7 @@ class SlidingWindowClassifier(SkactivemlClassifier, MetaEstimatorMixin):
 
 
 if successful_skorch_torch_import:
+
     class SkorchClassifier(NeuralNet, SkactivemlClassifier):
         """SkorchClassifier
 
@@ -885,16 +886,16 @@ if successful_skorch_torch_import:
             """
             P = self.predict_proba(X)
             print(P)
-            if not hasattr(self, 'random_state_'):
+            if not hasattr(self, "random_state_"):
                 self.random_state_ = check_random_state(self.random_state)
-            if not hasattr(self, 'check_X_dict_'):
+            if not hasattr(self, "check_X_dict_"):
                 self.check_X_dict_ = {
                     "ensure_min_samples": 0,
                     "ensure_min_features": 0,
                     "allow_nd": True,
                     "dtype": None,
                 }
-            if not hasattr(self, '_le'):
+            if not hasattr(self, "_le"):
                 # initialize fallbacks if the classifier hasn't been fitted before
                 self._le = ExtLabelEncoder(
                     classes=self.classes, missing_label=self.missing_label
@@ -905,7 +906,7 @@ if successful_skorch_torch_import:
                     y_dummy = np.arange(P.shape[-1], dtype=int)
                 y_dummy = self._le.fit_transform(y_dummy)
                 self.classes_ = self._le.classes_
-            if not hasattr(self, 'cost_matrix_'):
+            if not hasattr(self, "cost_matrix_"):
                 self.cost_matrix_ = (
                     1 - np.eye(len(self.classes_))
                     if self.cost_matrix is None
@@ -914,9 +915,7 @@ if successful_skorch_torch_import:
 
             costs = np.dot(P, self.cost_matrix_)
             y_pred = rand_argmin(
-                costs,
-                random_state=self.random_state_,
-                axis=1
+                costs, random_state=self.random_state_, axis=1
             )
             y_pred = self._le.inverse_transform(y_pred)
             y_pred = np.asarray(y_pred, dtype=self.classes_.dtype)
