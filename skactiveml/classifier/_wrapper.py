@@ -831,6 +831,58 @@ if successful_skorch_torch_import:
                 The SkorchClassifier is fitted on the training data.
             """
 
+            return self._fit("fit", X, y, **fit_params)
+
+        def partial_fit(self, X, y, **fit_params):
+            """Fit the module without re-initialization.
+
+            If the module was already initialized, by calling partial_fit, the
+            module will not be re-initialized again.
+
+            Parameters
+            ----------
+            X : matrix-like, shape (n_samples, n_features)
+                Training data set, usually complete, i.e. including the labeled
+                and unlabeled samples
+            y : array-like of shape (n_samples, )
+                Labels of the training data set (possibly including unlabeled
+                ones indicated by self.missing_label)
+            fit_params : dict-like
+                Further parameters as input to the 'partial_fit' method of the
+                'estimator'.
+
+            Returns
+            -------
+            self: SkorchClassifier,
+                The SkorchClassifier is fitted on the training data.
+            """
+
+            return self._fit("partial_fit", X, y, **fit_params)
+
+        def _fit(self, fit_function, X, y, **fit_params):
+            """Initialize and fit the module.
+
+            If the module was already initialized, by calling fit, the module
+            will be re-initialized (unless ``warm_start`` is True).
+
+            Parameters
+            ----------
+            X : matrix-like, shape (n_samples, n_features)
+                Training data set, usually complete, i.e. including the labeled
+                and unlabeled samples
+            y : array-like of shape (n_samples, )
+                Labels of the training data set (possibly including unlabeled
+                ones indicated by self.missing_label)
+            fit_params : dict-like
+                Further parameters as input to the 'fit' method of the
+                'estimator'.
+
+            Returns
+            -------
+            self: SkorchClassifier,
+                The SkorchClassifier is fitted on the training data.
+            """
+
             # check input parameters
             self.check_X_dict_ = {
                 "ensure_min_samples": 0,
@@ -855,12 +907,18 @@ if successful_skorch_torch_import:
                 else:
                     X_lbld = X[is_lbld]
                     y_lbld = y[is_lbld].astype(np.int64)
-                    super(SkorchClassifier, self).fit(
-                        X_lbld, y_lbld, **fit_params
-                    )
+                    if fit_function == "fit":
+                        super(SkorchClassifier, self).fit(
+                            X_lbld, y_lbld, **fit_params
+                        )
+                    elif fit_function == "partial_fit":
+                        super(SkorchClassifier, self).partial_fit(
+                            X_lbld, y_lbld, **fit_params
+                        )
                     self.is_fitted_ = True
             except Exception as e:
-                super(SkorchClassifier, self).initialize()
+                if not self.initialized_:
+                    self.initialize()
                 self.is_fitted_ = False
                 warnings.warn(
                     "The 'base_estimator' could not be fitted because of"
@@ -884,6 +942,8 @@ if successful_skorch_torch_import:
             y :  array-like, shape (n_samples)
                 Predicted class labels of the input samples.
             """
+            if not self.initialized_:
+                self.initialize()
             P = self.predict_proba(X)
             if not hasattr(self, "random_state_"):
                 self.random_state_ = check_random_state(self.random_state)
@@ -895,7 +955,8 @@ if successful_skorch_torch_import:
                     "dtype": None,
                 }
             if not hasattr(self, "_le"):
-                # initialize fallbacks if the classifier hasn't been fitted before
+                # initialize fallbacks if the classifier hasn't been fitted
+                # before
                 self._le = ExtLabelEncoder(
                     classes=self.classes, missing_label=self.missing_label
                 )
@@ -925,22 +986,3 @@ if successful_skorch_torch_import:
             if not self.initialized_:
                 self.initialize()
             return super(SkorchClassifier, self).predict_proba(X)
-            # if self.is_fitted_:
-            #     X = check_array(X, **self.check_X_dict_)
-            #     return super(SkorchClassifier, self).predict_proba(X)
-
-            # warnings.warn(
-            #     f"Since the 'base_estimator' could not be fitted when"
-            #     f" calling the `fit` method, the class label "
-            #     f"distribution`_label_counts={self._label_counts}` is used to "
-            #     f"make the predictions."
-            # )
-            # if sum(self._label_counts) == 0:
-            #     return np.ones([len(X), len(self.classes_)]) / len(
-            #         self.classes_
-            #     )
-            # else:
-            #     return np.tile(
-            #         self._label_counts / np.sum(self._label_counts),
-            #         [len(X), 1],
-            #     )

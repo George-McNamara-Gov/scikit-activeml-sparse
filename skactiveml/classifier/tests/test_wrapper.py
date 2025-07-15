@@ -976,6 +976,33 @@ if successful_skorch_torch_import:
             clf.fit(self.X, self.y)
             self.assertIsNone(clf.check_is_fitted())
 
+        def test_partial_fit(self):
+            clf = SkorchClassifier(
+                module=TestNeuralNet,
+                classes=[0, 1, 2],
+                missing_label=-1,
+                random_state=1,
+                criterion=nn.CrossEntropyLoss,
+                train_split=None,
+                verbose=False,
+                optimizer=torch.optim.SGD,
+                device="cpu",
+                lr=0.001,
+                max_epochs=10,
+                batch_size=1,
+            )
+            np.testing.assert_array_equal([0, 1, 2], clf.classes)
+            self.assertRaises(NotFittedError, clf.check_is_fitted)
+            clf.partial_fit(self.X, self.y_ulbld)
+            self.assertFalse(clf.is_fitted_)
+            clf.partial_fit(self.X, self.y)
+            self.assertIsNone(clf.check_is_fitted())
+
+            predict_proba_0 = clf.predict_proba(self.X)
+            clf.partial_fit(self.X, self.y_ulbld)
+            predict_proba_1 = clf.predict_proba(self.X)
+            np.testing.assert_almost_equal(predict_proba_0, predict_proba_1)
+
         def test_predict(self):
             clf = SkorchClassifier(
                 module=TestNeuralNet,
@@ -1012,13 +1039,14 @@ if successful_skorch_torch_import:
                 max_epochs=10,
                 batch_size=1,
             )
-            clf.fit(self.X, self.y_ulbld)
-            predict_proba = clf.predict_proba(self.X)
-            self.assertEqual(predict_proba[0, 0], 1 / 3)
+            predict_proba_0 = clf.predict_proba(self.X)
+            clf.partial_fit(self.X, self.y_ulbld)
+            predict_proba_1 = clf.predict_proba(self.X)
+            np.testing.assert_almost_equal(predict_proba_0, predict_proba_1)
             clf.fit(self.X, self.y)
-            predict_proba = clf.predict_proba(self.X)
-            self.assertEqual(len(predict_proba), len(self.X))
-            self.assertEqual(predict_proba.shape[1], 3)
+            predict_proba_2 = clf.predict_proba(self.X)
+            self.assertEqual(len(predict_proba_2), len(self.X))
+            self.assertEqual(predict_proba_2.shape[1], 3)
 
     class TestNeuralNet(nn.Module):
         def __init__(self):
