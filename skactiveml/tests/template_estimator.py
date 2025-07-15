@@ -185,10 +185,14 @@ class TemplateEstimator:
 
     def test_predict_param_X(self, test_cases=None):
         test_cases = [] if test_cases is None else test_cases
+        dummy_zeros = np.zeros(
+            np.array(self.predict_default_params["X"]).shape,
+            dtype=self.predict_default_params["X"].dtype,
+        )
         test_cases += [
             (np.nan, ValueError),
             ("state", ValueError),
-            (np.zeros(np.array(self.predict_default_params["X"]).shape), None),
+            (dummy_zeros, None),
         ]
         self._test_param(
             "predict",

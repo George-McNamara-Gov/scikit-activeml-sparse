@@ -15,6 +15,7 @@ except ImportError:
 
 from ...base import AnnotatorModelMixin
 from ...classifier import SkorchClassifier
+from ...utils import check_n_features
 
 if successful_skorch_torch_import:
 
@@ -129,7 +130,7 @@ if successful_skorch_torch_import:
                 y_ensure_1d=False,
             )
 
-            self._check_n_features(X, reset=True)
+            check_n_features(self, X, reset=True)
 
             return NeuralNet.fit(self, X, y, **fit_params)
 

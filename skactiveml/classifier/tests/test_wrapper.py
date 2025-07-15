@@ -36,7 +36,10 @@ from skactiveml.classifier import (
     ParzenWindowClassifier,
     MixtureModelClassifier,
 )
-from skactiveml.tests.template_estimator import TemplateSkactivemlClassifier
+from skactiveml.tests.template_estimator import (
+    TemplateEstimator,
+    TemplateSkactivemlClassifier,
+)
 
 
 class TestSklearnClassifier(TemplateSkactivemlClassifier, unittest.TestCase):
@@ -930,7 +933,7 @@ class TestSlidingWindowClassifier(
 
 if successful_skorch_torch_import:
 
-    class TestSkorchClassifier(unittest.TestCase):
+    class TestSkorchClassifier(TemplateEstimator, unittest.TestCase):
         def setUp(self):
             self.X, self.y_true = make_blobs(
                 n_samples=200, n_features=2, centers=3, random_state=0
@@ -939,6 +942,33 @@ if successful_skorch_torch_import:
             self.y = np.copy(self.y_true)
             self.y[:100] = -1
             self.y_ulbld = np.full_like(self.y, fill_value=-1)
+
+            estimator_class = SkorchClassifier
+            init_default_params = {
+                "module": TestNeuralNet,
+                "classes": [0, 1, 2],
+                "missing_label": -1,
+                "random_state": 1,
+                "criterion": nn.CrossEntropyLoss,
+                "train_split": None,
+                "verbose": False,
+                "optimizer": torch.optim.SGD,
+                "device": "cpu",
+                "lr": 0.001,
+                "max_epochs": 10,
+                "batch_size": 1,
+            }
+            fit_default_params = {
+                "X": self.X,
+                "y": self.y,
+            }
+            predict_default_params = {"X": self.X}
+            super().setUp(
+                estimator_class=estimator_class,
+                init_default_params=init_default_params,
+                fit_default_params=fit_default_params,
+                predict_default_params=predict_default_params,
+            )
 
         def test_init_param_module(self):
             clf = SkorchClassifier(module="Test")

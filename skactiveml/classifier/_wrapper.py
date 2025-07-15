@@ -807,7 +807,7 @@ if successful_skorch_torch_import:
                 random_state=random_state,
             )
 
-        def fit(self, X, y, **fit_params):
+        def fit(self, X, y, sample_weight=None, **fit_params):
             """Initialize and fit the module.
 
             If the module was already initialized, by calling fit, the module
@@ -821,6 +821,10 @@ if successful_skorch_torch_import:
             y : array-like of shape (n_samples, )
                 Labels of the training data set (possibly including unlabeled
                 ones indicated by self.missing_label)
+            sample_weight : array-like, shape (n_samples) or
+            (n_samples, n_outputs)
+                It contains the weights of the training samples' class labels.
+                It must have the same shape as `y`.
             fit_params : dict-like
                 Further parameters as input to the 'fit' method of the
                 'estimator'.
@@ -831,9 +835,9 @@ if successful_skorch_torch_import:
                 The SkorchClassifier is fitted on the training data.
             """
 
-            return self._fit("fit", X, y, **fit_params)
+            return self._fit("fit", X, y, sample_weight, **fit_params)
 
-        def partial_fit(self, X, y, **fit_params):
+        def partial_fit(self, X, y, sample_weight=None, **fit_params):
             """Fit the module without re-initialization.
 
             If the module was already initialized, by calling partial_fit, the
@@ -847,6 +851,10 @@ if successful_skorch_torch_import:
             y : array-like of shape (n_samples, )
                 Labels of the training data set (possibly including unlabeled
                 ones indicated by self.missing_label)
+            sample_weight : array-like, shape (n_samples) or
+            (n_samples, n_outputs)
+                It contains the weights of the training samples' class labels.
+                It must have the same shape as `y`.
             fit_params : dict-like
                 Further parameters as input to the 'partial_fit' method of the
                 'estimator'.
@@ -857,9 +865,9 @@ if successful_skorch_torch_import:
                 The SkorchClassifier is fitted on the training data.
             """
 
-            return self._fit("partial_fit", X, y, **fit_params)
+            return self._fit("partial_fit", X, y, sample_weight, **fit_params)
 
-        def _fit(self, fit_function, X, y, **fit_params):
+        def _fit(self, fit_function, X, y, sample_weight=None, **fit_params):
             """Initialize and fit the module.
 
             If the module was already initialized, by calling fit, the module
@@ -873,6 +881,10 @@ if successful_skorch_torch_import:
             y : array-like of shape (n_samples, )
                 Labels of the training data set (possibly including unlabeled
                 ones indicated by self.missing_label)
+            sample_weight : array-like, shape (n_samples) or
+            (n_samples, n_outputs)
+                It contains the weights of the training samples' class labels.
+                It must have the same shape as `y`.
             fit_params : dict-like
                 Further parameters as input to the 'fit' method of the
                 'estimator'.
@@ -893,6 +905,7 @@ if successful_skorch_torch_import:
             X, y, sample_weight = self._validate_data(
                 X=X,
                 y=y,
+                sample_weight=sample_weight,
                 check_X_dict=self.check_X_dict_,
             )
 
@@ -907,13 +920,14 @@ if successful_skorch_torch_import:
                 else:
                     X_lbld = X[is_lbld]
                     y_lbld = y[is_lbld].astype(np.int64)
+                    sample_weight_lbld = sample_weight[is_lbld]
                     if fit_function == "fit":
                         super(SkorchClassifier, self).fit(
-                            X_lbld, y_lbld, **fit_params
+                            X_lbld, y_lbld, sample_weight_lbld, **fit_params
                         )
                     elif fit_function == "partial_fit":
                         super(SkorchClassifier, self).partial_fit(
-                            X_lbld, y_lbld, **fit_params
+                            X_lbld, y_lbld, sample_weight_lbld, **fit_params
                         )
                     self.is_fitted_ = True
             except Exception as e:
@@ -985,4 +999,7 @@ if successful_skorch_torch_import:
         def predict_proba(self, X):
             if not self.initialized_:
                 self.initialize()
+
+            X = check_array(X, **self.check_X_dict_)
+            check_n_features(self, X, reset=False)
             return super(SkorchClassifier, self).predict_proba(X)
