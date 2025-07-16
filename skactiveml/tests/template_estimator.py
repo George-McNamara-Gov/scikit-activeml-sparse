@@ -185,6 +185,27 @@ class TemplateEstimator:
 
     def test_predict_param_X(self, test_cases=None):
         test_cases = [] if test_cases is None else test_cases
+        dtype = None
+        if hasattr(self.predict_default_params["X"], 'dtype'):
+            dtype = self.predict_default_params["X"].dtype
+        dummy_zeros = np.zeros(
+            np.array(self.predict_default_params["X"]).shape,
+            dtype=dtype,
+        )
+        test_cases += [
+            (np.nan, ValueError),
+            ("state", ValueError),
+            (dummy_zeros, None),
+        ]
+        self._test_param(
+            "predict",
+            "X",
+            test_cases,
+            extras_params=self.predict_default_params,
+        )
+
+    def test_predict_proba_param_X(self, test_cases=None):
+        test_cases = [] if test_cases is None else test_cases
         dummy_zeros = np.zeros(
             np.array(self.predict_default_params["X"]).shape,
             dtype=self.predict_default_params["X"].dtype,
@@ -195,7 +216,7 @@ class TemplateEstimator:
             (dummy_zeros, None),
         ]
         self._test_param(
-            "predict",
+            "predict_proba",
             "X",
             test_cases,
             extras_params=self.predict_default_params,
@@ -234,6 +255,14 @@ class TemplateEstimator:
         check_test_param_test_availability(
             self, self.estimator_class.predict, "predict", not_test
         )
+
+        if hasattr(self.estimator_class, "predict_proba"):
+            check_test_param_test_availability(
+                self,
+                self.estimator_class.predict_proba,
+                "predict_proba",
+                not_test
+            )
 
         if hasattr(self.estimator_class, "partial_fit"):
             check_test_param_test_availability(

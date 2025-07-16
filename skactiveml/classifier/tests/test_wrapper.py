@@ -946,7 +946,7 @@ if successful_skorch_torch_import:
             estimator_class = SkorchClassifier
             init_default_params = {
                 "module": TestNeuralNet,
-                "classes": [0, 1, 2],
+                "classes": None,
                 "missing_label": -1,
                 "random_state": 1,
                 "criterion": nn.CrossEntropyLoss,
@@ -970,36 +970,70 @@ if successful_skorch_torch_import:
                 predict_default_params=predict_default_params,
             )
 
-        def test_init_param_module(self):
+        def test_init_param_module(self, test_cases=None):
             clf = SkorchClassifier(module="Test")
             self.assertEqual(clf.module, "Test")
-            self.assertRaises(TypeError, clf.fit, X=self.X, y=self.y)
 
-            clf = SkorchClassifier(module=None)
-            self.assertRaises(TypeError, clf.fit, X=self.X, y=self.y)
+            test_cases = [] if test_cases is None else test_cases
+            test_cases += [
+                ("Test", TypeError),
+                (None, TypeError),
+                ([("nn.Module", TestNeuralNet)], TypeError),
+            ]
+            self._test_param("init", "module", test_cases)
 
-            clf = SkorchClassifier(module=[("nn.Module", TestNeuralNet)])
-            self.assertRaises(TypeError, clf.fit, X=self.X, y=self.y)
+        def test_init_param_criterion(self, test_cases=None):
+            test_cases = [] if test_cases is None else test_cases
+            test_cases += [
+                ("Test", TypeError),
+                (None, TypeError),
+                (nn.NLLLoss, None),
+                (nn.CrossEntropyLoss, None),
+                (nn.NLLLoss(), None),
+                (nn.CrossEntropyLoss(), None),
+            ]
+            self._test_param("init", "criterion", test_cases)
 
-            clf = SkorchClassifier(classes=[0, 1, 2], module=TestNeuralNet)
-            self.assertRaises(ValueError, clf.fit, X=self.X, y=self.y)
+        def test_init_param_classes(self, test_cases=None):
+            test_cases = [] if test_cases is None else test_cases
+            test_cases += [
+                ("Test", TypeError),
+                (None, None),
+                ([0], ValueError),
+                ([0, 1, 2], None),
+                ([0, 1, 2, 3], None),
+                ([-1, 0, 1, 2], ValueError),
+            ]
+            self._test_param("init", "classes", test_cases)
+
+        def test_init_param_cost_matrix(self, test_cases=None):
+            test_cases = [] if test_cases is None else test_cases
+            test_cases += [
+                ("Test", ValueError),
+                (None, None),
+                ([0], ValueError),
+                ([[0], [1], [2]], ValueError),
+                (np.eye(3), None),
+                ([[0,1,1], [1,0,1], [1,1,0]], None),
+                ([[0,1], [1,0]], ValueError),
+            ]
+            self._test_param(
+                "init",
+                "cost_matrix",
+                test_cases,
+                replace_init_params={'classes': [0, 1, 2]}
+            )
 
         def test_fit(self):
-            clf = SkorchClassifier(
-                module=TestNeuralNet,
-                classes=[0, 1, 2],
-                missing_label=-1,
-                random_state=1,
-                criterion=nn.CrossEntropyLoss,
-                train_split=None,
-                verbose=False,
-                optimizer=torch.optim.SGD,
-                device="cpu",
-                lr=0.001,
-                max_epochs=10,
-                batch_size=1,
-            )
-            np.testing.assert_array_equal([0, 1, 2], clf.classes)
+            clf = SkorchClassifier(**self.init_default_params)
+            self.assertRaises(NotFittedError, clf.check_is_fitted)
+            self.assertRaises(ValueError, clf.fit, self.X, self.y_ulbld)
+            clf.fit(self.X, self.y)
+            self.assertIsNone(clf.check_is_fitted())
+
+            init_default_params2 = self.init_default_params.copy()
+            init_default_params2["classes"] = [0, 1, 2]
+            clf = SkorchClassifier(**init_default_params2)
             self.assertRaises(NotFittedError, clf.check_is_fitted)
             clf.fit(self.X, self.y_ulbld)
             self.assertFalse(clf.is_fitted_)
@@ -1007,21 +1041,15 @@ if successful_skorch_torch_import:
             self.assertIsNone(clf.check_is_fitted())
 
         def test_partial_fit(self):
-            clf = SkorchClassifier(
-                module=TestNeuralNet,
-                classes=[0, 1, 2],
-                missing_label=-1,
-                random_state=1,
-                criterion=nn.CrossEntropyLoss,
-                train_split=None,
-                verbose=False,
-                optimizer=torch.optim.SGD,
-                device="cpu",
-                lr=0.001,
-                max_epochs=10,
-                batch_size=1,
-            )
-            np.testing.assert_array_equal([0, 1, 2], clf.classes)
+            clf = SkorchClassifier(**self.init_default_params)
+            self.assertRaises(NotFittedError, clf.check_is_fitted)
+            self.assertRaises(ValueError, clf.partial_fit, self.X, self.y_ulbld)
+            clf.partial_fit(self.X, self.y)
+            self.assertIsNone(clf.check_is_fitted())
+
+            init_default_params2 = self.init_default_params.copy()
+            init_default_params2["classes"] = [0, 1, 2]
+            clf = SkorchClassifier(**init_default_params2)
             self.assertRaises(NotFittedError, clf.check_is_fitted)
             clf.partial_fit(self.X, self.y_ulbld)
             self.assertFalse(clf.is_fitted_)
@@ -1034,41 +1062,17 @@ if successful_skorch_torch_import:
             np.testing.assert_almost_equal(predict_proba_0, predict_proba_1)
 
         def test_predict(self):
-            clf = SkorchClassifier(
-                module=TestNeuralNet,
-                classes=[0, 1, 2],
-                missing_label=-1,
-                cost_matrix=None,
-                random_state=1,
-                criterion=nn.CrossEntropyLoss(),
-                train_split=None,
-                verbose=False,
-                optimizer=torch.optim.Adam,
-                device="cpu",
-                lr=0.001,
-                max_epochs=10,
-                batch_size=1,
-            )
+            clf = SkorchClassifier(**self.init_default_params)
             clf.fit(self.X, self.y)
             y_pred = clf.predict(self.X)
             self.assertEqual(len(y_pred), len(self.X))
 
         def test_predict_proba(self):
-            clf = SkorchClassifier(
-                module=TestNeuralNet,
-                classes=[0, 1, 2],
-                missing_label=-1,
-                cost_matrix=None,
-                random_state=1,
-                criterion=nn.CrossEntropyLoss(),
-                train_split=None,
-                verbose=False,
-                optimizer=torch.optim.Adam,
-                device="cpu",
-                lr=0.001,
-                max_epochs=10,
-                batch_size=1,
-            )
+            clf = SkorchClassifier(**self.init_default_params)
+            predict_proba_0 = clf.predict_proba(self.X)
+            init_default_params = self.init_default_params.copy()
+            init_default_params['classes'] = [0, 1, 2]
+            clf = SkorchClassifier(**init_default_params)
             predict_proba_0 = clf.predict_proba(self.X)
             clf.partial_fit(self.X, self.y_ulbld)
             predict_proba_1 = clf.predict_proba(self.X)

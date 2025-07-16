@@ -22,8 +22,8 @@ try:
     from skorch import NeuralNet
 
     successful_skorch_torch_import = True
-except ImportError:
-    pass  # pragma: no cover
+except ImportError: # pragma: no cover
+    pass
 
 from sklearn.utils import check_consistent_length
 from sklearn.exceptions import NotFittedError
@@ -956,36 +956,7 @@ if successful_skorch_torch_import:
             y :  array-like, shape (n_samples)
                 Predicted class labels of the input samples.
             """
-            if not self.initialized_:
-                self.initialize()
             P = self.predict_proba(X)
-            if not hasattr(self, "random_state_"):
-                self.random_state_ = check_random_state(self.random_state)
-            if not hasattr(self, "check_X_dict_"):
-                self.check_X_dict_ = {
-                    "ensure_min_samples": 0,
-                    "ensure_min_features": 0,
-                    "allow_nd": True,
-                    "dtype": None,
-                }
-            if not hasattr(self, "_le"):
-                # initialize fallbacks if the classifier hasn't been fitted
-                # before
-                self._le = ExtLabelEncoder(
-                    classes=self.classes, missing_label=self.missing_label
-                )
-                if self.classes is None:
-                    y_dummy = self.classes
-                else:
-                    y_dummy = np.arange(P.shape[-1], dtype=int)
-                y_dummy = self._le.fit_transform(y_dummy)
-                self.classes_ = self._le.classes_
-            if not hasattr(self, "cost_matrix_"):
-                self.cost_matrix_ = (
-                    1 - np.eye(len(self.classes_))
-                    if self.cost_matrix is None
-                    else self.cost_matrix
-                )
 
             costs = np.dot(P, self.cost_matrix_)
             y_pred = rand_argmin(
@@ -1000,6 +971,37 @@ if successful_skorch_torch_import:
             if not self.initialized_:
                 self.initialize()
 
+            if not hasattr(self, "random_state_"):
+                self.random_state_ = check_random_state(self.random_state)
+            if not hasattr(self, "check_X_dict_"):
+                self.check_X_dict_ = {
+                    "ensure_min_samples": 0,
+                    "ensure_min_features": 0,
+                    "allow_nd": True,
+                    "dtype": None,
+                }
+
             X = check_array(X, **self.check_X_dict_)
-            check_n_features(self, X, reset=False)
-            return super(SkorchClassifier, self).predict_proba(X)
+            reset_n_features_in_ = not hasattr(self, 'n_features_in_')
+            check_n_features(self, X, reset=reset_n_features_in_)
+            P = super(SkorchClassifier, self).predict_proba(X)
+
+            if not hasattr(self, "_le"):
+                # initialize fallbacks if the classifier hasn't been fitted
+                # before
+                self._le = ExtLabelEncoder(
+                    classes=self.classes, missing_label=self.missing_label
+                )
+                if self.classes is not None:
+                    y_dummy = self.classes
+                else:
+                    y_dummy = np.arange(P.shape[-1], dtype=int)
+                y_dummy = self._le.fit_transform(y_dummy)
+                self.classes_ = self._le.classes_
+            if not hasattr(self, "cost_matrix_"):
+                self.cost_matrix_ = (
+                    1 - np.eye(len(self.classes_))
+                    if self.cost_matrix is None
+                    else self.cost_matrix
+                )
+            return P
