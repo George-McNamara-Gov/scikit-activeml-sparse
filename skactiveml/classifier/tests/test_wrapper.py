@@ -1014,14 +1014,14 @@ if successful_skorch_torch_import:
                 ([0], ValueError),
                 ([[0], [1], [2]], ValueError),
                 (np.eye(3), None),
-                ([[0,1,1], [1,0,1], [1,1,0]], None),
-                ([[0,1], [1,0]], ValueError),
+                ([[0, 1, 1], [1, 0, 1], [1, 1, 0]], None),
+                ([[0, 1], [1, 0]], ValueError),
             ]
             self._test_param(
                 "init",
                 "cost_matrix",
                 test_cases,
-                replace_init_params={'classes': [0, 1, 2]}
+                replace_init_params={"classes": [0, 1, 2]},
             )
 
         def test_fit(self):
@@ -1043,7 +1043,9 @@ if successful_skorch_torch_import:
         def test_partial_fit(self):
             clf = SkorchClassifier(**self.init_default_params)
             self.assertRaises(NotFittedError, clf.check_is_fitted)
-            self.assertRaises(ValueError, clf.partial_fit, self.X, self.y_ulbld)
+            self.assertRaises(
+                ValueError, clf.partial_fit, self.X, self.y_ulbld
+            )
             clf.partial_fit(self.X, self.y)
             self.assertIsNone(clf.check_is_fitted())
 
@@ -1071,7 +1073,7 @@ if successful_skorch_torch_import:
             clf = SkorchClassifier(**self.init_default_params)
             predict_proba_0 = clf.predict_proba(self.X)
             init_default_params = self.init_default_params.copy()
-            init_default_params['classes'] = [0, 1, 2]
+            init_default_params["classes"] = [0, 1, 2]
             clf = SkorchClassifier(**init_default_params)
             predict_proba_0 = clf.predict_proba(self.X)
             clf.partial_fit(self.X, self.y_ulbld)

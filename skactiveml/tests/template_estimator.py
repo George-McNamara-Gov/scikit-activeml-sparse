@@ -186,7 +186,7 @@ class TemplateEstimator:
     def test_predict_param_X(self, test_cases=None):
         test_cases = [] if test_cases is None else test_cases
         dtype = None
-        if hasattr(self.predict_default_params["X"], 'dtype'):
+        if hasattr(self.predict_default_params["X"], "dtype"):
             dtype = self.predict_default_params["X"].dtype
         dummy_zeros = np.zeros(
             np.array(self.predict_default_params["X"]).shape,
@@ -206,9 +206,12 @@ class TemplateEstimator:
 
     def test_predict_proba_param_X(self, test_cases=None):
         test_cases = [] if test_cases is None else test_cases
+        dtype = None
+        if hasattr(self.predict_default_params["X"], "dtype"):
+            dtype = self.predict_default_params["X"].dtype
         dummy_zeros = np.zeros(
             np.array(self.predict_default_params["X"]).shape,
-            dtype=self.predict_default_params["X"].dtype,
+            dtype=dtype,
         )
         test_cases += [
             (np.nan, ValueError),
@@ -261,7 +264,7 @@ class TemplateEstimator:
                 self,
                 self.estimator_class.predict_proba,
                 "predict_proba",
-                not_test
+                not_test,
             )
 
         if hasattr(self.estimator_class, "partial_fit"):

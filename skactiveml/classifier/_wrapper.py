@@ -22,7 +22,7 @@ try:
     from skorch import NeuralNet
 
     successful_skorch_torch_import = True
-except ImportError: # pragma: no cover
+except ImportError:  # pragma: no cover
     pass
 
 from sklearn.utils import check_consistent_length
@@ -982,7 +982,7 @@ if successful_skorch_torch_import:
                 }
 
             X = check_array(X, **self.check_X_dict_)
-            reset_n_features_in_ = not hasattr(self, 'n_features_in_')
+            reset_n_features_in_ = not hasattr(self, "n_features_in_")
             check_n_features(self, X, reset=reset_n_features_in_)
             P = super(SkorchClassifier, self).predict_proba(X)
 
