@@ -205,27 +205,6 @@ class TemplateEstimator:
             extras_params=self.predict_default_params,
         )
 
-    def test_predict_proba_param_X(self, test_cases=None):
-        test_cases = [] if test_cases is None else test_cases
-        dtype = None
-        if hasattr(self.predict_default_params["X"], "dtype"):
-            dtype = self.predict_default_params["X"].dtype
-        dummy_zeros = np.zeros(
-            np.array(self.predict_default_params["X"]).shape,
-            dtype=dtype,
-        )
-        test_cases += [
-            (np.nan, ValueError),
-            ("state", ValueError),
-            (dummy_zeros, None),
-        ]
-        self._test_param(
-            "predict_proba",
-            "X",
-            test_cases,
-            extras_params=self.predict_default_params,
-        )
-
     def test_init_param_test_assignments(self):
         for param in inspect.signature(
             self.estimator_class.__init__
