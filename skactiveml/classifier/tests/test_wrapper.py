@@ -36,10 +36,8 @@ from skactiveml.classifier import (
     ParzenWindowClassifier,
     MixtureModelClassifier,
 )
-from skactiveml.tests.template_estimator import (
-    TemplateEstimator,
-    TemplateSkactivemlClassifier,
-)
+from skactiveml.tests.template_estimator import TemplateSkactivemlClassifier
+from skactiveml.utils import MISSING_LABEL
 
 
 class TestSklearnClassifier(TemplateSkactivemlClassifier, unittest.TestCase):
@@ -528,7 +526,7 @@ class TestSlidingWindowClassifier(
     def test_fit_param_y(self, test_cases=None):
         test_cases = [] if test_cases is None else test_cases
         test_cases += [
-            ([0, 1, 2], TypeError),
+            ([0, 1, 0], TypeError),
             (["tokyo", "nan", "paris"], None),
         ]
         replace_init_params = {
@@ -547,11 +545,11 @@ class TestSlidingWindowClassifier(
             replace_fit_params=replace_fit_params,
         )
         test_cases = [
-            ([0, 1, 2], None),
+            ([0, 1, 1], None),
             (["tokyo", "nan", "paris"], TypeError),
         ]
         replace_init_params = {
-            "classes": [0, 1, 2],
+            "classes": [0, 1],
             "missing_label": -1,
             "estimator": SklearnClassifier(
                 GaussianProcessClassifier(), missing_label=-1
@@ -594,7 +592,7 @@ class TestSlidingWindowClassifier(
             (["nan", "nan", "nan", "nan"], TypeError),
         ]
         replace_init_params = {
-            "classes": [0, 1, 2],
+            "classes": [0, 1],
             "missing_label": -1,
             "estimator": SklearnClassifier(GaussianNB(), missing_label=-1),
         }
@@ -933,23 +931,20 @@ class TestSlidingWindowClassifier(
 
 if successful_skorch_torch_import:
 
-    class TestSkorchClassifier(TemplateEstimator, unittest.TestCase):
+    class TestSkorchClassifier(
+        TemplateSkactivemlClassifier, unittest.TestCase
+    ):
         def setUp(self):
             self.X, self.y_true = make_blobs(
-                n_samples=200, n_features=2, centers=3, random_state=0
+                n_samples=200, n_features=1, centers=2, random_state=0
             )
             self.X = self.X.astype(np.float32)
-            self.y = np.copy(self.y_true)
-            self.y[:100] = -1
-            self.y_ulbld = np.full_like(self.y, fill_value=-1)
+            self.y = np.copy(self.y_true).astype(np.float32)
+            self.y[:100] = MISSING_LABEL
+            self.y_ulbld = np.full_like(self.y, fill_value=MISSING_LABEL)
 
             estimator_class = SkorchClassifier
-            init_default_params = {
-                "module": TestNeuralNet,
-                "classes": None,
-                "missing_label": -1,
-                "random_state": 1,
-                "criterion": nn.CrossEntropyLoss,
+            neural_net_param_dict = {
                 "train_split": None,
                 "verbose": False,
                 "optimizer": torch.optim.SGD,
@@ -957,6 +952,15 @@ if successful_skorch_torch_import:
                 "lr": 0.001,
                 "max_epochs": 10,
                 "batch_size": 1,
+            }
+            init_default_params = {
+                "module": TestNeuralNet,
+                "criterion": nn.CrossEntropyLoss,
+                "classes": None,
+                "missing_label": MISSING_LABEL,
+                "random_state": 1,
+                "neural_net_param_dict": neural_net_param_dict,
+                "X_dtype": np.float32,
             }
             fit_default_params = {
                 "X": self.X,
@@ -994,69 +998,69 @@ if successful_skorch_torch_import:
             ]
             self._test_param("init", "criterion", test_cases)
 
-        def test_init_param_classes(self, test_cases=None):
-            test_cases = [] if test_cases is None else test_cases
-            test_cases += [
-                ("Test", TypeError),
-                (None, None),
-                ([0], ValueError),
-                ([0, 1, 2], None),
-                ([0, 1, 2, 3], None),
-                ([-1, 0, 1, 2], ValueError),
-            ]
-            self._test_param("init", "classes", test_cases)
+        # def test_init_param_classes(self, test_cases=None):
+        #     test_cases = [] if test_cases is None else test_cases
+        #     test_cases += [
+        #         ("Test", TypeError),
+        #         (None, None),
+        #         ([0], ValueError),
+        #         ([0, 1], None),
+        #         ([0, 1, 2, 3], None),
+        #         ([-1, 0, 1, 2], ValueError),
+        #     ]
+        #     self._test_param("init", "classes", test_cases)
 
-        def test_init_param_cost_matrix(self, test_cases=None):
-            test_cases = [] if test_cases is None else test_cases
-            test_cases += [
-                ("Test", ValueError),
-                (None, None),
-                ([0], ValueError),
-                ([[0], [1], [2]], ValueError),
-                (np.eye(3), None),
-                ([[0, 1, 1], [1, 0, 1], [1, 1, 0]], None),
-                ([[0, 1], [1, 0]], ValueError),
-            ]
-            self._test_param(
-                "init",
-                "cost_matrix",
-                test_cases,
-                replace_init_params={"classes": [0, 1, 2]},
-            )
+        # def test_init_param_cost_matrix(self, test_cases=None):
+        #     test_cases = [] if test_cases is None else test_cases
+        #     test_cases += [
+        #         ("Test", ValueError),
+        #         (None, None),
+        #         ([0], ValueError),
+        #         ([[0], [1], [2]], ValueError),
+        #         (np.eye(3), None),
+        #         ([[0, 1, 1], [1, 0, 1], [1, 1, 0]], None),
+        #         ([[0, 1], [1, 0]], ValueError),
+        #     ]
+        #     self._test_param(
+        #         "init",
+        #         "cost_matrix",
+        #         test_cases,
+        #         replace_init_params={"classes": [0, 1]},
+        #     )
 
         def test_fit(self):
             clf = SkorchClassifier(**self.init_default_params)
-            self.assertRaises(NotFittedError, clf.check_is_fitted)
+            self.assertRaises(NotFittedError, check_is_fitted, clf)
             self.assertRaises(ValueError, clf.fit, self.X, self.y_ulbld)
             clf.fit(self.X, self.y)
-            self.assertIsNone(clf.check_is_fitted())
+            check_is_fitted(clf)
 
             init_default_params2 = self.init_default_params.copy()
-            init_default_params2["classes"] = [0, 1, 2]
+            init_default_params2["classes"] = [0, 1]
             clf = SkorchClassifier(**init_default_params2)
-            self.assertRaises(NotFittedError, clf.check_is_fitted)
+            self.assertRaises(NotFittedError, check_is_fitted, clf)
             clf.fit(self.X, self.y_ulbld)
             self.assertFalse(clf.is_fitted_)
             clf.fit(self.X, self.y)
-            self.assertIsNone(clf.check_is_fitted())
+            check_is_fitted(clf)
 
         def test_partial_fit(self):
             clf = SkorchClassifier(**self.init_default_params)
-            self.assertRaises(NotFittedError, clf.check_is_fitted)
+            self.assertRaises(NotFittedError, check_is_fitted, clf)
             self.assertRaises(
                 ValueError, clf.partial_fit, self.X, self.y_ulbld
             )
             clf.partial_fit(self.X, self.y)
-            self.assertIsNone(clf.check_is_fitted())
+            check_is_fitted(clf)
 
             init_default_params2 = self.init_default_params.copy()
-            init_default_params2["classes"] = [0, 1, 2]
+            init_default_params2["classes"] = [0, 1]
             clf = SkorchClassifier(**init_default_params2)
-            self.assertRaises(NotFittedError, clf.check_is_fitted)
+            self.assertRaises(NotFittedError, check_is_fitted, clf)
             clf.partial_fit(self.X, self.y_ulbld)
             self.assertFalse(clf.is_fitted_)
             clf.partial_fit(self.X, self.y)
-            self.assertIsNone(clf.check_is_fitted())
+            check_is_fitted(clf)
 
             predict_proba_0 = clf.predict_proba(self.X)
             clf.partial_fit(self.X, self.y_ulbld)
@@ -1065,15 +1069,15 @@ if successful_skorch_torch_import:
 
         def test_predict(self):
             clf = SkorchClassifier(**self.init_default_params)
-            clf.fit(self.X, self.y)
-            y_pred = clf.predict(self.X)
+            clf.fit(**self.fit_default_params)
+            y_pred = clf.predict(self.fit_default_params["X"])
             self.assertEqual(len(y_pred), len(self.X))
 
         def test_predict_proba(self):
             clf = SkorchClassifier(**self.init_default_params)
             predict_proba_0 = clf.predict_proba(self.X)
             init_default_params = self.init_default_params.copy()
-            init_default_params["classes"] = [0, 1, 2]
+            init_default_params["classes"] = [0, 1]
             clf = SkorchClassifier(**init_default_params)
             predict_proba_0 = clf.predict_proba(self.X)
             clf.partial_fit(self.X, self.y_ulbld)
@@ -1082,16 +1086,37 @@ if successful_skorch_torch_import:
             clf.fit(self.X, self.y)
             predict_proba_2 = clf.predict_proba(self.X)
             self.assertEqual(len(predict_proba_2), len(self.X))
-            self.assertEqual(predict_proba_2.shape[1], 3)
+            self.assertEqual(predict_proba_2.shape[1], 2)
+
+        def test_init_param_X_dtype(self):
+            test_cases = []
+            test_cases += [
+                (None, None),
+                (np.float32, None),
+                (np.int32, RuntimeError),
+            ]
+            self._test_param("init", "X_dtype", test_cases)
+
+        def test_init_param_neural_net_param_dict(self):
+            default_dict = self.init_default_params["neural_net_param_dict"]
+            test_cases = []
+            test_cases += [
+                (None, None),
+                (default_dict, None),
+                (np.int32, TypeError),
+                ("a", TypeError),
+                ({"abcdefg": 0}, ValueError),
+            ]
+            self._test_param("init", "neural_net_param_dict", test_cases)
 
     class TestNeuralNet(nn.Module):
         def __init__(self):
             super().__init__()
             self.input_to_hidden = nn.Linear(
-                in_features=2, out_features=2, bias=True
+                in_features=1, out_features=2, bias=True, dtype=torch.float32
             )
             self.hidden_to_output = nn.Linear(
-                in_features=2, out_features=3, bias=True
+                in_features=2, out_features=2, bias=True, dtype=torch.float32
             )
 
         def forward(self, X):

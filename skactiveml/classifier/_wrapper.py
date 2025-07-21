@@ -740,7 +740,7 @@ class SlidingWindowClassifier(SkactivemlClassifier, MetaEstimatorMixin):
 
 if successful_skorch_torch_import:
 
-    class SkorchClassifier(NeuralNet, SkactivemlClassifier):
+    class SkorchClassifier(SkactivemlClassifier):
         """SkorchClassifier
 
         Implement a wrapper class, to make it possible to use `PyTorch` with
@@ -772,6 +772,12 @@ if successful_skorch_torch_import:
         random_state : int or RandomState instance or None, default=None
             Determines random number for 'predict' method. Pass an int for
             reproducible results across multiple method calls.
+        X_dtype : str or type, default=None
+            The type or typecode all data is casted to. If `X_dtype` is False,
+            the datatype is preserved.
+        y_dtype : str or type, default=None
+            The type or typecode all labels is casted to. If `y_dtype` is
+            False, the datatype is preserved.
         **kwargs : keyword arguments
             More possible parameters to customize your neural network (cf.
             https://skorch.readthedocs.io/en/stable/net.html).
@@ -791,23 +797,21 @@ if successful_skorch_torch_import:
             missing_label=MISSING_LABEL,
             cost_matrix=None,
             random_state=None,
-            **kwargs,
+            neural_net_param_dict=None,
+            X_dtype=None,
         ):
             super(SkorchClassifier, self).__init__(
-                module,
-                criterion,
-                **kwargs,
-            )
-
-            SkactivemlClassifier.__init__(
-                self,
                 classes=classes,
                 missing_label=missing_label,
                 cost_matrix=cost_matrix,
                 random_state=random_state,
             )
+            self.module = module
+            self.criterion = criterion
+            self.neural_net_param_dict = neural_net_param_dict
+            self.X_dtype = X_dtype
 
-        def fit(self, X, y, sample_weight=None, **fit_params):
+        def fit(self, X, y, **fit_params):
             """Initialize and fit the module.
 
             If the module was already initialized, by calling fit, the module
@@ -821,10 +825,6 @@ if successful_skorch_torch_import:
             y : array-like of shape (n_samples, )
                 Labels of the training data set (possibly including unlabeled
                 ones indicated by self.missing_label)
-            sample_weight : array-like, shape (n_samples) or
-            (n_samples, n_outputs)
-                It contains the weights of the training samples' class labels.
-                It must have the same shape as `y`.
             fit_params : dict-like
                 Further parameters as input to the 'fit' method of the
                 'estimator'.
@@ -835,9 +835,9 @@ if successful_skorch_torch_import:
                 The SkorchClassifier is fitted on the training data.
             """
 
-            return self._fit("fit", X, y, sample_weight, **fit_params)
+            return self._fit("fit", X, y, **fit_params)
 
-        def partial_fit(self, X, y, sample_weight=None, **fit_params):
+        def partial_fit(self, X, y, **fit_params):
             """Fit the module without re-initialization.
 
             If the module was already initialized, by calling partial_fit, the
@@ -851,10 +851,6 @@ if successful_skorch_torch_import:
             y : array-like of shape (n_samples, )
                 Labels of the training data set (possibly including unlabeled
                 ones indicated by self.missing_label)
-            sample_weight : array-like, shape (n_samples) or
-            (n_samples, n_outputs)
-                It contains the weights of the training samples' class labels.
-                It must have the same shape as `y`.
             fit_params : dict-like
                 Further parameters as input to the 'partial_fit' method of the
                 'estimator'.
@@ -865,9 +861,9 @@ if successful_skorch_torch_import:
                 The SkorchClassifier is fitted on the training data.
             """
 
-            return self._fit("partial_fit", X, y, sample_weight, **fit_params)
+            return self._fit("partial_fit", X, y, **fit_params)
 
-        def _fit(self, fit_function, X, y, sample_weight=None, **fit_params):
+        def _fit(self, fit_function, X, y, **fit_params):
             """Initialize and fit the module.
 
             If the module was already initialized, by calling fit, the module
@@ -881,10 +877,6 @@ if successful_skorch_torch_import:
             y : array-like of shape (n_samples, )
                 Labels of the training data set (possibly including unlabeled
                 ones indicated by self.missing_label)
-            sample_weight : array-like, shape (n_samples) or
-            (n_samples, n_outputs)
-                It contains the weights of the training samples' class labels.
-                It must have the same shape as `y`.
             fit_params : dict-like
                 Further parameters as input to the 'fit' method of the
                 'estimator'.
@@ -894,6 +886,12 @@ if successful_skorch_torch_import:
             self: SkorchClassifier,
                 The SkorchClassifier is fitted on the training data.
             """
+            if (
+                not hasattr(self, "initialized_")
+                or not self.initialized_
+                or fit_function == "fit"
+            ):
+                self.initialize()
 
             # check input parameters
             self.check_X_dict_ = {
@@ -905,56 +903,41 @@ if successful_skorch_torch_import:
             X, y, sample_weight = self._validate_data(
                 X=X,
                 y=y,
-                sample_weight=sample_weight,
                 check_X_dict=self.check_X_dict_,
             )
 
-            is_lbld = is_labeled(y, missing_label=self.missing_label)
+            if self.X_dtype is not None:
+                X = X.astype(self.X_dtype)
+
+            is_lbld = is_labeled(y, missing_label=-1)
             self._label_counts = [
                 np.sum(y[is_lbld] == c) for c in range(len(self.classes_))
             ]
-            try:
-                if np.sum(is_lbld) == 0:
-                    raise ValueError("There is no labeled data.")
-                    # TODO: initialize network even without labeled data
-                else:
-                    X_lbld = X[is_lbld]
-                    y_lbld = y[is_lbld].astype(np.int64)
-                    sample_weight_lbld = sample_weight[is_lbld]
-                    if fit_function == "fit":
-                        super(SkorchClassifier, self).fit(
-                            X_lbld, y_lbld, sample_weight_lbld, **fit_params
-                        )
-                    elif fit_function == "partial_fit":
-                        super(SkorchClassifier, self).partial_fit(
-                            X_lbld, y_lbld, sample_weight_lbld, **fit_params
-                        )
-                    self.is_fitted_ = True
-            except Exception as e:
-                if not self.initialized_:
-                    self.initialize()
+
+            if np.sum(is_lbld) > 0:
+                X_lbld = X[is_lbld]
+                y_lbld = y[is_lbld].astype(np.int64)
+                if fit_function == "fit":
+                    self.neural_net_.fit(X_lbld, y_lbld, **fit_params)
+                elif fit_function == "partial_fit":
+                    self.neural_net_.partial_fit(X_lbld, y_lbld, **fit_params)
+                self.is_fitted_ = True
+            else:
                 self.is_fitted_ = False
-                warnings.warn(
-                    "The 'base_estimator' could not be fitted because of"
-                    " '{}'. Therefore, the class labels of the samples "
-                    "are counted and will be used to make predictions.".format(
-                        e
-                    )
-                )
             return self
 
         def predict(self, X):
-            """Return class label predictions for the input data X.
+            """Return class label predictions for the test samples `X`.
 
             Parameters
             ----------
-            X :  array-like, shape (n_samples, n_features)
+            X :  array-like of shape (n_samples, n_features)
                 Input samples.
 
             Returns
             -------
-            y :  array-like, shape (n_samples)
-                Predicted class labels of the input samples.
+            y : numpy.ndarray of shape (n_samples,)
+                Predicted class labels of the test samples `X`.
             """
             P = self.predict_proba(X)
 
@@ -968,7 +951,20 @@ if successful_skorch_torch_import:
             return y_pred
 
         def predict_proba(self, X):
-            if not self.initialized_:
+            """Return probability estimates for the test data X.
+
+            Parameters
+            ----------
+            X : array-like of shape (n_samples, n_features)
+                Test samples.
+
+            Returns
+            -------
+            P : numpy.ndarray of shape (n_samples, classes)
+                The class probabilities of the test samples. Classes are
+                ordered according to `self.classes_`.
+            """
+            if not hasattr(self, "initialized_") or not self.initialized_:
                 self.initialize()
 
             if not hasattr(self, "random_state_"):
@@ -982,9 +978,12 @@ if successful_skorch_torch_import:
                 }
 
             X = check_array(X, **self.check_X_dict_)
+            if self.X_dtype is not None:
+                X = X.astype(self.X_dtype)
+
             reset_n_features_in_ = not hasattr(self, "n_features_in_")
             check_n_features(self, X, reset=reset_n_features_in_)
-            P = super(SkorchClassifier, self).predict_proba(X)
+            P = self.neural_net_.predict_proba(X)
 
             if not hasattr(self, "_le"):
                 # initialize fallbacks if the classifier hasn't been fitted
@@ -1005,3 +1004,16 @@ if successful_skorch_torch_import:
                     else self.cost_matrix
                 )
             return P
+
+        def initialize(self):
+            """initialize the internal `sklearn` wrapper from `skorch`."""
+            neural_net_param_dict = self.neural_net_param_dict
+            if neural_net_param_dict is None:
+                neural_net_param_dict = {}
+            self.neural_net_ = NeuralNet(
+                module=self.module,
+                criterion=self.criterion,
+                **neural_net_param_dict,
+            )
+            self.neural_net_.initialize()
+            self.initialized_ = True
