@@ -757,9 +757,6 @@ if successful_skorch_torch_import:
         criterion : torch.nn.Module.__class__, default=torch.nn.NLLoss
             The uninitialized criterion (loss) used to optimize the module. By
             default, `torch.nn.NLLoss` is used as criterion.
-        *args: arguments
-            More possible arguments for initializing your neural network (cf.
-            https://skorch.readthedocs.io/en/stable/net.html).
         classes : array-like of shape (n_classes,), default=None
             Holds the label for each class. If none, the classes are determined
             during the fit.
@@ -772,15 +769,13 @@ if successful_skorch_torch_import:
         random_state : int or RandomState instance or None, default=None
             Determines random number for 'predict' method. Pass an int for
             reproducible results across multiple method calls.
+        neural_net_param_dict : dict, default=None
+            Additional arguments for the skorch object
+            (cf. https://skorch.readthedocs.io/en/stable/net.html). If
+            `neural_net_param_dict` is None, no additional arguments are added.
         X_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `X_dtype` is False,
+            The type or typecode all data is casted to. If `X_dtype` is None,
             the datatype is preserved.
-        y_dtype : str or type, default=None
-            The type or typecode all labels is casted to. If `y_dtype` is
-            False, the datatype is preserved.
-        **kwargs : keyword arguments
-            More possible parameters to customize your neural network (cf.
-            https://skorch.readthedocs.io/en/stable/net.html).
 
         References
         ----------
@@ -886,13 +881,6 @@ if successful_skorch_torch_import:
             self: SkorchClassifier,
                 The SkorchClassifier is fitted on the training data.
             """
-            if (
-                not hasattr(self, "initialized_")
-                or not self.initialized_
-                or fit_function == "fit"
-            ):
-                self.initialize()
-
             # check input parameters
             self.check_X_dict_ = {
                 "ensure_min_samples": 0,
@@ -901,19 +889,20 @@ if successful_skorch_torch_import:
                 "dtype": None,
             }
             X, y, sample_weight = self._validate_data(
-                X=X,
-                y=y,
-                check_X_dict=self.check_X_dict_,
+                X=X, y=y, check_X_dict=self.check_X_dict_
             )
 
             if self.X_dtype is not None:
                 X = X.astype(self.X_dtype)
 
             is_lbld = is_labeled(y, missing_label=-1)
-            self._label_counts = [
-                np.sum(y[is_lbld] == c) for c in range(len(self.classes_))
-            ]
 
+            if (
+                not hasattr(self, "initialized_")
+                or not self.initialized_
+                or fit_function == "fit"
+            ):
+                self.initialize()
             if np.sum(is_lbld) > 0:
                 X_lbld = X[is_lbld]
                 y_lbld = y[is_lbld].astype(np.int64)
@@ -964,9 +953,6 @@ if successful_skorch_torch_import:
                 The class probabilities of the test samples. Classes are
                 ordered according to `self.classes_`.
             """
-            if not hasattr(self, "initialized_") or not self.initialized_:
-                self.initialize()
-
             if not hasattr(self, "random_state_"):
                 self.random_state_ = check_random_state(self.random_state)
             if not hasattr(self, "check_X_dict_"):
@@ -983,6 +969,9 @@ if successful_skorch_torch_import:
 
             reset_n_features_in_ = not hasattr(self, "n_features_in_")
             check_n_features(self, X, reset=reset_n_features_in_)
+
+            if not hasattr(self, "initialized_") or not self.initialized_:
+                self.initialize()
             P = self.neural_net_.predict_proba(X)
 
             if not hasattr(self, "_le"):
@@ -1005,7 +994,7 @@ if successful_skorch_torch_import:
                 )
             return P
 
-        def initialize(self):
+        def initialize(self, neural_net_param_dict=None):
             """initialize the internal `sklearn` wrapper from `skorch`."""
             neural_net_param_dict = self.neural_net_param_dict
             if neural_net_param_dict is None:
