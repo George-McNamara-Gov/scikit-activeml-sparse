@@ -8,8 +8,6 @@ successful_skorch_torch_import = False
 try:
     import torch
     from torch import nn
-    from skorch.helper import predefined_split
-    from skorch.dataset import Dataset
     from skactiveml.classifier.multiannotator import CrowdLayerClassifier
 
     successful_skorch_torch_import = True
@@ -126,7 +124,7 @@ if successful_skorch_torch_import:
                 gt_net=gt_net,
                 **self.clf_init_params,
             )
-            proba = clf.predict_proba_annot(self.X)
+            clf.predict_proba_annot(self.X)
             clf.fit(self.X, self.y)
             annot = clf.predict_proba_annot(self.X)
             print(annot.shape)

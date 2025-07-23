@@ -4,7 +4,6 @@ from sklearn.utils.validation import check_array
 successful_skorch_torch_import = False
 try:
     from skorch import NeuralNet
-    from skorch.dataset import unpack_data
     import torch
     from torch import nn
     from torch.nn import CrossEntropyLoss
@@ -281,7 +280,7 @@ if successful_skorch_torch_import:
                 if self.classes is not None:
                     y_dummy = self.classes
                 else:
-                    y_dummy = np.arange(P.shape[-1], dtype=int)
+                    y_dummy = np.arange(p_class.shape[-1], dtype=int)
                 y_dummy = self._le.fit_transform(y_dummy)
                 self.classes_ = self._le.classes_
             if not hasattr(self, "cost_matrix_"):
