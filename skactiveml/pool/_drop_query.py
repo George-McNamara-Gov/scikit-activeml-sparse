@@ -178,13 +178,14 @@ class DropQuery(SingleAnnotatorPoolQueryStrategy):
 
         # Compute predictions and optionally embeddings for original samples.
         if self.clf_embedding_flag_name is not None:
-            y_pred, X_cand = clf.predict(
+            y_pred, X_embed = clf.predict(
                 X_cand, **{self.clf_embedding_flag_name: True}
             )
         else:
             y_pred = clf.predict(X_cand)
+            X_embed = X_cand
             if isinstance(y_pred, tuple):
-                y_pred, X_cand = y_pred
+                y_pred, X_embed = y_pred
 
         # Number of candidate samples.
         n_candidates = len(X_cand)
@@ -222,7 +223,7 @@ class DropQuery(SingleAnnotatorPoolQueryStrategy):
         # Perform clustering to get centroids.
         cluster_algo_dict[self.n_cluster_param_name] = batch_size
         cluster_obj = self.cluster_algo(**cluster_algo_dict)
-        dist = cluster_obj.fit_transform(X_cand[prefiltered_indices], y=None)
+        dist = cluster_obj.fit_transform(X_embed[prefiltered_indices], y=None)
 
         # Determine `query_indices` of the samples being closest to the
         # respective centroids.

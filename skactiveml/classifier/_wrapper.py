@@ -20,6 +20,7 @@ successful_skorch_torch_import = False
 try:
     from torch import nn
     from skorch import NeuralNet
+    from skorch.utils import to_numpy
 
     successful_skorch_torch_import = True
 except ImportError:  # pragma: no cover
@@ -41,6 +42,7 @@ from ..utils import (
     check_scalar,
     match_signature,
     check_n_features,
+    make_criterion_tuple_aware,
 )
 
 
@@ -745,8 +747,19 @@ if successful_skorch_torch_import:
 
         Implement a wrapper class, to make it possible to use `PyTorch` with
         `skactiveml`. This is achieved by providing a wrapper around `PyTorch`
-        that has a skactiveml interface and also be able to handle missing
+        that has a `skactiveml` interface and also be able to handle missing
         labels. This wrapper is based on the open-source library `skorch` [1]_.
+
+        Notes
+        -----
+        Adjust your `criterion` with the outputs of your `nn.Module`.
+        For example, if you use `criterion=nn.NLLLoss`, then your module is
+        expected to output log-probabilities, which can be implemented through
+        `nn.LogSoftmax(dim=1)`. To ensure that the `predict_proba` method can
+        handle these log-probabilities, you need to set
+        `"predict_nonlinearity": torch.exp` as part of the
+        `neural_net_param_dict`, which then transforms the log-probabilities to
+        actual probabilities.
 
         Parameters
         ----------
@@ -757,6 +770,15 @@ if successful_skorch_torch_import:
         criterion : torch.nn.Module.__class__, default=torch.nn.NLLoss
             The uninitialized criterion (loss) used to optimize the module. By
             default, `torch.nn.NLLoss` is used as criterion.
+        filter_criterion_input : bool, default=True
+            - If True, this flag ensures criteria expecting tensors as input,
+            e.g., `nn.CrossEntropyLoss`, work with implementations of the
+            `module.forward` methods outputting tuples, e.g., where the first
+            element corresponds to the class predictions (probabilities,
+            logits, etc.) and the second element is a tensor of embeddings
+            (cf. `return_embeddings` in `predict_proba`).
+            - If False, the criterion is used as is and must be able to process
+            the full output `module.forward`.
         classes : array-like of shape (n_classes,), default=None
             Holds the label for each class. If none, the classes are determined
             during the fit.
@@ -780,14 +802,15 @@ if successful_skorch_torch_import:
         References
         ----------
         .. [1] Marian Tietz, Thomas J. Fan, Daniel Nouri, Benjamin Bossan, and
-            skorch Developers. skorch: A scikit-learn compatible neural network
-            library that wraps PyTorch, July 2017.
+           skorch Developers. skorch: A scikit-learn compatible neural network
+           library that wraps PyTorch, July 2017.
         """
 
         def __init__(
             self,
             module,
             criterion=nn.NLLLoss,
+            filter_criterion_input=True,
             classes=None,
             missing_label=MISSING_LABEL,
             cost_matrix=None,
@@ -803,6 +826,7 @@ if successful_skorch_torch_import:
             )
             self.module = module
             self.criterion = criterion
+            self.filter_criterion_input = filter_criterion_input
             self.neural_net_param_dict = neural_net_param_dict
             self.X_dtype = X_dtype
 
@@ -829,7 +853,6 @@ if successful_skorch_torch_import:
             self: SkorchClassifier,
                 The SkorchClassifier is fitted on the training data.
             """
-
             return self._fit("fit", X, y, **fit_params)
 
         def partial_fit(self, X, y, **fit_params):
@@ -915,20 +938,41 @@ if successful_skorch_torch_import:
                 self.is_fitted_ = False
             return self
 
-        def predict(self, X):
+        def predict(self, X, return_embeddings=False):
             """Return class label predictions for the test samples `X`.
 
             Parameters
             ----------
             X :  array-like of shape (n_samples, n_features)
                 Input samples.
+            return_embeddings : boolean, default=False
+                If `return_embeddings=True`, the forward method of the neural
+                network module is expected to return multiple outputs,
+                of which the first element corresponds to the class predictions
+                (probabilities, logits, etc.) and the second element is a
+                tensor of embeddings learned by the neural network.
 
             Returns
             -------
             y : numpy.ndarray of shape (n_samples,)
                 Predicted class labels of the test samples `X`.
+            X_embed : numpy.ndarray of shape (n_samples, ...)
+                Sample embeddings, which are only returned if
+                `return_embeddings=True`.
             """
-            P = self.predict_proba(X)
+            P = self.predict_proba(X, return_embeddings=return_embeddings)
+            X_embed = None
+            if return_embeddings:
+                if not isinstance(P, tuple):
+                    raise ValueError(
+                        "`return_embeddings=True` only works when module is"
+                        "expected to return multiple outputs, of which the"
+                        "first element corresponds to the class predictions"
+                        "(probabilities, logits, etc.) and the second element"
+                        "is a tensor of embeddings."
+                    )
+                X_embed = P[1]
+                P = P[0]
 
             costs = np.dot(P, self.cost_matrix_)
             y_pred = rand_argmin(
@@ -937,21 +981,33 @@ if successful_skorch_torch_import:
             y_pred = self._le.inverse_transform(y_pred)
             y_pred = np.asarray(y_pred, dtype=self.classes_.dtype)
 
-            return y_pred
+            if X_embed is not None:
+                return y_pred, X_embed
+            else:
+                return y_pred
 
-        def predict_proba(self, X):
+        def predict_proba(self, X, return_embeddings=False):
             """Return probability estimates for the test data X.
 
             Parameters
             ----------
             X : array-like of shape (n_samples, n_features)
                 Test samples.
+            return_embeddings : boolean, default=False
+                If `return_embeddings=True`, the forward method of the neural
+                network module is expected to return multiple outputs,
+                of which the first element corresponds to the class predictions
+                (probabilities, logits, etc.) and the second element is a
+                tensor of embeddings learned by the neural network.
 
             Returns
             -------
             P : numpy.ndarray of shape (n_samples, classes)
                 The class probabilities of the test samples. Classes are
                 ordered according to `self.classes_`.
+            X_embed : numpy.ndarray of shape (n_samples, ...)
+                Sample embeddings, which are only returned if
+                `return_embeddings=True`.
             """
             if not hasattr(self, "random_state_"):
                 self.random_state_ = check_random_state(self.random_state)
@@ -969,10 +1025,21 @@ if successful_skorch_torch_import:
 
             reset_n_features_in_ = not hasattr(self, "n_features_in_")
             check_n_features(self, X, reset=reset_n_features_in_)
+            check_scalar(
+                return_embeddings, name="return_embeddings", target_type=bool
+            )
 
             if not hasattr(self, "initialized_") or not self.initialized_:
                 self.initialize()
-            P = self.neural_net_.predict_proba(X)
+            if not return_embeddings:
+                P = self.neural_net_.predict_proba(X)
+                out = P
+            else:
+                out = self.neural_net_.forward(X)
+                P = self.neural_net_._get_predict_nonlinearity()(out[0])
+                P = to_numpy(P)
+                X_embed = to_numpy(out[1])
+                out = (P, X_embed)
 
             if not hasattr(self, "_le"):
                 # initialize fallbacks if the classifier hasn't been fitted
@@ -984,7 +1051,7 @@ if successful_skorch_torch_import:
                     y_dummy = self.classes
                 else:
                     y_dummy = np.arange(P.shape[-1], dtype=int)
-                y_dummy = self._le.fit_transform(y_dummy)
+                self._le.fit(y_dummy)
                 self.classes_ = self._le.classes_
             if not hasattr(self, "cost_matrix_"):
                 self.cost_matrix_ = (
@@ -992,16 +1059,30 @@ if successful_skorch_torch_import:
                     if self.cost_matrix is None
                     else self.cost_matrix
                 )
-            return P
+
+            return out
 
         def initialize(self, neural_net_param_dict=None):
-            """initialize the internal `sklearn` wrapper from `skorch`."""
+            """Initialize the internal `sklearn` wrapper from `skorch`.
+
+            Parameters
+            ----------
+            neural_net_param_dict : dict, default=None
+                Additional arguments for the skorch object
+                (cf. https://skorch.readthedocs.io/en/stable/net.html). If
+                `neural_net_param_dict` is None, no additional arguments
+                are added.
+            """
             neural_net_param_dict = self.neural_net_param_dict
             if neural_net_param_dict is None:
                 neural_net_param_dict = {}
+
+            criterion = self.criterion
+            if self.filter_criterion_input:
+                criterion = make_criterion_tuple_aware(criterion)
             self.neural_net_ = NeuralNet(
                 module=self.module,
-                criterion=self.criterion,
+                criterion=criterion,
                 **neural_net_param_dict,
             )
             self.neural_net_.initialize()

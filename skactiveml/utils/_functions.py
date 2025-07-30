@@ -1,6 +1,20 @@
 import inspect
+import functools
+import sys
+
+from copy import deepcopy
 from types import MethodType
 from makefun import with_signature
+
+successful_skorch_torch_import = False
+try:
+    from torch import nn
+    from skorch import NeuralNet
+    from skorch.utils import to_numpy
+
+    successful_skorch_torch_import = True
+except ImportError:  # pragma: no cover
+    pass
 
 
 def call_func(
@@ -153,3 +167,62 @@ def match_signature(wrapped_obj_name, func_name):
     return lambda fn: _MatchSignatureDescriptor(
         fn, wrapped_obj_name, func_name=func_name
     )
+
+
+if successful_skorch_torch_import:
+
+    def make_criterion_tuple_aware(criterion):
+        """
+        Wrap a loss criterion so it gracefully ignores any extra outputs
+        (e.g. embeddings) returned by models that output tuples.
+
+        Parameters
+        ----------
+        criterion : Union[type[nn.Module], nn.Module]
+            • A *class* inheriting from nn.Module (e.g. nn.CrossEntropyLoss), *or*
+            • An *instance* of such a class (e.g. nn.CrossEntropyLoss()).
+
+        Returns
+        -------
+        Union[type[nn.Module], nn.Module]
+            If ``criterion`` was a class, a new subclass is returned.
+            If ``criterion`` was an instance, a wrapped instance is returned.
+        """
+        if isinstance(criterion, nn.Module):
+            base_cls = criterion.__class__
+        elif issubclass(criterion, nn.Module):
+            base_cls = criterion
+        else:
+            raise TypeError(
+                "`criterion` must be either an nn.Module subclass or an "
+                "nn.Module instance."
+            )
+        cls_name = f"TupleAware{base_cls.__name__}"
+
+        # Build the wrapper `forward`.
+        def forward(self, input, target, *args, **kwargs):
+            if isinstance(input, tuple):
+                input = input[0]
+            # Call the *original* forward on the base class, not super().
+            return base_cls.forward(self, input, target, *args, **kwargs)
+
+        # Keep signature/tool‑tips identical.
+        forward.__signature__ = inspect.signature(base_cls.forward)
+        forward.__doc__ = base_cls.forward.__doc__
+
+        # Create (or re‑use) the subclass only once per process.
+        TupleAwareCls = globals().get(cls_name)
+        if TupleAwareCls is None:
+            TupleAwareCls = type(
+                cls_name,
+                (base_cls,),
+                {"forward": forward, "__module__": base_cls.__module__},
+            )
+            globals()[cls_name] = TupleAwareCls  # needed for pickling
+
+        if isinstance(criterion, nn.Module):
+            wrapped = deepcopy(criterion)
+            object.__setattr__(wrapped, "__class__", TupleAwareCls)
+            return wrapped
+        else:
+            return TupleAwareCls

@@ -952,6 +952,7 @@ if successful_skorch_torch_import:
                 "lr": 0.001,
                 "max_epochs": 10,
                 "batch_size": 1,
+                "predict_nonlinearity": nn.Softmax(dim=1),
             }
             init_default_params = {
                 "module": TestNeuralNet,
@@ -997,36 +998,6 @@ if successful_skorch_torch_import:
                 (nn.CrossEntropyLoss(), None),
             ]
             self._test_param("init", "criterion", test_cases)
-
-        # def test_init_param_classes(self, test_cases=None):
-        #     test_cases = [] if test_cases is None else test_cases
-        #     test_cases += [
-        #         ("Test", TypeError),
-        #         (None, None),
-        #         ([0], ValueError),
-        #         ([0, 1], None),
-        #         ([0, 1, 2, 3], None),
-        #         ([-1, 0, 1, 2], ValueError),
-        #     ]
-        #     self._test_param("init", "classes", test_cases)
-
-        # def test_init_param_cost_matrix(self, test_cases=None):
-        #     test_cases = [] if test_cases is None else test_cases
-        #     test_cases += [
-        #         ("Test", ValueError),
-        #         (None, None),
-        #         ([0], ValueError),
-        #         ([[0], [1], [2]], ValueError),
-        #         (np.eye(3), None),
-        #         ([[0, 1, 1], [1, 0, 1], [1, 1, 0]], None),
-        #         ([[0, 1], [1, 0]], ValueError),
-        #     ]
-        #     self._test_param(
-        #         "init",
-        #         "cost_matrix",
-        #         test_cases,
-        #         replace_init_params={"classes": [0, 1]},
-        #     )
 
         def test_fit(self):
             clf = SkorchClassifier(**self.init_default_params)
@@ -1075,7 +1046,9 @@ if successful_skorch_torch_import:
 
         def test_predict_proba(self):
             clf = SkorchClassifier(**self.init_default_params)
-            predict_proba_0 = clf.predict_proba(self.X)
+            proba, X_embed = clf.predict_proba(self.X, return_embeddings=True)
+            self.assertTrue((proba.sum(axis=-1).round(3) == 1).all())
+            self.assertTrue(X_embed.shape[1], 2)
             init_default_params = self.init_default_params.copy()
             init_default_params["classes"] = [0, 1]
             clf = SkorchClassifier(**init_default_params)
@@ -1089,8 +1062,7 @@ if successful_skorch_torch_import:
             self.assertEqual(predict_proba_2.shape[1], 2)
 
         def test_init_param_X_dtype(self):
-            test_cases = []
-            test_cases += [
+            test_cases = [
                 (None, None),
                 (np.float32, None),
                 (np.int32, RuntimeError),
@@ -1099,9 +1071,9 @@ if successful_skorch_torch_import:
 
         def test_init_param_neural_net_param_dict(self):
             default_dict = self.init_default_params["neural_net_param_dict"]
-            test_cases = []
-            test_cases += [
+            test_cases = [
                 (None, None),
+                (default_dict, None),
                 (default_dict, None),
                 (np.int32, TypeError),
                 ("a", TypeError),
@@ -1109,18 +1081,70 @@ if successful_skorch_torch_import:
             ]
             self._test_param("init", "neural_net_param_dict", test_cases)
 
+        def test_init_param_filter_criterion_input(self):
+            test_cases = [
+                (True, None),
+                (False, TypeError),
+            ]
+            self._test_param("init", "filter_criterion_input", test_cases)
+            test_cases = [
+                (False, None),
+            ]
+            default_dict = deepcopy(
+                self.init_default_params["neural_net_param_dict"]
+            )
+            default_dict["module__return_embeddings"] = False
+            self._test_param(
+                "init",
+                "filter_criterion_input",
+                test_cases,
+                replace_init_params={"neural_net_param_dict": default_dict},
+            )
+
+        def test_predict_proba_param_return_embeddings(self):
+            test_cases = [
+                ("a", TypeError),
+                (None, TypeError),
+                (True, None),
+                (False, None),
+            ]
+            self._test_param(
+                "predict_proba",
+                "return_embeddings",
+                test_cases,
+                extras_params={"X": self.X},
+            )
+
+        def test_predict_param_return_embeddings(self):
+            test_cases = [
+                ("a", TypeError),
+                (None, TypeError),
+                (True, None),
+                (False, None),
+            ]
+            self._test_param(
+                "predict",
+                "return_embeddings",
+                test_cases,
+                extras_params={"X": self.X},
+            )
+
     class TestNeuralNet(nn.Module):
-        def __init__(self):
+        def __init__(self, return_embeddings=True):
             super().__init__()
+            self.return_embeddings = return_embeddings
             self.input_to_hidden = nn.Linear(
-                in_features=1, out_features=2, bias=True, dtype=torch.float32
+                in_features=1, out_features=5, bias=True, dtype=torch.float32
             )
             self.hidden_to_output = nn.Linear(
-                in_features=2, out_features=2, bias=True, dtype=torch.float32
+                in_features=5, out_features=2, bias=True, dtype=torch.float32
             )
 
         def forward(self, X):
             hidden = self.input_to_hidden(X)
             hidden = torch.relu(hidden)
             output_values = self.hidden_to_output(hidden)
-            return output_values
+            if self.return_embeddings:
+                return output_values, hidden
+            else:
+                return output_values

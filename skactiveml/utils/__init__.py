@@ -63,3 +63,10 @@ __all__ = [
     "check_n_features",
     "_check_callable",
 ]
+
+try:
+    from ._functions import make_criterion_tuple_aware  # noqa: F401
+
+    __all__ += "make_criterion_tuple_aware"
+except ImportError:  # pragma: no cover
+    pass

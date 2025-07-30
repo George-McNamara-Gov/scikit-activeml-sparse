@@ -4,6 +4,16 @@ import inspect
 
 from skactiveml.utils import call_func, match_signature
 
+successful_skorch_torch_import = False
+try:
+    import torch
+    from torch import nn
+    from skactiveml.utils import make_criterion_tuple_aware
+
+    successful_skorch_torch_import = True
+except ImportError:
+    pass  # pragma: no cover
+
 
 class TestFunctions(unittest.TestCase):
     def test_call_func(self):
@@ -158,3 +168,65 @@ class TestFunctions(unittest.TestCase):
             self.assertEqual(param_a.kind, param_b.kind)
             self.assertEqual(param_a.annotation, param_a.annotation)
             self.assertEqual(param_a.default, param_a.default)
+
+    if successful_skorch_torch_import:
+
+        def test_make_criterion_tuple_aware(self):
+            input = torch.randn(20, 10)
+            target = torch.randint(10, (20,))
+            TupleAwareCrossEntropy = make_criterion_tuple_aware(
+                nn.CrossEntropyLoss
+            )
+            tuple_aware_cross_entropy = make_criterion_tuple_aware(
+                nn.CrossEntropyLoss(ignore_index=10)
+            )
+
+            # Test failing configurations.
+            loss = nn.CrossEntropyLoss()(input, target)
+            self.assertRaises(
+                TypeError, nn.CrossEntropyLoss(), (input,), target
+            )
+            self.assertRaises(
+                TypeError, nn.CrossEntropyLoss(), (input, input), target
+            )
+            self.assertRaises(
+                TypeError, nn.CrossEntropyLoss(), [input, input], target
+            )
+
+            # Test tuple-aware criterion for class as input.
+            sig_1 = inspect.signature(TupleAwareCrossEntropy).parameters
+            sig_2 = inspect.signature(nn.CrossEntropyLoss).parameters
+            self.assertEqual(sig_1, sig_2)
+            sig_1 = inspect.signature(
+                TupleAwareCrossEntropy.forward
+            ).parameters
+            sig_2 = inspect.signature(nn.CrossEntropyLoss.forward).parameters
+            self.assertEqual(sig_1, sig_2)
+            self.assertTrue(
+                issubclass(TupleAwareCrossEntropy, nn.CrossEntropyLoss)
+            )
+            self.assertTrue(loss, TupleAwareCrossEntropy()(input, target))
+            self.assertTrue(
+                loss, TupleAwareCrossEntropy()((input, input), target)
+            )
+            self.assertRaises(
+                TypeError, TupleAwareCrossEntropy(), [input, input], target
+            )
+
+            # Test tuple-aware criterion for instance as input.
+            sig_1 = inspect.signature(
+                tuple_aware_cross_entropy.forward
+            ).parameters
+            sig_2 = inspect.signature(nn.CrossEntropyLoss().forward).parameters
+            self.assertEqual(sig_1, sig_2)
+            self.assertTrue(
+                isinstance(tuple_aware_cross_entropy, nn.CrossEntropyLoss)
+            )
+            self.assertTrue(tuple_aware_cross_entropy.ignore_index, -10)
+            self.assertTrue(loss, tuple_aware_cross_entropy(input, target))
+            self.assertTrue(
+                loss, tuple_aware_cross_entropy((input, input), target)
+            )
+            self.assertRaises(
+                TypeError, tuple_aware_cross_entropy, [input, input], target
+            )
