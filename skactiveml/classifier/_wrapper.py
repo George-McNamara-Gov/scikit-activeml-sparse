@@ -21,6 +21,7 @@ try:
     from torch import nn
     from skorch import NeuralNet
     from skorch.utils import to_numpy
+    from skactiveml.utils import make_criterion_tuple_aware
 
     successful_skorch_torch_import = True
 except ImportError:  # pragma: no cover
@@ -42,7 +43,6 @@ from ..utils import (
     check_scalar,
     match_signature,
     check_n_features,
-    make_criterion_tuple_aware,
 )
 
 
