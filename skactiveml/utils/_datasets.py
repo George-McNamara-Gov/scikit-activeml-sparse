@@ -19,6 +19,7 @@ except ImportError:  # pragma: no cover
 
 
 if successful_skorch_torch_import:
+
     def _as_numpy(x):
         """
         Best‑effort conversion of *x* to a NumPy array.
@@ -43,7 +44,6 @@ if successful_skorch_torch_import:
             return x
         return np.asarray(x)
 
-
     def _concat_numpy(chunks):
         """
         Concatenate a list of NumPy arrays along the first axis.  If shapes are
@@ -65,7 +65,6 @@ if successful_skorch_torch_import:
             out = np.empty(len(chunks), dtype=object)
             out[:] = [np.asarray(c) for c in chunks]
             return out
-
 
     class _WrappedDataset(Dataset):
         """
@@ -132,7 +131,6 @@ if successful_skorch_torch_import:
             """
             row = self.dataset[idx]
             return row[self.sample_key], row[self.label_key]
-
 
     def cache_numpy_dataset(
         dataset,
@@ -229,7 +227,9 @@ if successful_skorch_torch_import:
         check_type(sample_label_keys, "sample_label_keys", tuple, NoneType)
         check_scalar(batch_size, "batch_size", min_val=1, target_type=int)
         if num_workers is not None:
-            check_scalar(num_workers, "num_workers", min_val=0, target_type=int)
+            check_scalar(
+                num_workers, "num_workers", min_val=0, target_type=int
+            )
 
         # --------------------------- derive identifiers ----------------------- #
         cache_dir = Path(cache_dir)
@@ -247,13 +247,20 @@ if successful_skorch_torch_import:
 
         if cache_file.exists() and not overwrite:
             if verbose:
-                print(f"[cache] Load numpy arrays in {cache_file}.", file=sys.stderr, flush=True)
+                print(
+                    f"[cache] Load numpy arrays in {cache_file}.",
+                    file=sys.stderr,
+                    flush=True,
+                )
             with np.load(cache_file, allow_pickle=True) as npz:
                 return npz["X"], npz["y"]
 
         if isinstance(sample_label_keys, tuple):
-            dataset = _WrappedDataset(dataset=dataset, sample_key=sample_label_keys[0], label_key=sample_label_keys[1])
-
+            dataset = _WrappedDataset(
+                dataset=dataset,
+                sample_key=sample_label_keys[0],
+                label_key=sample_label_keys[1],
+            )
 
         loader = DataLoader(
             dataset,
@@ -261,7 +268,9 @@ if successful_skorch_torch_import:
             shuffle=False,
             num_workers=num_workers or os.cpu_count() // 2,
             pin_memory=(
-                pin_memory if pin_memory is not None else device.startswith("cuda")
+                pin_memory
+                if pin_memory is not None
+                else device.startswith("cuda")
             ),
         )
 
