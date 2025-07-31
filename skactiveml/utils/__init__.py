@@ -66,7 +66,9 @@ __all__ = [
 
 try:
     from ._functions import make_criterion_tuple_aware  # noqa: F401
+    from ._datasets import cache_numpy_dataset
 
     __all__ += "make_criterion_tuple_aware"
+    __all__ += "cache_numpy_dataset"
 except ImportError:  # pragma: no cover
     pass
