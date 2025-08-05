@@ -1,10 +1,15 @@
+from inspect import isclass
+
 import numpy as np
 from sklearn.utils.validation import check_array
 
 successful_skorch_torch_import = False
 try:
-    from skorch import NeuralNet
     import torch
+
+    from skorch import NeuralNet
+    from skorch.utils import to_numpy
+
     from torch import nn
     from torch.nn import CrossEntropyLoss
     from torch.nn import functional as F
@@ -17,17 +22,16 @@ from ...base import AnnotatorModelMixin
 from ...classifier import SkorchClassifier
 from ...utils import (
     MISSING_LABEL,
-    ExtLabelEncoder,
     is_labeled,
     check_random_state,
     check_n_features,
+    check_scalar,
 )
 
 if successful_skorch_torch_import:
 
     class CrowdLayerClassifier(SkorchClassifier, AnnotatorModelMixin):
-        """
-        Crowd Layer
+        """Crowd Layer
 
         Crowd Layer [1]_ is a layer added at the end of a classifying neural
         network and allows us to train deep neural networks end-to-end,
@@ -36,30 +40,31 @@ if successful_skorch_torch_import:
 
         Parameters
         ----------
-        module__n_annotators : int
+        classification_module : nn.Module or nn.Module.__class__
+            A PyTorch module as classification model outputting logits for
+            samples as input. In general, the uninstantiated class should
+            be passed, although instantiated modules will also work.
+        n_annotators : int
             Number of annotators.
-        module__gt_net : nn.Module
-            Pytorch module of the GT model taking samples as input to predict
-            class-membership logits.
-        *args :
-            More possible arguments for initializing your neural network (cf.
-            https://skorch.readthedocs.io/en/stable/net.html).
+        neural_net_param_dict : dict, default=None
+            Additional arguments for `skorch.net.NeuralNet`. If
+            `neural_net_param_dict` is None, no additional arguments
+             are added.
+        X_dtype : str or type, default=None
+            The type or typecode all data is casted to. If `X_dtype` is `None`,
+            the datatype is preserved.
         classes : array-like of shape (n_classes,), default=None
-            Holds the label for each class. If none, the classes are determined
+            Holds the label for each class. If `None`, the classes are determined
             during the fit.
         missing_label : scalar or string or np.nan or None, default=np.nan
             Value to represent a missing label.
-        cost_matrix : array-like of shape (n_classes, n_classes)
+        cost_matrix : array-like of shape (n_classes, n_classes), default=None
             Cost matrix with `cost_matrix[i,j]` indicating cost of predicting
             class `classes[j]` for a sample of class `classes[i]`. Can be only
-            set, if `classes` is not none.
+            set, if `classes` is not `None`.
         random_state : int or RandomState instance or None, default=None
             Determines random number for 'predict' method. Pass an int for
             reproducible results across multiple method calls.
-        **kwargs : keyword arguments
-            More possible parameters for customizing your neural network (cf.
-            https://skorch.readthedocs.io/en/stable/net.html). This class
-            overrides the criterion and is not compatible with other criteria.
 
         References
         ----------
@@ -70,17 +75,17 @@ if successful_skorch_torch_import:
 
         def __init__(
             self,
-            n_annotators,
-            gt_net,
-            classes=None,
-            missing_label=MISSING_LABEL,
-            cost_matrix=None,
-            random_state=None,
+            classification_module,
+            n_annotators=None,
             neural_net_param_dict=None,
             X_dtype=None,
+            classes=None,
+            cost_matrix=None,
+            missing_label=MISSING_LABEL,
+            random_state=None,
         ):
             super(CrowdLayerClassifier, self).__init__(
-                module=CrowdLayerModule,
+                module=_CrowdLayerModule,
                 criterion=CrossEntropyLoss,
                 classes=classes,
                 missing_label=missing_label,
@@ -89,32 +94,8 @@ if successful_skorch_torch_import:
                 neural_net_param_dict=neural_net_param_dict,
                 X_dtype=X_dtype,
             )
+            self.classification_module = classification_module
             self.n_annotators = n_annotators
-            self.gt_net = gt_net
-
-        def get_loss(self, y_pred, y_true, *args, **kwargs):
-            """Return the loss for this batch.
-
-            Parameters
-            ----------
-            y_pred : torch.Tensor
-            Predicted target values
-            y_true : torch.Tensor
-            True target values.
-
-            Returns
-            ---------
-            loss : torch.Tensor
-                Loss for this batch
-            """
-            if not hasattr(self, "initialized_") or not self.initialized_:
-                self.initialize()
-            # unpack the tuple from the forward function
-            p_class, logits_annot = y_pred
-            loss = self.neural_net_.get_loss(
-                logits_annot, y_true, *args, **kwargs
-            )
-            return loss
 
         def _fit(self, fit_function, X, y, **fit_params):
             """Initialize and fit the module.
@@ -124,43 +105,36 @@ if successful_skorch_torch_import:
 
             Parameters
             ----------
-            X : matrix-like, shape (n_samples, n_features)
+            X : matrix-like, shape (n_samples, ...)
                 Training data set, usually complete, i.e. including the labeled
                 and unlabeled samples
-            y : array-like of shape (n_samples, )
+            y : array-like of shape (n_samples,)
                 Labels of the training data set (possibly including unlabeled
                 ones indicated by self.missing_label)
             fit_params : dict-like
-                Further parameters as input to the 'fit' method of the
-                'estimator'.
+                Further parameters as input to the 'fit' method of
+                `skorch.net.NeuralNet`.
 
             Returns
             -------
             self: SkorchClassifier,
                 The SkorchClassifier is fitted on the training data.
             """
-            # check input parameters
-            self.check_X_dict_ = {
-                "ensure_min_samples": 0,
-                "ensure_min_features": 0,
-                "allow_nd": True,
-                "dtype": None,
-            }
+            # Check input parameters
             X, y, sample_weight = self._validate_data(
-                X=X, y=y, check_X_dict=self.check_X_dict_, y_ensure_1d=False
+                X=X, y=y, check_X_dict=self._check_X_dict, y_ensure_1d=False
             )
 
-            if self.X_dtype is not None:
-                X = X.astype(self.X_dtype)
-
-            is_lbld = is_labeled(y, missing_label=-1).any(axis=1)
-
+            # Optional initialization.
             if (
                 not hasattr(self, "initialized_")
                 or not self.initialized_
                 or fit_function == "fit"
             ):
-                self.initialize()
+                self.initialize(n_annotators=y.shape[-1])
+
+            # Fit on labeled data.
+            is_lbld = is_labeled(y, missing_label=-1).any(axis=1)
             if np.sum(is_lbld) > 0:
                 net = self.neural_net_.module_
                 old_forward_return = net.forward_return
@@ -168,14 +142,7 @@ if successful_skorch_torch_import:
                     net.set_forward_return("logits_annot")
                     X_lbld = X[is_lbld]
                     y_lbld = y[is_lbld].astype(np.int64)
-                    if fit_function == "fit":
-                        self.neural_net_.partial_fit(
-                            X_lbld, y_lbld, **fit_params
-                        )
-                    elif fit_function == "partial_fit":
-                        self.neural_net_.partial_fit(
-                            X_lbld, y_lbld, **fit_params
-                        )
+                    self.neural_net_.partial_fit(X_lbld, y_lbld, **fit_params)
                     self.is_fitted_ = True
                 finally:
                     net.set_forward_return(old_forward_return)
@@ -197,18 +164,7 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            P_perf : numpy.ndarray of shape (n_samples, n_annotators) or
-            (n_samples, n_annotators, n_classes, n_classes)
-                If `return_confusion_matrix=False`, `P_perf[n, m]` is the
-                probability, that annotator `A[m]` provides the correct class
-                label for sample `X[n]`. If `return_confusion_matrix=False`,
-                `P_perf[n, m, c, j]` is the probability, that annotator `A[m]`
-                provides the correct class label `classes_[j]` for sample
-                `X[n]` and that this sample belongs to class `classes_[c]`. If
-                `return_cond=True`, `P_perf[n, m, c, j]` is the probability
-                that annotator `A[m]` provides the class label `classes_[j]`
-                for sample `X[n]` conditioned that this sample belongs to class
-                `classes_[c]`.
+
             """
             if not hasattr(self, "initialized_") or not self.initialized_:
                 self.initialize()
@@ -229,100 +185,113 @@ if successful_skorch_torch_import:
                 return P_perf
             return P_perf.diagonal(axis1=-2, axis2=-1).sum(axis=-1)
 
-        def predict_proba(self, X):
+        def predict_proba(
+            self,
+            X,
+            return_embeddings=False,
+            return_annot_perf=False,
+            return_annot_proba=False,
+        ):
             """Returns class-membership probability estimates for the test data
             `X`.
 
             Parameters
             ----------
-            X : matrix-like, shape (n_samples, n_features)
+            X : array-like of shape (n_samples, ...)
                 Test samples.
 
             Returns
             -------
-            p_class : numpy.ndarray of shape (n_samples, classes)
+            P_class : numpy.ndarray of shape (n_samples, classes)
                 `p_class[n, c]` is the probability, that instance `X[n]`
                 belongs to the `classes_[c]`.
+            X_embed : numpy.ndarray of shape (n_samples, ...)
+                `X_embed[n]` refers to the learned embedding for sample `X[n]`.
+                Only returned, if `return_embeddings=True`.
+            P_perf : numpy.ndarray of shape (n_samples, n_annotators)
+                `P_perf[n, m]` refers to the estimated correct probability
+                (performance) of annotator `m` when labeling sample `X[n]`.
+                Only returned, if `return_annot_perf=True`.
+            P_annot : numpy.ndarray of shape (n_samples, n_classes, n_annotators)
+                `P_annot[n, c, m]` refers to the probability that annotator
+                `m` provides the class label `c` for instance `X[n]`.
+                Only returned, if `return_annot_proba=True`.
             """
+            # Check input parameters.
             if not hasattr(self, "random_state_"):
                 self.random_state_ = check_random_state(self.random_state)
-            if not hasattr(self, "check_X_dict_"):
-                self.check_X_dict_ = {
-                    "ensure_min_samples": 0,
-                    "ensure_min_features": 0,
-                    "allow_nd": True,
-                    "dtype": None,
-                }
+            X = check_array(X, **self._check_X_dict)
+            check_n_features(
+                self, X, reset=not hasattr(self, "n_features_in_")
+            )
+            check_scalar(
+                return_embeddings, name="return_embeddings", target_type=bool
+            )
+            check_scalar(
+                return_annot_perf, name="return_annot_perf", target_type=bool
+            )
+            check_scalar(
+                return_annot_proba, name="return_annot_proba", target_type=bool
+            )
 
-            X = check_array(X, **self.check_X_dict_)
-            if self.X_dtype is not None:
-                X = X.astype(self.X_dtype)
-
-            reset_n_features_in_ = not hasattr(self, "n_features_in_")
-            check_n_features(self, X, reset=reset_n_features_in_)
-
+            # Initialize module, if not done yet.
             if not hasattr(self, "initialized_") or not self.initialized_:
                 self.initialize()
+
+            # Set forward option.
             net = self.neural_net_.module_
             old_forward_return = net.forward_return
+            forward_options = ["p_class"]
+            if return_embeddings:
+                forward_options.append("x_embed")
+            if return_annot_perf or return_annot_proba:
+                forward_options.append("logits_annot")
+            net.set_forward_return(forward_options)
+
             try:
-                net.set_forward_return("p_class")
-                p_class = self.neural_net_.forward(X).numpy()
+                out_torch = self.neural_net_.forward(X)
+                if isinstance(out_torch, tuple):
+                    P_class = to_numpy(out_torch[0])
+                    out_numpy = [P_class]
+                else:
+                    P_class = to_numpy(out_torch)
+                    out_numpy = P_class
+                if return_embeddings:
+                    X_embed = to_numpy(out_torch[1])
+                    out_numpy.append(X_embed)
+                if return_annot_perf or return_annot_proba:
+                    L_annot = out_torch[-1]
+                    P_annot = to_numpy(L_annot.softmax(dim=1))
+                    if return_annot_perf:
+                        P_perf = P_class[:, None] @ P_annot
+                        out_numpy.append(P_perf[:, 0, :])
+                    if return_annot_proba:
+                        out_numpy.append(P_annot)
             finally:
                 net.set_forward_return(old_forward_return)
 
-            if not hasattr(self, "_le"):
-                # initialize fallbacks if the classifier hasn't been fitted
-                # before
-                self._le = ExtLabelEncoder(
-                    classes=self.classes, missing_label=self.missing_label
-                )
-                if self.classes is not None:
-                    y_dummy = self.classes
-                else:
-                    y_dummy = np.arange(p_class.shape[-1], dtype=int)
-                y_dummy = self._le.fit_transform(y_dummy)
-                self.classes_ = self._le.classes_
-            if not hasattr(self, "cost_matrix_"):
-                self.cost_matrix_ = (
-                    1 - np.eye(len(self.classes_))
-                    if self.cost_matrix is None
-                    else self.cost_matrix
-                )
-            return p_class
+            # Initialize fallbacks if the classifier hasn't been fitted before.
+            self._initialize_fallbacks(P=P_class)
+            return tuple(out_numpy)
 
-        def predict_proba_annot(self, X):
-            """Predict the probabilities of annotator assign for a label for
-            the given input data.
-
-            Parameters
-            ----------
-            X : matrix-like of shape (n_samples, n_features)
-                Test samples.
-
-            Returns
-            -------
-            numpy.ndarray
-                The predicted probabilities for each annotator, obtained by
-                applying softmax to the logits.
-            """
-            if not hasattr(self, "initialized_") or not self.initialized_:
-                self.initialize()
-            with torch.no_grad():
-                _, logits_annot = self.neural_net_.forward(X)
-                P_annot = F.softmax(logits_annot, dim=-1).numpy()
-            return P_annot
-
-        def initialize(self):
-            """initialize the internal `sklearn` wrapper from `skorch`."""
-            neural_net_param_dict = self.neural_net_param_dict.copy()
-            if neural_net_param_dict is None:
+        def initialize(self, n_annotators=None):
+            """Initialize the internal `sklearn` wrapper from `skorch`."""
+            if self.neural_net_param_dict is None:
                 neural_net_param_dict = {}
+                clf_module_param_dict = {}
+            else:
+                neural_net_param_dict = self.neural_net_param_dict.copy()
+                prefix = "module__"
+                clf_module_param_dict = {
+                    k[len(prefix) :]: neural_net_param_dict.pop(k)
+                    for k in list(neural_net_param_dict)
+                    if k.startswith(prefix)
+                }
 
             if self.classes is not None:
                 n_classes = len(self.classes)
-            elif hasattr(self, "classes_"):
-                n_classes = len(self.classes)
+            elif self.classes_ is not None:
+                n_classes = len(self.classes_)
             else:
                 raise RuntimeError(
                     "The number of classes needs to be known prior to the"
@@ -330,12 +299,34 @@ if successful_skorch_torch_import:
                     "`self.classes` or call `self.fit` beforehand."
                 )
 
+            if (
+                self.n_annotators is not None
+                and n_annotators is not None
+                and self.n_annotators != n_annotators
+            ):
+                raise ValueError(
+                    "The number of annotators needs to be the same as given"
+                    "for the initialization of the classifier object."
+                )
+            if self.n_annotators is None and n_annotators is None:
+                raise ValueError(
+                    "The number of annotators must be either given for the "
+                    "initialization of the classifier object or the "
+                    "initialization of the neural net."
+                )
+            self.n_annotators_ = (
+                self.n_annotators
+                if self.n_annotators is not None
+                else n_annotators
+            )
+
             neural_net_param_dict_override = {
                 "criterion__reduction": "mean",
                 "criterion__ignore_index": -1,
                 "module__n_classes": n_classes,
-                "module__n_annotators": self.n_annotators,
-                "module__gt_net": self.gt_net,
+                "module__n_annotators": self.n_annotators_,
+                "module__clf_module": self.classification_module,
+                "module__clf_module_param_dict": clf_module_param_dict,
             }
             for p_name, p_val in neural_net_param_dict_override.items():
                 if p_name in neural_net_param_dict:
@@ -354,9 +345,8 @@ if successful_skorch_torch_import:
             self.neural_net_.initialize()
             self.initialized_ = True
 
-    class CrowdLayerModule(nn.Module):
-        """
-        Crowd Layer Module
+    class _CrowdLayerModule(nn.Module):
+        """Crowd Layer Module
 
         Crowd Layer [1]_ is a layer added at the end of a classifying neural
         network and allows us to train deep neural networks end-to-end,
@@ -369,27 +359,34 @@ if successful_skorch_torch_import:
             Number of classes.
         n_annotators : int
             Number of annotators.
-        gt_net : nn.Module
-            Pytorch module of the GT model taking samples as input to predict
-            class-membership logits.
+        clf_module : nn.Module
+            Pytorch module of the classification module taking samples as
+            input to predict class-membership logits.
 
         References
         ----------
-        .. [1] Rodrigues, Filipe, and Francisco Pereira. "Deep learning from
-        crowds." AAAI Conference on Artificial Intelligence, 2018.
+        .. [1] Rodrigues, Filipe, and Francisco Pereira. "Deep Learning from
+           Crowds." AAAI Conference on Artificial Intelligence, 2018.
         """
 
+        # Names that may be *optionally* returned.
+        OUTPUTS = {"p_class", "x_embed", "logits_annot"}
+
         def __init__(
-            self,
-            n_classes,
-            n_annotators,
-            gt_net,
+            self, n_classes, n_annotators, clf_module, clf_module_param_dict
         ):
             super().__init__()
             self.n_classes = n_classes
             self.n_annotators = n_annotators
-            self.gt_net = gt_net
-            self.forward_return = "both"
+            if isclass(clf_module):
+                self.classification_module = clf_module(
+                    **clf_module_param_dict
+                )
+            else:
+                self.classification_module = clf_module
+
+            # By default, return only `logits_annot`.
+            self.set_forward_return("logits_annot")
 
             # Setup crowd layer.
             self.annotator_layers = nn.ModuleList()
@@ -398,42 +395,83 @@ if successful_skorch_torch_import:
                 layer.weight = nn.Parameter(torch.eye(n_classes))
                 self.annotator_layers.append(layer)
 
-        def set_forward_return(self, value):
-            self.forward_return = value
-            return self
-
-        def forward(self, x):
-            """Forward propagation of samples through the GT and AP (optional)
-            model.
+        def set_forward_return(self, values):
+            """
+            Choose which *additional* tensors (besides `p_class`) you want
+            `forward` to return. Valid names: "x_embed", "logits_annot".
 
             Parameters
             ----------
-            x : torch.Tensor of shape (batch_size, *)
-                Samples.
+            values : str or array-like
+                Accepts only "x_embed", "logits_annot" or
+                ["x_embed", "logits_annot"].
+
+            Returns
+            -------
+            self : nn.Module
+                Crowd layer module.
+            """
+            if isinstance(values, str):
+                values = [values]
+
+            unknown = set(values) - self.OUTPUTS
+            if unknown:
+                raise ValueError(f"Unknown forward return(s): {unknown}")
+            if len(values) == 0:
+                raise ValueError(f"No forward return(s): {values}")
+
+            self.forward_return = set(values)
+            return self
+
+        def forward(self, x: torch.Tensor):
+            """
+            Forward pass.
+
+            Parameters
+            ----------
+            x : torch.Tensor of shape (batch_size, ...)
+                Input samples.
 
             Returns
             -------
             p_class : torch.Tensor of shape (batch_size, n_classes)
                 Class-membership probabilities.
-            logits_annot : torch.Tensor of shape (batch_size, n_classes,
-            n_annotators)
-                Annotation logits for each sample-annotator pair.
+            x_embed : torch.Tensor of shape (batch_size, ...)
+                Learned embeddings of samples. Only returned if "x_embed" in
+                self.forward_return.
+            logits_annot : torch.Tensor of shape (batch_size, n_classes,\
+                    n_annotators)
+                Annotation logits for each sample-annotator pair. Only returned
+                if "logits_annot" in self.forward_return.
             """
-            # Compute class-membership logits.
-            logit_class = self.gt_net(x)
+            # Inference of the classification module.
+            cls_out = self.classification_module(x)
+            if isinstance(cls_out, tuple):
+                logits_class, x_embed = cls_out
+            else:
+                logits_class, x_embed = cls_out, None
+            p_class = F.softmax(logits_class, dim=-1)
 
-            # Compute class-membership probabilities.
-            p_class = F.softmax(logit_class, dim=-1)
+            # Check whether to add sampled embeddings to `outputs`.
+            outputs = []
+            if "p_class" in self.forward_return:
+                outputs.append(p_class)
 
-            if self.forward_return == "p_class":
-                return p_class
+            if "x_embed" in self.forward_return:
+                if x_embed is None:
+                    raise RuntimeError(
+                        "`x_embed` was requested, but the classification "
+                        "module did not return it."
+                    )
+                outputs.append(x_embed)
 
-            # Compute logits per annotator.
-            logits_annot = []
-            for layer in self.annotator_layers:
-                logits_annot.append(layer(p_class))
-            logits_annot = torch.stack(logits_annot, dim=2)
+            # Compute logits for the annotator labels and add them to `outputs`.
+            if "logits_annot" in self.forward_return:
+                logits_annot = []
+                for layer in self.annotator_layers:
+                    logits_annot.append(layer(p_class))
+                logits_annot = torch.stack(logits_annot, dim=2)
+                outputs.append(logits_annot)
 
-            if self.forward_return == "logits_annot":
-                return logits_annot
-            return p_class, logits_annot
+            return outputs[0] if len(outputs) == 1 else tuple(outputs)
+            # return {"logits_annot": logits_annot}

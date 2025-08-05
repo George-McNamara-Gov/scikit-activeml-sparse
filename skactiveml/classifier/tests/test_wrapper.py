@@ -25,6 +25,7 @@ try:
     import torch
     from torch import nn
     from skactiveml.classifier import SkorchClassifier
+    from skorch.utils import to_numpy
 
     successful_skorch_torch_import = True
 except ImportError:
@@ -947,11 +948,11 @@ if successful_skorch_torch_import:
             neural_net_param_dict = {
                 "train_split": None,
                 "verbose": False,
-                "optimizer": torch.optim.SGD,
+                "optimizer": torch.optim.RAdam,
                 "device": "cpu",
                 "lr": 0.001,
                 "max_epochs": 10,
-                "batch_size": 1,
+                "batch_size": 2,
                 "predict_nonlinearity": nn.Softmax(dim=1),
             }
             init_default_params = {
@@ -1000,20 +1001,86 @@ if successful_skorch_torch_import:
             self._test_param("init", "criterion", test_cases)
 
         def test_fit(self):
+            # Check standard fitting cases.
             clf = SkorchClassifier(**self.init_default_params)
             self.assertRaises(NotFittedError, check_is_fitted, clf)
             self.assertRaises(ValueError, clf.fit, self.X, self.y_ulbld)
             clf.fit(self.X, self.y)
             check_is_fitted(clf)
 
+            # Check fitting without `warm_restart`.
+            init_default_params1 = self.init_default_params.copy()
+            init_default_params1["classes"] = [0, 1]
+            init_default_params1["neural_net_param_dict"]["warm_start"] = False
+            clf = SkorchClassifier(**init_default_params1)
+            clf.fit(self.X, self.y_ulbld)
+            init_weights = to_numpy(
+                deepcopy(clf.neural_net_.module_.input_to_hidden.weight)
+            )
+            clf.fit(self.X, self.y_ulbld)
+            new_weights = to_numpy(
+                deepcopy(clf.neural_net_.module_.input_to_hidden.weight)
+            )
+            self.assertRaises(
+                AssertionError,
+                np.testing.assert_array_equal,
+                init_weights,
+                new_weights,
+            )
+
+            # Check fitting with `warm_restart`.
             init_default_params2 = self.init_default_params.copy()
             init_default_params2["classes"] = [0, 1]
+            init_default_params2["neural_net_param_dict"]["warm_start"] = True
             clf = SkorchClassifier(**init_default_params2)
             self.assertRaises(NotFittedError, check_is_fitted, clf)
             clf.fit(self.X, self.y_ulbld)
-            self.assertFalse(clf.is_fitted_)
-            clf.fit(self.X, self.y)
             check_is_fitted(clf)
+            init_weights = to_numpy(
+                deepcopy(clf.neural_net_.module_.input_to_hidden.weight)
+            )
+            clf.fit(self.X, self.y_ulbld)
+            new_weights = to_numpy(
+                deepcopy(clf.neural_net_.module_.input_to_hidden.weight)
+            )
+            np.testing.assert_array_equal(init_weights, new_weights)
+            clf.fit(self.X, self.y)
+            new_weights = to_numpy(
+                deepcopy(clf.neural_net_.module_.input_to_hidden.weight)
+            )
+            self.assertRaises(
+                AssertionError,
+                np.testing.assert_array_equal,
+                init_weights,
+                new_weights,
+            )
+
+            # Setup for initialized Pytorch module as input.
+            init_default_params3 = self.init_default_params.copy()
+            init_default_params3["classes"] = [0, 1]
+            clf_module = TestNeuralNet()
+            init_weights = to_numpy(
+                deepcopy(clf_module.input_to_hidden.weight)
+            )
+            init_default_params3["module"] = clf_module
+            clf = SkorchClassifier(**init_default_params3)
+
+            # Fitting with only unlabeled data must preserve weights.
+            clf.fit(self.X, self.y_ulbld)
+            new_weights = to_numpy(deepcopy(clf_module.input_to_hidden.weight))
+            np.testing.assert_array_equal(init_weights, new_weights)
+
+            # Fitting with partially label data must change weights.
+            clf.fit(self.X, self.y)
+            new_weights = to_numpy(
+                deepcopy(clf.neural_net_.module_.input_to_hidden.weight)
+            )
+            self.assertRaises(
+                AssertionError,
+                np.testing.assert_array_equal,
+                init_weights,
+                new_weights,
+            )
 
         def test_partial_fit(self):
             clf = SkorchClassifier(**self.init_default_params)
@@ -1029,7 +1096,6 @@ if successful_skorch_torch_import:
             clf = SkorchClassifier(**init_default_params2)
             self.assertRaises(NotFittedError, check_is_fitted, clf)
             clf.partial_fit(self.X, self.y_ulbld)
-            self.assertFalse(clf.is_fitted_)
             clf.partial_fit(self.X, self.y)
             check_is_fitted(clf)
 
@@ -1113,6 +1179,18 @@ if successful_skorch_torch_import:
                 "return_embeddings",
                 test_cases,
                 extras_params={"X": self.X},
+            )
+            test_cases = [(True, ValueError), (False, None)]
+            default_dict = deepcopy(
+                self.init_default_params["neural_net_param_dict"]
+            )
+            default_dict["module__return_embeddings"] = False
+            self._test_param(
+                "predict_proba",
+                "return_embeddings",
+                test_cases,
+                extras_params={"X": self.X},
+                replace_init_params={"neural_net_param_dict": default_dict},
             )
 
         def test_predict_param_return_embeddings(self):
