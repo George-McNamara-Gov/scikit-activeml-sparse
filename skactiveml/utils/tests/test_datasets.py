@@ -69,7 +69,7 @@ if successful_skorch_torch_import:
                     self.assertGreater(model.calls, 0)
                     np.testing.assert_array_equal(
                         X_emb_1.shape, (n_samples, 1)
-                    )  # identity keeps original shape
+                    )
                     np.testing.assert_array_equal(y_emb_1, np.arange(n_samples))
                     fresh_model = CountingIdentity()
                     X_emb_2, y_emb_2 = cache_numpy_dataset(
@@ -121,7 +121,7 @@ if successful_skorch_torch_import:
                     )  # identity keeps original shape
                     np.testing.assert_array_equal(y_list_1, np.arange(n_samples))
                     X_list_2, y_list_2 = cache_numpy_dataset(
-                        dataset=list_ds,
+                        dataset_name=f"ListPairDataset-{n_samples}",
                         batch_size=4,
                         cache_dir=".",
                     )

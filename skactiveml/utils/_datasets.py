@@ -133,7 +133,8 @@ if successful_skorch_torch_import:
             return row[self.sample_key], row[self.label_key]
 
     def cache_numpy_dataset(
-        dataset,
+        dataset=None,
+        dataset_name=None,
         model_fn=None,
         model_name=None,
         batch_size=32,
@@ -142,7 +143,6 @@ if successful_skorch_torch_import:
         num_workers=None,
         pin_memory=None,
         overwrite=False,
-        dataset_name=None,
         sample_label_keys=None,
         verbose=True,
     ):
@@ -158,9 +158,14 @@ if successful_skorch_torch_import:
 
         Parameters
         ----------
-        dataset : Dataset
+        dataset : Dataset, default=None
             A PyTorch‑style dataset instance whose (embedded) samples and labels
-            are saved as numpy arrays.
+            are saved as numpy arrays. If `dataset=None`, the dataset must have
+            been cached before and `dataset_name` must be given. If this caching
+            was performed using a model, the `model_name` must be also provided.
+        dataset_name : str, default=None
+            Identifier for the dataset.  Defaults to
+            ``"<ClassName>-<len(dataset)>"``.
         model_fn : nn.Module, default=None
             Embedding model.  Pass ``None`` to activate raw‑sample mode.
         model_name : str, default=None
@@ -176,13 +181,10 @@ if successful_skorch_torch_import:
             Number of worker processes for the ``DataLoader``.  Defaults to
             half the available CPU cores.
         pin_memory : bool, default=None
-            Whether to pin memory in the ``DataLoader``.  Defaults to
+            Whether to pin memory in the ``DataLoader``. Defaults to
             ``device.startswith("cuda")``.
         overwrite : bool, default=False
             If ``True`` the cache is ignored and data are recomputed.
-        dataset_name : str, default=None
-            Identifier for the dataset.  Defaults to
-            ``"<ClassName>-<len(dataset)>"``.
         sample_label_keys : tuple, default=None
             Column name that contains the *input* sample when *dataset* is a dict-style
             Hugging Face dataset.  If ``None`` the function tries the first non-label
@@ -224,6 +226,7 @@ if successful_skorch_torch_import:
         check_type(device, "device", str)
         check_type(overwrite, "overwrite", bool)
         check_type(verbose, "verbose", bool)
+        check_type(pin_memory, "pin_memory", bool, NoneType)
         check_type(sample_label_keys, "sample_label_keys", tuple, NoneType)
         check_scalar(batch_size, "batch_size", min_val=1, target_type=int)
         if num_workers is not None:
@@ -231,7 +234,6 @@ if successful_skorch_torch_import:
                 num_workers, "num_workers", min_val=0, target_type=int
             )
 
-        # --------------------------- derive identifiers ----------------------- #
         cache_dir = Path(cache_dir)
         cache_dir.mkdir(parents=True, exist_ok=True)
 
