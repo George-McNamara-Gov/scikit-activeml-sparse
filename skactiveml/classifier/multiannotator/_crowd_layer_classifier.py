@@ -18,7 +18,6 @@ try:
 except ImportError:
     pass  # pragma: no cover
 
-from ...base import AnnotatorModelMixin
 from ...classifier import SkorchClassifier
 from ...utils import (
     MISSING_LABEL,
@@ -30,7 +29,7 @@ from ...utils import (
 
 if successful_skorch_torch_import:
 
-    class CrowdLayerClassifier(SkorchClassifier, AnnotatorModelMixin):
+    class CrowdLayerClassifier(SkorchClassifier):
         """Crowd Layer
 
         Crowd Layer [1]_ is a layer added at the end of a classifying neural
@@ -69,8 +68,7 @@ if successful_skorch_torch_import:
         References
         ----------
         .. [1] Rodrigues, Filipe, and Francisco Pereira. "Deep Learning from
-            Crowds." AAAI Conference on Artificial Intelligence, 2018.
-
+           Crowds." AAAI Conference on Artificial Intelligence, 2018.
         """
 
         def __init__(
@@ -125,11 +123,10 @@ if successful_skorch_torch_import:
                 X=X, y=y, check_X_dict=self._check_X_dict, y_ensure_1d=False
             )
 
-            # Optional initialization.
-            if (
-                not hasattr(self, "initialized_")
-                or not self.initialized_
-                or fit_function == "fit"
+            # Initialize module, if not done yet
+            # or if `fit` is called, while `warm_start` is deactivated.
+            if not hasattr(self, "neural_net_") or (
+                fit_function == "fit" and not self.neural_net_.warm_start
             ):
                 self.initialize(n_annotators=y.shape[-1])
 
@@ -143,47 +140,10 @@ if successful_skorch_torch_import:
                     X_lbld = X[is_lbld]
                     y_lbld = y[is_lbld].astype(np.int64)
                     self.neural_net_.partial_fit(X_lbld, y_lbld, **fit_params)
-                    self.is_fitted_ = True
                 finally:
                     net.set_forward_return(old_forward_return)
-            else:
-                self.is_fitted_ = False
+
             return self
-
-        def predict_annotator_perf(self, X, return_confusion_matrix=False):
-            """Calculates the probability that an annotator provides the true
-            label for a given sample.
-
-            Parameters
-            ----------
-            X : matrix-like of shape (n_samples, n_features)
-                Test samples.
-            return_confusion_matrix : bool, default=False
-                If `return_confusion_matrix=True`, the entire confusion matrix
-                per annotator is returned.
-
-            Returns
-            -------
-
-            """
-            if not hasattr(self, "initialized_") or not self.initialized_:
-                self.initialize()
-            n_annotators = self.n_annotators
-            net = self.neural_net_
-            p_class, logits_annot = net.forward(X)
-            p_class = p_class.numpy()
-            P_annot = F.softmax(logits_annot, dim=-1)
-            P_annot = P_annot.numpy()
-            P_perf = np.array(
-                [
-                    np.einsum("ij,ik->ijk", p_class, P_annot[:, :, i])
-                    for i in range(n_annotators)
-                ]
-            )
-            P_perf = P_perf.swapaxes(0, 1)
-            if return_confusion_matrix:
-                return P_perf
-            return P_perf.diagonal(axis1=-2, axis2=-1).sum(axis=-1)
 
         def predict_proba(
             self,
@@ -193,7 +153,13 @@ if successful_skorch_torch_import:
             return_annot_proba=False,
         ):
             """Returns class-membership probability estimates for the test data
-            `X`.
+            `X`. Optionally, a tuple is returned whose elements appear
+            **in this exact order** *if* they were requested:
+
+            (0) `P_class` – always returned,
+            (1) `X_embed` – if `return_embeddings`,
+            (2) `P_perf`  – if `return_annot_perf`,
+            (3) `P_annot` – if `return_annot_proba`.
 
             Parameters
             ----------
@@ -235,10 +201,11 @@ if successful_skorch_torch_import:
             )
 
             # Initialize module, if not done yet.
-            if not hasattr(self, "initialized_") or not self.initialized_:
+            if not hasattr(self, "neural_net_"):
                 self.initialize()
 
-            # Set forward option.
+            # Set forward options to obtain the different outputs required
+            # by the input parameters.
             net = self.neural_net_.module_
             old_forward_return = net.forward_return
             forward_options = ["p_class"]
@@ -248,6 +215,8 @@ if successful_skorch_torch_import:
                 forward_options.append("logits_annot")
             net.set_forward_return(forward_options)
 
+            # Compute predictions for the different outputs required
+            # by the input parameters.
             try:
                 out_torch = self.neural_net_.forward(X)
                 if isinstance(out_torch, tuple):
@@ -343,7 +312,6 @@ if successful_skorch_torch_import:
                 **neural_net_param_dict,
             )
             self.neural_net_.initialize()
-            self.initialized_ = True
 
     class _CrowdLayerModule(nn.Module):
         """Crowd Layer Module
@@ -474,4 +442,3 @@ if successful_skorch_torch_import:
                 outputs.append(logits_annot)
 
             return outputs[0] if len(outputs) == 1 else tuple(outputs)
-            # return {"logits_annot": logits_annot}
