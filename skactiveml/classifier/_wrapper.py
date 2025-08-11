@@ -1062,7 +1062,7 @@ if successful_skorch_torch_import:
             y_pred = np.asarray(y_pred, dtype=self.classes_.dtype)
 
             if isinstance(out, tuple):
-                return y_pred, out[1:]
+                return (y_pred,) + out[1:]
             else:
                 return y_pred
 
