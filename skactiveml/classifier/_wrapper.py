@@ -946,22 +946,10 @@ if successful_skorch_torch_import:
                 Sample embeddings, which are only returned if
                 `return_embeddings=True`.
             """
-            P = self.predict_proba(X, return_embeddings=return_embeddings)
-            X_embed = None
-            if return_embeddings:
-                P, X_embed = P
-
-            costs = np.dot(P, self.cost_matrix_)
-            y_pred = rand_argmin(
-                costs, random_state=self.random_state_, axis=1
+            predict_dict = {k: v for k, v in locals().items() if k != "self"}
+            return self._transform_predict_proba_output(
+                predict_dict=predict_dict
             )
-            y_pred = self._le.inverse_transform(y_pred)
-            y_pred = np.asarray(y_pred, dtype=self.classes_.dtype)
-
-            if X_embed is not None:
-                return y_pred, X_embed
-            else:
-                return y_pred
 
         def predict_proba(self, X, return_embeddings=False):
             """Return probability estimates for the test data X.
@@ -1059,6 +1047,24 @@ if successful_skorch_torch_import:
                     if self.cost_matrix is None
                     else self.cost_matrix
                 )
+
+        def _transform_predict_proba_output(self, predict_dict):
+            """
+            Transform class probabilities to class predictions.
+            """
+            out = self.predict_proba(**predict_dict)
+            P = out[0] if isinstance(out, tuple) else out
+            costs = np.dot(P, self.cost_matrix_)
+            y_pred = rand_argmin(
+                costs, random_state=self.random_state_, axis=1
+            )
+            y_pred = self._le.inverse_transform(y_pred)
+            y_pred = np.asarray(y_pred, dtype=self.classes_.dtype)
+
+            if isinstance(out, tuple):
+                return y_pred, out[1:]
+            else:
+                return y_pred
 
         @property
         def _check_X_dict(self):

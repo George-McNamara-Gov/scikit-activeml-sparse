@@ -145,6 +145,59 @@ if successful_skorch_torch_import:
 
             return self
 
+        def predict(
+            self,
+            X,
+            return_embeddings=False,
+            return_annot_perf=False,
+            return_annot_proba=False,
+        ):
+            """Returns class predictions for the test data
+            `X`. Optionally, a tuple is returned whose elements appear
+            **in this exact order** *if* they were requested:
+
+            (0) `P_class` – always returned,
+            (1) `X_embed` – if `return_embeddings`,
+            (2) `P_perf`  – if `return_annot_perf`,
+            (3) `P_annot` – if `return_annot_proba`.
+
+            Parameters
+            ----------
+            X : array-like of shape (n_samples, ...)
+                Test samples.
+            return_embeddings : bool, default=False
+                If True, additionally return the learned embeddings `X_embed`
+                for the samples in `X` as the second element of the output tuple.
+            return_annot_perf : bool, default=False
+                If True, additionally return the estimated annotator performance
+                probabilities `P_perf` for each sample–annotator pair as the
+                next element of the output tuple.
+            return_annot_proba : bool, default=False
+                If True, additionally return the annotator–class probability
+                estimates `P_annot` for each sample, class, and annotator as the
+                last element of the output tuple.
+
+            Returns
+            -------
+            y_pred : numpy.ndarray of shape (n_samples,)
+                `y_pred[n]` is the predicted class label for sample `X[n]`.
+            X_embed : numpy.ndarray of shape (n_samples, ...)
+                `X_embed[n]` refers to the learned embedding for sample `X[n]`.
+                Only returned, if `return_embeddings=True`.
+            P_perf : numpy.ndarray of shape (n_samples, n_annotators)
+                `P_perf[n, m]` refers to the estimated correct probability
+                (performance) of annotator `m` when labeling sample `X[n]`.
+                Only returned, if `return_annot_perf=True`.
+            P_annot : numpy.ndarray of shape (n_samples, n_classes, n_annotators)
+                `P_annot[n, c, m]` refers to the probability that annotator
+                `m` provides the class label `c` for instance `X[n]`.
+                Only returned, if `return_annot_proba=True`.
+            """
+            predict_dict = {k: v for k, v in locals().items() if k != "self"}
+            return self._transform_predict_proba_output(
+                predict_dict=predict_dict
+            )
+
         def predict_proba(
             self,
             X,
@@ -165,11 +218,22 @@ if successful_skorch_torch_import:
             ----------
             X : array-like of shape (n_samples, ...)
                 Test samples.
+            return_embeddings : bool, default=False
+                If True, additionally return the learned embeddings `X_embed`
+                for the samples in `X` as the second element of the output tuple.
+            return_annot_perf : bool, default=False
+                If True, additionally return the estimated annotator performance
+                probabilities `P_perf` for each sample–annotator pair as the
+                next element of the output tuple.
+            return_annot_proba : bool, default=False
+                If True, additionally return the annotator–class probability
+                estimates `P_annot` for each sample, class, and annotator as the
+                last element of the output tuple.
 
             Returns
             -------
             P_class : numpy.ndarray of shape (n_samples, classes)
-                `p_class[n, c]` is the probability, that instance `X[n]`
+                `p_class[n, c]` is the probability, that sample `X[n]`
                 belongs to the `classes_[c]`.
             X_embed : numpy.ndarray of shape (n_samples, ...)
                 `X_embed[n]` refers to the learned embedding for sample `X[n]`.
@@ -241,7 +305,10 @@ if successful_skorch_torch_import:
 
             # Initialize fallbacks if the classifier hasn't been fitted before.
             self._initialize_fallbacks(P=P_class)
-            return tuple(out_numpy)
+            if isinstance(out_numpy, np.ndarray):
+                return out_numpy
+            else:
+                return tuple(out_numpy)
 
         def initialize(self, n_annotators=None):
             """Initialize the internal `sklearn` wrapper from `skorch`."""

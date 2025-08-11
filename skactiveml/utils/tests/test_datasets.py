@@ -18,6 +18,7 @@ except ImportError:
 
 
 if successful_skorch_torch_import:
+
     class TestDatasets(unittest.TestCase):
 
         def setUp(self):
@@ -36,9 +37,12 @@ if successful_skorch_torch_import:
                         verbose=False,
                         overwrite=True,
                     )
-                    np.testing.assert_array_equal(X_raw_1.shape, (n_samples, 1))
                     np.testing.assert_array_equal(
-                        X_raw_1.squeeze(), np.arange(n_samples, dtype=np.float32)
+                        X_raw_1.shape, (n_samples, 1)
+                    )
+                    np.testing.assert_array_equal(
+                        X_raw_1.squeeze(),
+                        np.arange(n_samples, dtype=np.float32),
                     )
                     np.testing.assert_array_equal(
                         y_raw_1, np.arange(n_samples, dtype=np.int64)
@@ -70,7 +74,9 @@ if successful_skorch_torch_import:
                     np.testing.assert_array_equal(
                         X_emb_1.shape, (n_samples, 1)
                     )
-                    np.testing.assert_array_equal(y_emb_1, np.arange(n_samples))
+                    np.testing.assert_array_equal(
+                        y_emb_1, np.arange(n_samples)
+                    )
                     fresh_model = CountingIdentity()
                     X_emb_2, y_emb_2 = cache_numpy_dataset(
                         dataset=raw_ds,
@@ -119,7 +125,9 @@ if successful_skorch_torch_import:
                     np.testing.assert_array_equal(
                         X_list_1.shape, n_samples
                     )  # identity keeps original shape
-                    np.testing.assert_array_equal(y_list_1, np.arange(n_samples))
+                    np.testing.assert_array_equal(
+                        y_list_1, np.arange(n_samples)
+                    )
                     X_list_2, y_list_2 = cache_numpy_dataset(
                         dataset_name=f"ListPairDataset-{n_samples}",
                         batch_size=4,
@@ -156,8 +164,9 @@ if successful_skorch_torch_import:
                     p for p in Path(".").iterdir() if p.suffix == ".npz"
                 ]
                 self.assertEqual(len(cached_files), 15)
-                self.assertTrue(all(os.path.getsize(p) > 0 for p in cached_files))
-
+                self.assertTrue(
+                    all(os.path.getsize(p) > 0 for p in cached_files)
+                )
 
     class TensorPairDataset(Dataset):
         """Returns (sample, label) tensor pairs."""
@@ -174,7 +183,6 @@ if successful_skorch_torch_import:
         def __getitem__(self, idx):
             return self.X[idx], self.y[idx]
 
-
     class HeterogeneousPairDataset(Dataset):
         """Returns (sample, label) pairs of list elements."""
 
@@ -188,7 +196,6 @@ if successful_skorch_torch_import:
             tokens = list(range(idx + 1))
             return [tokens], idx
 
-
     class ListPairDataset(Dataset):
         """Returns (sample, label) pairs of list elements."""
 
@@ -201,7 +208,6 @@ if successful_skorch_torch_import:
 
         def __getitem__(self, idx):
             return self.X[idx], self.y[idx]
-
 
     class DictDataset(Dataset):
         """Returns dicts -> exercises _WrappedDataset."""
@@ -217,7 +223,6 @@ if successful_skorch_torch_import:
 
         def __getitem__(self, idx):
             return self.rows[idx]
-
 
     class CountingIdentity(torch.nn.Module):
         """Identity model that counts forward calls."""
