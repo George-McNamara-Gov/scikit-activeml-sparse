@@ -46,6 +46,7 @@ from ._clue import Clue
 from ._drop_query import DropQuery
 from ._wrapper import SubSamplingWrapper, ParallelUtilityEstimationWrapper
 from ._falcun import Falcun
+from ._max_herding import MaxHerding
 
 __all__ = [
     "multiannotator",
@@ -89,4 +90,5 @@ __all__ = [
     "SubSamplingWrapper",
     "ParallelUtilityEstimationWrapper",
     "Falcun",
+    "MaxHerding",
 ]
