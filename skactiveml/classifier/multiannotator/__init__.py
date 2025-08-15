@@ -6,7 +6,9 @@ __all__ = ["AnnotatorLogisticRegression", "AnnotatorEnsembleClassifier"]
 
 try:
     from ._crowd_layer_classifier import CrowdLayerClassifier  # noqa: F401
+    from ._annot_mix_classifier import AnnotMixClassifier
 
-    __all__ += "CrowdLayerClassifier"
+    __all__ += ["CrowdLayerClassifier", "AnnotMixClassifier"]
+
 except ImportError:
     pass
