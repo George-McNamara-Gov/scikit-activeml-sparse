@@ -782,8 +782,8 @@ if successful_skorch_torch_import:
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no additional arguments are added.
-        X_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `X_dtype` is None,
+        sample_dtype : str or type, default=None
+            The type or typecode all data is casted to. If `sample_dtype` is None,
             the datatype is preserved.
         classes : array-like of shape (n_classes,), default=None
             Holds the label for each class. If none, the classes are determined
@@ -811,7 +811,7 @@ if successful_skorch_torch_import:
             criterion=nn.NLLLoss,
             filter_criterion_input=True,
             neural_net_param_dict=None,
-            X_dtype=None,
+            sample_dtype=None,
             classes=None,
             cost_matrix=None,
             missing_label=MISSING_LABEL,
@@ -827,7 +827,7 @@ if successful_skorch_torch_import:
             self.criterion = criterion
             self.filter_criterion_input = filter_criterion_input
             self.neural_net_param_dict = neural_net_param_dict
-            self.X_dtype = X_dtype
+            self.sample_dtype = sample_dtype
 
         def fit(self, X, y, **fit_params):
             """Initialize and fit the module.
@@ -1080,5 +1080,5 @@ if successful_skorch_torch_import:
                 "ensure_min_samples": 0,
                 "ensure_min_features": 0,
                 "allow_nd": True,
-                "dtype": self.X_dtype,
+                "dtype": self.sample_dtype,
             }

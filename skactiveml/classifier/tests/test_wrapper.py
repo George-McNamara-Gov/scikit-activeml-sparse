@@ -962,7 +962,7 @@ if successful_skorch_torch_import:
                 "missing_label": MISSING_LABEL,
                 "random_state": 1,
                 "neural_net_param_dict": neural_net_param_dict,
-                "X_dtype": np.float32,
+                "sample_dtype": np.float32,
             }
             fit_default_params = {
                 "X": self.X,
@@ -1127,13 +1127,13 @@ if successful_skorch_torch_import:
             self.assertEqual(len(predict_proba_2), len(self.X))
             self.assertEqual(predict_proba_2.shape[1], 2)
 
-        def test_init_param_X_dtype(self):
+        def test_init_param_sample_dtype(self):
             test_cases = [
                 (None, None),
                 (np.float32, None),
                 (np.int32, RuntimeError),
             ]
-            self._test_param("init", "X_dtype", test_cases)
+            self._test_param("init", "sample_dtype", test_cases)
 
         def test_init_param_neural_net_param_dict(self):
             default_dict = self.init_default_params["neural_net_param_dict"]

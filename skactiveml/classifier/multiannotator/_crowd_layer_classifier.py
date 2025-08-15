@@ -13,6 +13,7 @@ try:
     from torch import nn
     from torch.nn import CrossEntropyLoss
     from torch.nn import functional as F
+    from torch.utils.data import default_collate
 
     successful_skorch_torch_import = True
 except ImportError:
@@ -49,8 +50,8 @@ if successful_skorch_torch_import:
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is None, no additional arguments
              are added.
-        X_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `X_dtype` is `None`,
+        sample_dtype : str or type, default=None
+            The type or typecode all data is casted to. If `sample_dtype` is `None`,
             the datatype is preserved.
         classes : array-like of shape (n_classes,), default=None
             Holds the label for each class. If `None`, the classes are determined
@@ -76,7 +77,7 @@ if successful_skorch_torch_import:
             classification_module,
             n_annotators=None,
             neural_net_param_dict=None,
-            X_dtype=None,
+            sample_dtype=None,
             classes=None,
             cost_matrix=None,
             missing_label=MISSING_LABEL,
@@ -90,7 +91,7 @@ if successful_skorch_torch_import:
                 cost_matrix=cost_matrix,
                 random_state=random_state,
                 neural_net_param_dict=neural_net_param_dict,
-                X_dtype=X_dtype,
+                sample_dtype=sample_dtype,
             )
             self.classification_module = classification_module
             self.n_annotators = n_annotators
@@ -299,7 +300,7 @@ if successful_skorch_torch_import:
                         P_perf = P_class[:, None] @ P_annot
                         out_numpy.append(P_perf[:, 0, :])
                     if return_annot_proba:
-                        out_numpy.append(P_annot)
+                        out_numpy.append(P_annot.swapaxes(1, 2))
             finally:
                 net.set_forward_return(old_forward_return)
 
@@ -458,7 +459,7 @@ if successful_skorch_torch_import:
             self.forward_return = set(values)
             return self
 
-        def forward(self, x: torch.Tensor):
+        def forward(self, x):
             """
             Forward pass.
 
@@ -484,7 +485,7 @@ if successful_skorch_torch_import:
             if isinstance(cls_out, tuple):
                 logits_class, x_embed = cls_out
             else:
-                logits_class, x_embed = cls_out, None
+                logits_class, x_embed = cls_out, x
             p_class = F.softmax(logits_class, dim=-1)
 
             # Check whether to add sampled embeddings to `outputs`.
