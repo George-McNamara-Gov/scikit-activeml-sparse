@@ -4,7 +4,7 @@ The :mod:`skactiveml.base` package implements the base classes for
 """
 
 import warnings
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from copy import deepcopy
 
 import numpy as np
@@ -33,9 +33,9 @@ from .utils import (
     check_missing_label,
     check_indices,
     check_n_features,
+    check_type,
 )
 
-# '__all__' is necessary to create the sphinx docs.
 __all__ = [
     "QueryStrategy",
     "PoolQueryStrategy",
@@ -49,6 +49,19 @@ __all__ = [
     "SkactivemlRegressor",
     "ProbabilisticRegressor",
 ]
+
+successful_skorch_torch_import = False
+try:
+    from torch import nn
+    from skorch import NeuralNet
+    from skorch.utils import to_numpy
+    from skactiveml.utils import make_criterion_tuple_aware
+
+    successful_skorch_torch_import = True
+except ImportError:  # pragma: no cover
+    pass
+
+# '__all__' is necessary to create the sphinx docs.
 
 
 class QueryStrategy(ABC, BaseEstimator):
@@ -1595,3 +1608,225 @@ class AnnotatorModelMixin(ABC):
              annotation of sample `X[i]`.
         """
         raise NotImplementedError
+
+
+if successful_skorch_torch_import:
+
+    __all__ += ["SkorchMixin"]
+
+    class SkorchMixin(ABC):
+        """
+        Minimal mixin to build and train a ``skorch.NeuralNet`` with strict hooks.
+
+        Subclasses must implement the hook methods to provide the module,
+        criterion, validation kwargs, and label filtering. This mixin always
+        rebuilds and initializes ``self.neural_net_`` on ``initialize`` and fits
+        only on labeled data in ``_fit``.
+        """
+
+        def initialize(self, X=None, y=None, enforce_check_X_y=False):
+            """
+            Initialize the wrapper and (optionally) validate inputs.
+
+            If any data is provided or ``enforce_check_X_y`` is True, inputs are
+            validated via ``_validate_data``. A new ``skorch.NeuralNet`` is then
+            created and assigned to ``self.neural_net_``.
+
+            Parameters
+            ----------
+            X : array-like of shape (n_samples, ...), default=None
+                Input samples for optional validation.
+            y : array-like of shape (n_samples, ...), default=None
+                Target values for optional validation.
+            enforce_check_X_y : bool, default=False
+                Whether to validate even if both ``X`` and ``y`` are ``None``.
+
+            Returns
+            -------
+            self : SkorchMixin
+                Returned when no input data was supplied
+                (both ``X`` and ``y`` are ``None``).
+            X_out, y_out : ndarray
+                Validated ``X`` and ``y`` as a tuple, returned when any input
+                data was supplied.
+
+            Raises
+            ------
+            TypeError
+                If the object returned by ``_neural_net_param_dict()`` is
+                not a ``dict``.
+            ValueError
+                Propagated from ``_validate_data`` if inputs are invalid.
+
+            Notes
+            -----
+            The parameter dict is defensively copied before constructing the net.
+            """
+            has_data = (X is not None) or (y is not None)
+            vd_kwargs = self._validate_data_kwargs() or {}
+            if enforce_check_X_y or has_data:
+                X, y, _ = self._validate_data(X=X, y=y, **vd_kwargs)
+
+            module, criterion, nn_params = self._net_parts(X=X, y=y)
+            check_type(nn_params, "neural_net_param_dict", dict)  # defensive
+            nn_params = dict(nn_params)  # defensive copy
+
+            self.neural_net_ = NeuralNet(
+                module=module,
+                criterion=criterion,
+                **nn_params,
+            ).initialize()
+
+            return (X, y) if (enforce_check_X_y or has_data) else self
+
+        def _fit(self, fit_function: str, X, y, **fit_params):
+            """
+            Initialize and fit the internal ``skorch`` model on labeled
+            data only.
+
+            If the model is uninitialized, or ``fit_function == 'fit'`` and
+            ``self.neural_net_.warm_start`` is ``False``, the network is
+            re-initialized.
+
+            Parameters
+            ----------
+            fit_function : {'fit', 'partial_fit'}
+                Name of the caller, used to decide whether to reinitialize when
+                warm start is off.
+            X : array-like of shape (n_samples, ...)
+                Training inputs (may include unlabeled samples).
+            y : array-like of shape (n_samples, ...)
+                Training targets; unlabeled entries must follow the subclass'
+                convention (e.g., ``self.missing_label``).
+            **fit_params : dict
+                Extra keyword arguments forwarded to
+                ``self.neural_net_.partial_fit``.
+
+            Returns
+            -------
+            self : SkorchMixin
+                The fitted estimator.
+
+            Raises
+            ------
+            ValueError
+                Propagated from ``_validate_data`` if inputs are invalid.
+
+            Notes
+            -----
+            Only labeled samples returned by ``_return_labeled_data`` are passed
+            to ``partial_fit``. If no labeled samples are found,
+            training is skipped.
+            """
+            need_reinit = (not hasattr(self, "neural_net_")) or (
+                fit_function == "fit"
+                and not getattr(self.neural_net_, "warm_start", False)
+            )
+            if need_reinit:
+                X, y = self.initialize(X=X, y=y, enforce_check_X_y=True)
+            else:
+                vd_kwargs = self._validate_data_kwargs() or {}
+                X, y, _ = self._validate_data(X=X, y=y, **vd_kwargs)
+
+            X_lbld, y_lbld = self._return_labeled_data(X=X, y=y)
+            if X_lbld is not None and y_lbld is not None:
+                self.neural_net_.partial_fit(X_lbld, y_lbld, **fit_params)
+            return self
+
+        @abstractmethod
+        def _net_parts(self, X, y):
+            """
+            Assemble and validate network components.
+
+            Implementations should perform any optional checks or normalization
+            of constructor/init parameters (e.g., shape consistency, dtype
+            checks, wrapping criteria), then return the ready-to-use pieces for
+            ``skorch.NeuralNet``.
+
+            Parameters
+            ----------
+            X : array-like of shape (n_samples, ...), default=None
+                Input samples for optional validation.
+            y : array-like of shape (n_samples, ...), default=None
+                Target values for optional validation.
+
+            Returns
+            -------
+            module : torch.nn.Module or Callable[..., torch.nn.Module]
+                The classification/regression module or a factory returning it.
+            criterion : Callable or torch.nn.Module
+                The loss used by the internal network. May be pre-wrapped to
+                handle tuple targets or other conventions.
+            params : dict
+                Keyword arguments for ``skorch.NeuralNet`` construction. Must be a
+                mapping; may be empty.
+
+            Raises
+            ------
+            ValueError
+                If inferred hyperparameters are inconsistent (e.g., classifier
+                output dimension mismatches ``n_classes``).
+            TypeError
+                If any provided argument has an unexpected type.
+            """
+            raise NotImplementedError
+
+        @abstractmethod
+        def _validate_data_kwargs(self):
+            """
+            Return kwargs forwarded to ``_validate_data``.
+
+            Returns
+            -------
+            kwargs : dict or None
+                Keyword arguments consumed by ``_validate_data``.
+            """
+            raise NotImplementedError
+
+        @abstractmethod
+        def _validate_data(self, X, y, **kwargs):
+            """
+            Validate inputs and return cleaned arrays.
+
+            Parameters
+            ----------
+            X : array-like of shape (n_samples, ...)
+                Input samples.
+            y : array-like of shape (n_samples, ...)
+                Target values.
+            **kwargs
+                Additional arguments controlling validation.
+
+            Returns
+            -------
+            X_out : ndarray
+                Validated ``X``.
+            y_out : ndarray
+                Validated ``y``.
+            sample_weight_or_dummy : Any
+                Third return to maintain compatibility with callers expecting
+                sample weights.
+            """
+            raise NotImplementedError
+
+        @abstractmethod
+        def _return_labeled_data(self, X, y):
+            """
+            Return only labeled samples.
+
+            Parameters
+            ----------
+            X : array-like of shape (n_samples, ...)
+                Input samples.
+            y : array-like of shape (n_samples, ...)
+                Targets with unlabeled entries following the subclass'
+                convention.
+
+            Returns
+            -------
+            X_lbld : ndarray or None
+                Labeled inputs or ``None`` if none exist.
+            y_lbld : ndarray or None
+                Corresponding labeled targets or ``None`` if none exist.
+            """
+            raise NotImplementedError

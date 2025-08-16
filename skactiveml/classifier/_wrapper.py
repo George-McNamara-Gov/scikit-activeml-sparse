@@ -16,17 +16,6 @@ from sklearn.utils.validation import (
     has_fit_parameter,
 )
 
-successful_skorch_torch_import = False
-try:
-    from torch import nn
-    from skorch import NeuralNet
-    from skorch.utils import to_numpy
-    from skactiveml.utils import make_criterion_tuple_aware
-
-    successful_skorch_torch_import = True
-except ImportError:  # pragma: no cover
-    pass
-
 from sklearn.utils import check_consistent_length
 from sklearn.exceptions import NotFittedError
 
@@ -44,6 +33,18 @@ from ..utils import (
     match_signature,
     check_n_features,
 )
+
+successful_skorch_torch_import = False
+try:
+    from torch import nn
+    from skorch import NeuralNet
+    from skorch.utils import to_numpy
+    from skactiveml.base import SkorchMixin
+    from skactiveml.utils import make_criterion_tuple_aware
+
+    successful_skorch_torch_import = True
+except ImportError:  # pragma: no cover
+    pass
 
 
 class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
@@ -742,11 +743,11 @@ class SlidingWindowClassifier(SkactivemlClassifier, MetaEstimatorMixin):
 
 if successful_skorch_torch_import:
 
-    class SkorchClassifier(SkactivemlClassifier):
+    class SkorchClassifier(SkactivemlClassifier, SkorchMixin):
         """SkorchClassifier
 
-        Implement a wrapper class, to make it possible to use `PyTorch` with
-        `skactiveml`. This is achieved by providing a wrapper around `PyTorch`
+        Implement a wrapper class, to make it possible to use `torch` with
+        `skactiveml`. This is achieved by providing a wrapper around `torch`
         that has a `skactiveml` interface and also be able to handle missing
         labels. This wrapper is based on the open-source library `skorch` [1]_.
 
@@ -781,10 +782,11 @@ if successful_skorch_torch_import:
             the full output `module.forward`.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
-            `neural_net_param_dict` is `None`, no additional arguments are added.
+            `neural_net_param_dict` is `None`, no additional arguments are
+            added.
         sample_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `sample_dtype` is None,
-            the datatype is preserved.
+            The type or typecode all data is casted to. If `sample_dtype` is
+            None, the datatype is preserved.
         classes : array-like of shape (n_classes,), default=None
             Holds the label for each class. If none, the classes are determined
             during the fit.
@@ -877,52 +879,7 @@ if successful_skorch_torch_import:
             self: SkorchClassifier,
                 The SkorchClassifier is fitted on the training data.
             """
-
             return self._fit("partial_fit", X, y, **fit_params)
-
-        def _fit(self, fit_function, X, y, **fit_params):
-            """Initialize and fit the module.
-
-            If the module was already initialized, by calling fit, the module
-            will be re-initialized
-            (unless `neural_net_param_dict["warm_start"]=True`).
-
-            Parameters
-            ----------
-            X : matrix-like, shape (n_samples, n_features)
-                Training data set, usually complete, i.e. including the labeled
-                and unlabeled samples
-            y : array-like of shape (n_samples, )
-                Labels of the training data set (possibly including unlabeled
-                ones indicated by self.missing_label)
-            fit_params : dict-like
-                Further parameters as input to the 'fit' method of the
-                'estimator'.
-
-            Returns
-            -------
-            self: SkorchClassifier,
-                The SkorchClassifier is fitted on the training data.
-            """
-            # Check input parameters.
-            X, y, sample_weight = self._validate_data(
-                X=X, y=y, check_X_dict=self._check_X_dict
-            )
-
-            # Initialize module, if not done yet
-            # or if `fit` is called, while `warm_start` is deactivated.
-            if not hasattr(self, "neural_net_") or (
-                fit_function == "fit" and not self.neural_net_.warm_start
-            ):
-                self.initialize()
-
-            # Fit only on labeled data.
-            is_lbld = is_labeled(y, missing_label=-1)
-            if np.sum(is_lbld) > 0:
-                X_lbld = X[is_lbld]
-                y_lbld = y[is_lbld].astype(np.int64)
-                self.neural_net_.partial_fit(X_lbld, y_lbld, **fit_params)
-            return self
 
         def predict(self, X, return_embeddings=False):
             """Return class label predictions for the test samples `X`.
@@ -974,20 +931,18 @@ if successful_skorch_torch_import:
                 Sample embeddings, which are only returned if
                 `return_embeddings=True`.
             """
+            # Initialize module, if not done yet.
+            if not hasattr(self, "neural_net_"):
+                self.initialize()
+
             # Check input parameters.
-            if not hasattr(self, "random_state_"):
-                self.random_state_ = check_random_state(self.random_state)
-            X = check_array(X, **self._check_X_dict)
+            X = check_array(X, **self.check_X_dict_)
             check_n_features(
                 self, X, reset=not hasattr(self, "n_features_in_")
             )
             check_scalar(
                 return_embeddings, name="return_embeddings", target_type=bool
             )
-
-            # Initialize module, if not done yet.
-            if not hasattr(self, "neural_net_"):
-                self.initialize()
 
             if not return_embeddings:
                 P = self.neural_net_.predict_proba(X)
@@ -1012,24 +967,105 @@ if successful_skorch_torch_import:
 
             return out
 
-        def initialize(self):
-            """Initialize the internal `sklearn` wrapper from `skorch`."""
-            neural_net_param_dict = self.neural_net_param_dict
-            if neural_net_param_dict is None:
-                neural_net_param_dict = {}
+        def _net_parts(self, X, y):
+            """
+            Assemble and validate network components.
 
+            Implementations should perform any optional checks or normalization of
+            constructor/init parameters (e.g., shape consistency, dtype checks,
+            wrapping criteria), then return the ready-to-use pieces for
+            ``skorch.NeuralNet``.
+
+            Returns
+            -------
+            module : torch.nn.Module or Callable[..., torch.nn.Module]
+                The classification/regression module or a factory returning it.
+            criterion : Callable or torch.nn.Module
+                The loss used by the internal network. May be pre-wrapped to
+                handle tuple targets or other conventions.
+            params : dict
+                Keyword arguments for ``skorch.NeuralNet`` construction. Must be a
+                mapping; may be empty.
+
+            Raises
+            ------
+            ValueError
+                If inferred hyperparameters are inconsistent (e.g., classifier
+                output dimension mismatches ``n_classes``).
+            TypeError
+                If any provided argument has an unexpected type.
+            """
             criterion = self.criterion
             if self.filter_criterion_input:
                 criterion = make_criterion_tuple_aware(criterion)
-            self.neural_net_ = NeuralNet(
-                module=self.module,
-                criterion=criterion,
-                **neural_net_param_dict,
-            ).initialize()
+            return self.module, criterion, self.neural_net_param_dict or {}
+
+        def _validate_data_kwargs(self):
+            """
+            Return kwargs forwarded to ``_validate_data``.
+
+            Returns
+            -------
+            kwargs : dict or None
+                Keyword arguments consumed by ``_validate_data``.
+            """
+            self.check_X_dict_ = {
+                "ensure_min_samples": 0,
+                "ensure_min_features": 0,
+                "allow_nd": True,
+                "dtype": self.sample_dtype,
+            }
+            return {"check_X_dict": self.check_X_dict_}
+
+        def _return_labeled_data(self, X, y):
+            """
+            Return only labeled samples.
+
+            Parameters
+            ----------
+            X : matrix-like, shape (n_samples, ...)
+                Training data set, usually complete, i.e. including the labeled
+                and unlabeled samples
+            y : array-like of shape (n_samples, )
+                Labels of the training data set (possibly including unlabeled
+                ones indicated by `-1`).
+
+            Returns
+            -------
+            X_lbld : ndarray or None
+                Labeled inputs or ``None`` if none exist.
+            y_lbld : ndarray or None
+                Corresponding labeled targets or ``None`` if none exist.
+            """
+            X_lbld, y_lbld = None, None
+            is_lbld = is_labeled(y, missing_label=-1)
+            if np.sum(is_lbld) > 0:
+                X_lbld = X[is_lbld]
+                y_lbld = y[is_lbld].astype(np.int64)
+            return X_lbld, y_lbld
 
         def _initialize_fallbacks(self, P):
             """
-            Initialize fallbacks if the classifier hasn't been fitted before.
+            Initialize label/cost fallbacks if the classifier was not fitted
+            before.
+
+            Parameters
+            ----------
+            P : array-like of shape (n_samples, n_classes)
+                Class-probability array used only to infer ``n_classes`` when
+                ``self.classes`` is ``None``.
+
+
+            Notes
+            -----
+            Side effects:
+                - Sets ``self._le`` to an ``ExtLabelEncoder`` and fits it on
+                  ``self.classes`` if available, otherwise on
+                  ``arange(P.shape[-1])``.
+                - Sets ``self.classes_`` from the fitted encoder.
+                - Sets ``self.cost_matrix_`` to a 0/1 loss
+                  ``(1 - I_n)`` if ``self.cost_matrix`` is ``None``, otherwise
+                  uses ``self.cost_matrix``.
             """
             if not hasattr(self, "_le"):
                 self._le = ExtLabelEncoder(
@@ -1050,7 +1086,32 @@ if successful_skorch_torch_import:
 
         def _transform_predict_proba_output(self, predict_dict):
             """
-            Transform class probabilities to class predictions.
+            Convert class probabilities into class predictions
+            (cost-sensitive argmin).
+
+            Parameters
+            ----------
+            predict_dict : dict
+                Keyword arguments forwarded to
+                ``self.predict_proba(**predict_dict)``.
+
+            Returns
+            -------
+            y_pred : ndarray of shape (n_samples,)
+                Predicted class labels (inverse-transformed to original label
+                space).
+            out : tuple
+                If ``predict_proba`` returns a tuple, the result is a tuple
+                where the first element is ``y_pred`` and the remaining elements
+                are passed through unchanged.
+
+            Notes
+            -----
+            - Expected costs are computed as ``P @ cost_matrix_``; ties are
+              broken by
+              ``rand_argmin(..., axis=1, random_state=self.random_state_)``.
+            - Requires ``self._le`` and ``self.cost_matrix_`` to be initialized,
+              e.g., via ``_initialize_fallbacks`` or a prior fit.
             """
             out = self.predict_proba(**predict_dict)
             P = out[0] if isinstance(out, tuple) else out
@@ -1065,20 +1126,3 @@ if successful_skorch_torch_import:
                 return (y_pred,) + out[1:]
             else:
                 return y_pred
-
-        @property
-        def _check_X_dict(self):
-            """
-            Defines the dictionary for checking the input samples `X`.
-
-            Returns
-            -------
-            check_X_dict : dict
-                Dictionary of parameters for checking input samples `X`.
-            """
-            return {
-                "ensure_min_samples": 0,
-                "ensure_min_features": 0,
-                "allow_nd": True,
-                "dtype": self.sample_dtype,
-            }
