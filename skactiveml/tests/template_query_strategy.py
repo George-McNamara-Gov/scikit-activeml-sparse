@@ -372,7 +372,10 @@ class TemplatePoolQueryStrategy(TemplateQueryStrategy):
             (True, False, self.query_default_params_reg),
         ]:
             if query_params is not None:
-                ulbd_idx = unlabeled_indices(query_params["y"])
+                ulbd_idx = unlabeled_indices(
+                    query_params["y"],
+                    missing_label=self.init_default_params["missing_label"],
+                )
                 cases = test_cases + [
                     (np.nan, ValueError),
                     (Dummy, TypeError),
