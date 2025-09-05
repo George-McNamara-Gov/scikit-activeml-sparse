@@ -17,7 +17,18 @@ from skactiveml.base import (
     ProbabilisticRegressor,
 )
 from skactiveml.exceptions import MappingError
+from skactiveml.regressor._wrapper import SkorchRegressor
 from skactiveml.utils import MISSING_LABEL, is_unlabeled
+
+successful_skorch_torch_import = False
+try:
+    from torch import nn
+    from skorch import NeuralNet
+    from skactiveml.base import SkorchMixin
+
+    successful_skorch_torch_import = True
+except ImportError:  # pragma: no cover
+    pass
 
 
 class QueryStrategyTest(unittest.TestCase):
@@ -400,3 +411,29 @@ class TargetDistributionEstimatorTest(unittest.TestCase):
         self.assertRaises(
             NotImplementedError, self.reg.predict_target_distribution, X=None
         )
+
+
+if successful_skorch_torch_import:
+
+    class TestSkorchMixin(unittest.TestCase):
+        @patch.multiple(SkorchMixin, __abstractmethods__=set())
+        def setUp(self):
+            self.sk = SkorchMixin()
+
+        def test__net_parts(self):
+            self.assertRaises(
+                NotImplementedError, self.sk._net_parts, X=None, y=None
+            )
+
+        def test__validate_data_kwargs(self):
+            self.assertRaises(
+                NotImplementedError, self.sk._validate_data_kwargs
+            )
+
+        def test__return_labeled_data(self):
+            self.assertRaises(
+                NotImplementedError,
+                self.sk._return_labeled_data,
+                X=None,
+                y=None,
+            )

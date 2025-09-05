@@ -765,21 +765,21 @@ if successful_skorch_torch_import:
         Parameters
         ----------
         module : torch module (class or instance)
-            A PyTorch :class:`~torch.nn.Module`. In general, the uninstantiated
+            A PyTorch `torch.nn.Module`. In general, the uninstantiated
             class should be passed, although instantiated modules will also
             work.
         criterion : torch.nn.Module.__class__, default=torch.nn.NLLoss
             The uninitialized criterion (loss) used to optimize the module. By
             default, `torch.nn.NLLoss` is used as criterion.
         filter_criterion_input : bool, default=True
-            - If True, this flag ensures criteria expecting tensors as input,
-            e.g., `nn.CrossEntropyLoss`, work with implementations of the
-            `module.forward` methods outputting tuples, e.g., where the first
-            element corresponds to the class predictions (probabilities,
-            logits, etc.) and the second element is a tensor of embeddings
-            (cf. `return_embeddings` in `predict_proba`).
-            - If False, the criterion is used as is and must be able to process
-            the full output `module.forward`.
+            - If `True`, this flag ensures criteria expecting tensors as input,
+              e.g., `nn.CrossEntropyLoss`, work with implementations of the
+              `module.forward` methods outputting tuples, e.g., where the first
+              element corresponds to the class predictions (probabilities,
+              logits, etc.) and the second element is a tensor of embeddings
+              (cf. `return_embeddings` in `predict_proba`).
+            - If `False`, the criterion is used as is and must be able to
+              process the full output `module.forward`.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no additional arguments are
@@ -876,8 +876,8 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            self: SkorchClassifier,
-                The SkorchClassifier is fitted on the training data.
+            self: SkorchClassifier
+                The `SkorchClassifier` is fitted on the training data.
             """
             return self._fit("partial_fit", X, y, **fit_params)
 
@@ -886,7 +886,7 @@ if successful_skorch_torch_import:
 
             Parameters
             ----------
-            X :  array-like of shape (n_samples, n_features)
+            X :  array-like of shape (n_samples, ...)
                 Input samples.
             return_embeddings : boolean, default=False
                 If `return_embeddings=True`, the forward method of the neural
@@ -913,7 +913,7 @@ if successful_skorch_torch_import:
 
             Parameters
             ----------
-            X : array-like of shape (n_samples, n_features)
+            X : array-like of shape (n_samples, ...)
                 Test samples.
             return_embeddings : boolean, default=False
                 If `return_embeddings=True`, the forward method of the neural
@@ -971,9 +971,9 @@ if successful_skorch_torch_import:
             """
             Assemble and validate network components.
 
-            Implementations should perform any optional checks or normalization of
-            constructor/init parameters (e.g., shape consistency, dtype checks,
-            wrapping criteria), then return the ready-to-use pieces for
+            Implementations should perform any optional checks or normalization
+            of constructor/init parameters (e.g., shape consistency, dtype
+            checks, wrapping criteria), then return the ready-to-use pieces for
             ``skorch.NeuralNet``.
 
             Returns
@@ -1054,7 +1054,6 @@ if successful_skorch_torch_import:
             P : array-like of shape (n_samples, n_classes)
                 Class-probability array used only to infer ``n_classes`` when
                 ``self.classes`` is ``None``.
-
 
             Notes
             -----

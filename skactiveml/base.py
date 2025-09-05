@@ -3,11 +3,11 @@ The :mod:`skactiveml.base` package implements the base classes for
 :mod:`skactiveml`.
 """
 
-import warnings
-from abc import ABC, abstractmethod, abstractproperty
-from copy import deepcopy
-
 import numpy as np
+import warnings
+
+from abc import ABC, abstractmethod
+from copy import deepcopy
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.metrics import accuracy_score
 from sklearn.utils.multiclass import check_classification_targets
@@ -60,8 +60,6 @@ try:
     successful_skorch_torch_import = True
 except ImportError:  # pragma: no cover
     pass
-
-# '__all__' is necessary to create the sphinx docs.
 
 
 class QueryStrategy(ABC, BaseEstimator):
@@ -1616,7 +1614,8 @@ if successful_skorch_torch_import:
 
     class SkorchMixin(ABC):
         """
-        Minimal mixin to build and train a ``skorch.NeuralNet`` with strict hooks.
+        Minimal mixin to build and train a ``skorch.NeuralNet`` with strict
+        hooks.
 
         Subclasses must implement the hook methods to provide the module,
         criterion, validation kwargs, and label filtering. This mixin always
@@ -1668,7 +1667,7 @@ if successful_skorch_torch_import:
                 X, y, _ = self._validate_data(X=X, y=y, **vd_kwargs)
 
             module, criterion, nn_params = self._net_parts(X=X, y=y)
-            check_type(nn_params, "neural_net_param_dict", dict)  # defensive
+            check_type(nn_params, "neural_net_param_dict", dict)
             nn_params = dict(nn_params)  # defensive copy
 
             self.neural_net_ = NeuralNet(
@@ -1758,8 +1757,8 @@ if successful_skorch_torch_import:
                 The loss used by the internal network. May be pre-wrapped to
                 handle tuple targets or other conventions.
             params : dict
-                Keyword arguments for ``skorch.NeuralNet`` construction. Must be a
-                mapping; may be empty.
+                Keyword arguments for ``skorch.NeuralNet`` construction. Must be
+                a mapping and may be empty.
 
             Raises
             ------

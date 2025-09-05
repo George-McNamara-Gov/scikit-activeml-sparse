@@ -9,6 +9,7 @@ from makefun import with_signature
 successful_skorch_torch_import = False
 try:
     from torch import nn
+    from typing import Type
     from skorch import NeuralNet
     from skorch.utils import to_numpy
 
@@ -173,20 +174,33 @@ if successful_skorch_torch_import:
 
     def make_criterion_tuple_aware(criterion):
         """
-        Wrap a loss criterion so it gracefully ignores any extra outputs
-        (e.g. embeddings) returned by models that output tuples.
+        Create a tuple-aware loss *class* (or wrap an existing instance) that
+        ignores extra elements in a model's tuple output.
+
+        This utility generates (and caches) a dynamic subclass named
+        ``TupleAware<LossName>`` of the given base loss class. The subclass
+        overrides ``forward`` to accept an input that may be a tuple
+        (e.g., ``(logits, embeddings)``) and uses only the first element.
+        The subclass is registered in this module's namespace so that
+        pickling can resolve it reliably. If a loss *instance* is provided,
+        a deep-copied instance is returned with its ``__class__`` switched
+        to the generated subclass.
 
         Parameters
         ----------
-        criterion : Union[type[nn.Module], nn.Module]
-            • A *class* inheriting from nn.Module (e.g. nn.CrossEntropyLoss), *or*
-            • An *instance* of such a class (e.g. nn.CrossEntropyLoss()).
+        criterion : type or nn.Module
+            - Either a loss **class** (subclass of :class:`torch.nn.Module`),
+              e.g., ``nn.CrossEntropyLoss``, or
+            - a loss **instance**, e.g. ``nn.CrossEntropyLoss()``.
 
         Returns
         -------
-        Union[type[nn.Module], nn.Module]
-            If ``criterion`` was a class, a new subclass is returned.
-            If ``criterion`` was an instance, a wrapped instance is returned.
+        type or nn.Module
+            - If `criterion` is a **class**, returns the generated subclass
+              ``TupleAware<LossName>``.
+            - If `criterion` is an **instance**, returns a **new** instance
+              (deep copy) whose class is ``TupleAware<LossName>``. The original
+              instance is not modified.
         """
         if isinstance(criterion, nn.Module):
             base_cls = criterion.__class__
@@ -194,31 +208,31 @@ if successful_skorch_torch_import:
             base_cls = criterion
         else:
             raise TypeError(
-                "`criterion` must be either an nn.Module subclass or an "
-                "nn.Module instance."
+                "criterion must be an nn.Module subclass or instance."
             )
+
         cls_name = f"TupleAware{base_cls.__name__}"
 
         # Build the wrapper `forward`.
         def forward(self, input, target, *args, **kwargs):
             if isinstance(input, tuple):
                 input = input[0]
-            # Call the *original* forward on the base class, not super().
             return base_cls.forward(self, input, target, *args, **kwargs)
 
         # Keep signature/tool‑tips identical.
         forward.__signature__ = inspect.signature(base_cls.forward)
         forward.__doc__ = base_cls.forward.__doc__
 
-        # Create (or re‑use) the subclass only once per process.
-        TupleAwareCls = globals().get(cls_name)
+        # Create/reuse subclass and expose it under *this* module
+        mod = sys.modules[__name__]
+        TupleAwareCls = getattr(mod, cls_name, None)
         if TupleAwareCls is None:
             TupleAwareCls = type(
                 cls_name,
                 (base_cls,),
-                {"forward": forward, "__module__": base_cls.__module__},
+                {"forward": forward, "__module__": mod.__name__},
             )
-            globals()[cls_name] = TupleAwareCls  # needed for pickling
+            setattr(mod, cls_name, TupleAwareCls)  # makes pickle happy
 
         if isinstance(criterion, nn.Module):
             wrapped = deepcopy(criterion)

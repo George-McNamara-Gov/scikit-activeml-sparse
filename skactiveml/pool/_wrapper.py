@@ -38,6 +38,10 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
           shape `(n_candidates, n_features)`, all unlabeled data will be
           removed from `X` and `y`.
         - If `False`, `X` and `y` stay the same.
+    embed_samples_func : Callable, default=None
+        - If `embed_samples_func` is a `Callable`, it must accept the samples `X`
+        as input and return the sample-wise embeddings.
+        - If `embed_samples_func` is None, no action is performed.
     missing_label : scalar or string or np.nan or None, default=np.nan
         Value to represent a missing label.
     random_state : int or np.random.RandomState, default=None
@@ -49,6 +53,7 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
         query_strategy=None,
         max_candidates=0.1,
         exclude_non_subsample=False,
+        embed_samples_func=None,
         missing_label=MISSING_LABEL,
         random_state=None,
     ):
@@ -58,6 +63,7 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
         self.query_strategy = query_strategy
         self.max_candidates = max_candidates
         self.exclude_non_subsample = exclude_non_subsample
+        self.embed_samples_func = embed_samples_func
 
     @match_signature("query_strategy", "query")
     def query(
@@ -163,6 +169,12 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
                 f"`max_candidates` is of type `{type(self.max_candidates)}`"
                 f" but must be in `[int, float]`."
             )
+        if self.embed_samples_func is not None and not callable(
+            self.embed_samples_func
+        ):
+            raise TypeError(
+                "`embed_samples_func` must be either a `Callable` or `None`."
+            )
         random_state = check_random_state(self.random_state, seed_multiplier)
 
         # subsampling with no explicit provided candidates
@@ -224,6 +236,9 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
         else:
             new_X = X
             new_y = y
+
+        if self.embed_samples_func:
+            new_X = self.embed_samples_func(new_X)
 
         qs_output = self.query_strategy.query(
             X=new_X,
