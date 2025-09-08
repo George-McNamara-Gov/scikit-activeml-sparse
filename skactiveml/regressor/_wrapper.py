@@ -95,8 +95,7 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
 
     @match_signature("estimator", "partial_fit")
     def partial_fit(self, X, y, sample_weight=None, **fit_kwargs):
-        """Partially fitting the model using X as training data and y as class
-        labels.
+        """Partially fitting the model using X as training data and y as labels.
 
         Parameters
         ----------
@@ -197,7 +196,7 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
         check_n_features(self, X, reset=False)
         try:
             return self.estimator_.predict(X, **predict_kwargs)
-        except NotFittedError:
+        except Exception:
             warnings.warn(
                 f"Since the 'estimator' could not be fitted when"
                 f" calling the `fit` method, the label "
@@ -402,17 +401,6 @@ if successful_skorch_torch_import:
         that has a `skactiveml` interface and also be able to handle missing
         labels. This wrapper is based on the open-source library `skorch` [1]_.
 
-        Notes
-        -----
-        Adjust your `criterion` with the outputs of your `nn.Module`.
-        For example, if you use `criterion=nn.NLLLoss`, then your module is
-        expected to output log-probabilities, which can be implemented through
-        `nn.LogSoftmax(dim=1)`. To ensure that the `predict_proba` method can
-        handle these log-probabilities, you need to set
-        `"predict_nonlinearity": torch.exp` as part of the
-        `neural_net_param_dict`, which then transforms the log-probabilities to
-        actual probabilities.
-
         Parameters
         ----------
         module : torch module (class or instance)
@@ -424,19 +412,19 @@ if successful_skorch_torch_import:
             default, `torch.nn.NLLoss` is used as criterion.
         filter_criterion_input : bool, default=True
             - If True, this flag ensures criteria expecting tensors as input,
-            e.g., `nn.CrossEntropyLoss`, work with implementations of the
+            e.g., `nn.MSELoss`, work with implementations of the
             `module.forward` methods outputting tuples, e.g., where the first
-            element corresponds to the class predictions (probabilities,
-            logits, etc.) and the second element is a tensor of embeddings
-            (cf. `return_embeddings` in `predict_proba`).
+            element corresponds to the target predictions and the second element
+            is a tensor of embeddings (cf. `return_embeddings` in `predict`).
             - If False, the criterion is used as is and must be able to process
             the full output `module.forward`.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
-            `neural_net_param_dict` is `None`, no additional arguments are added.
+            `neural_net_param_dict` is `None`, no additional arguments are
+            added.
         sample_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `sample_dtype` is None,
-            the datatype is preserved.
+            The type or typecode all data is casted to. If `sample_dtype` is
+            None, the datatype is preserved.
         missing_label : scalar or string or np.nan or None, default=np.nan
             Value to represent a missing label.
         random_state : int or RandomState instance or None, default=None
@@ -490,8 +478,8 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            self: SkorchClassifier,
-                The SkorchClassifier is fitted on the training data.
+            self: SkorchRegressor,
+                The SkorchRegressor is fitted on the training data.
             """
             return self._fit("fit", X, y, **fit_params)
 
@@ -515,53 +503,10 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            self: SkorchClassifier,
-                The SkorchClassifier is fitted on the training data.
+            self: SkorchRegressor,
+                The SkorchRegressor is fitted on the training data.
             """
             return self._fit("partial_fit", X, y, **fit_params)
-
-        def _fit(self, fit_function, X, y, **fit_params):
-            """Initialize and fit the module.
-
-            If the module was already initialized, by calling fit, the module
-            will be re-initialized
-            (unless `neural_net_param_dict["warm_start"]=True`).
-
-            Parameters
-            ----------
-            X : matrix-like, shape (n_samples, n_features)
-                Training data set, usually complete, i.e. including the labeled
-                and unlabeled samples
-            y : array-like of shape (n_samples, )
-                Labels of the training data set (possibly including unlabeled
-                ones indicated by self.missing_label)
-            fit_params : dict-like
-                Further parameters as input to the 'fit' method of the
-                'estimator'.
-
-            Returns
-            -------
-            self: SkorchClassifier,
-                The SkorchClassifier is fitted on the training data.
-            """
-            # Initialize module, if not done yet
-            # or if `fit` is called, while `warm_start` is deactivated.
-            if not hasattr(self, "neural_net_") or (
-                fit_function == "fit" and not self.neural_net_.warm_start
-            ):
-                X, y = self.initialize(X=X, y=y, enforce_check_X_y=True)
-            else:
-                X, y, _ = self._validate_data(
-                    X=X, y=y, check_X_dict=self.check_X_dict_
-                )
-
-            # Fit only on labeled data.
-            is_lbld = is_labeled(y, missing_label=self.missing_label_)
-            if np.sum(is_lbld) > 0:
-                X_lbld = X[is_lbld]
-                y_lbld = y[is_lbld].astype(np.float32).reshape(-1, 1)
-                self.neural_net_.partial_fit(X_lbld, y_lbld, **fit_params)
-            return self
 
         def predict(self, X, return_embeddings=False, return_std=False):
             """Return probability estimates for the test data X.
@@ -573,15 +518,14 @@ if successful_skorch_torch_import:
             return_embeddings : boolean, default=False
                 If `return_embeddings=True`, the forward method of the neural
                 network module is expected to return multiple outputs,
-                of which the first element corresponds to the class predictions
-                (probabilities, logits, etc.) and the second element is a
-                tensor of embeddings learned by the neural network.
+                of which the first element corresponds to the target predictions
+                and the second element is a ensor of embeddings learned by the
+                neural network.
 
             Returns
             -------
-            P : numpy.ndarray of shape (n_samples, classes)
-                The class probabilities of the test samples. Classes are
-                ordered according to `self.classes_`.
+            y_pred : numpy.ndarray of shape (n_samples,)
+                The target predictions for the test samples.
             X_embed : numpy.ndarray of shape (n_samples, ...)
                 Sample embeddings, which are only returned if
                 `return_embeddings=True`.
@@ -600,90 +544,89 @@ if successful_skorch_torch_import:
             )
 
             if not return_embeddings:
-                out = self.neural_net_.predict(X)
+                out = self.neural_net_.predict(X).ravel()
             else:
                 out = self.neural_net_.forward(X)
                 if not isinstance(out, tuple):
                     raise ValueError(
-                        "`return_embeddings=True` only works when module is"
-                        "expected to return multiple outputs, of which the"
-                        "first element corresponds to the class predictions"
-                        "(probabilities, logits, etc.) and the second element"
-                        "is a tensor of embeddings."
+                        "`return_embeddings=True` only works when module is "
+                        "expected to return multiple outputs, of which the "
+                        "first element corresponds to the target predictions "
+                        "and the second element is a tensor of embeddings."
                     )
-                P = self.neural_net_._get_predict_nonlinearity()(out[0])
-                P = to_numpy(P)
+                y_pred = self.neural_net_._get_predict_nonlinearity()(out[0])
+                y_pred = to_numpy(y_pred).ravel()
                 X_embed = to_numpy(out[1])
-                out = (P, X_embed)
+                out = (y_pred, X_embed)
 
             return out
 
-        def initialize(self, X=None, y=None, enforce_check_X_y=False):
+        def _net_parts(self, X, y):
             """
-            Initialize the internal ``sklearn`` wrapper built on ``skorch``.
+            Assemble and validate network components.
 
-            Optionally validates input data and instantiates
-            ``self.neural_net_`` (a ``skorch.NeuralNet``) with the configured
-            module, criterion, and parameters. If any data is provided (``X``
-            or ``y``), the cleaned pair is returned. Otherwise, the estimator
-            instance is returned.
-
-            Parameters
-            ----------
-            X : array-like of shape (n_samples, ...), default=None
-                Input samples used for optional validation. If provided
-                (together with or without ``y``), both ``X`` and ``y`` are
-                passed to ``self._validate_data`` with ``check_X_dict_``.
-            y : array-like of shape (n_samples,), default=None
-                Target values used for optional validation. See notes on shape
-                in the estimator's data interface.
-            enforce_check_X_y : bool, default=False
-                If ``True``, run input validation even when both ``X`` and ``y``
-                are ``None``. Validation also runs automatically when either
-                ``X`` or ``y`` is provided.
+            Implementations should perform any optional checks or normalization
+            of constructor/init parameters (e.g., shape consistency, dtype
+            checks, wrapping criteria), then return the ready-to-use pieces for
+            ``skorch.NeuralNet``.
 
             Returns
             -------
-            self : object
-                The estimator instance, if no data was provided
-                (both ``X`` and ``y`` are ``None``).
-            X_out, y_out : ndarray
-                Cleaned/validated versions of ``X`` and ``y``, returned as a
-                tuple when any data was provided.
+            module : torch.nn.Module or Callable[..., torch.nn.Module]
+                The classification/regression module or a factory returning it.
+            criterion : Callable or torch.nn.Module
+                The loss used by the internal network. May be pre-wrapped to
+                handle tuple targets or other conventions.
+            net_params : dict
+                Additional keyword arguments for ``skorch.NeuralNet``
+                construction (e.g., ``optimizer``, ``callbacks``, ``device``).
+                Empty if none.
             """
-            # Check input samples and class labels.
+            criterion = self.criterion
+            if self.filter_criterion_input:
+                criterion = make_criterion_tuple_aware(criterion)
+            return self.module, criterion, self.neural_net_param_dict or {}
+
+        def _validate_data_kwargs(self):
+            """
+            Return kwargs forwarded to ``_validate_data``.
+
+            Returns
+            -------
+            kwargs : dict or None
+                Keyword arguments consumed by ``_validate_data``.
+            """
             self.check_X_dict_ = {
                 "ensure_min_samples": 0,
                 "ensure_min_features": 0,
                 "allow_nd": True,
                 "dtype": self.sample_dtype,
             }
-            if enforce_check_X_y or X is not None or y is not None:
-                X, y, _ = self._validate_data(
-                    X=X, y=y, check_X_dict=self.check_X_dict_
-                )
+            return {"check_X_dict": self.check_X_dict_}
 
-            # Check `__init__` parameters.
-            if self.neural_net_param_dict is None:
-                self.neural_net_param_dict_ = {}
-            else:
-                self.neural_net_param_dict_ = self.neural_net_param_dict
-            check_type(
-                self.neural_net_param_dict_, "neural_net_param_dict", dict
-            )
+        def _return_labeled_data(self, X, y):
+            """
+            Return only labeled samples.
 
-            # Check criterion for loss computation.
-            criterion = self.criterion
-            if self.filter_criterion_input:
-                criterion = make_criterion_tuple_aware(criterion)
+            Parameters
+            ----------
+            X : matrix-like, shape (n_samples, ...)
+                Training data set, usually complete, i.e. including the labeled
+                and unlabeled samples.
+            y : array-like of shape (n_samples, )
+                Labels of the training data set (possibly including unlabeled
+                ones indicated by self.missing_label_).
 
-            self.neural_net_ = NeuralNet(
-                module=self.module,
-                criterion=criterion,
-                **self.neural_net_param_dict_,
-            ).initialize()
-
-            if X is not None or y is not None:
-                return X, y
-            else:
-                return self
+            Returns
+            -------
+            X_lbld : ndarray or None
+                Labeled inputs or ``None`` if none exist.
+            y_lbld : ndarray or None
+                Corresponding labeled targets or ``None`` if none exist.
+            """
+            X_lbld, y_lbld = None, None
+            is_lbld = is_labeled(y, missing_label=self.missing_label_)
+            if np.sum(is_lbld) > 0:
+                X_lbld = X[is_lbld]
+                y_lbld = y[is_lbld].astype(np.float32, copy=True).reshape(-1, 1)
+            return X_lbld, y_lbld

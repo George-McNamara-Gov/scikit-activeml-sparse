@@ -951,10 +951,10 @@ if successful_skorch_torch_import:
                 out = self.neural_net_.forward(X)
                 if not isinstance(out, tuple):
                     raise ValueError(
-                        "`return_embeddings=True` only works when module is"
-                        "expected to return multiple outputs, of which the"
-                        "first element corresponds to the class predictions"
-                        "(probabilities, logits, etc.) and the second element"
+                        "`return_embeddings=True` only works when module is "
+                        "expected to return multiple outputs, of which the "
+                        "first element corresponds to the class predictions "
+                        "(probabilities, logits, etc.) and the second element "
                         "is a tensor of embeddings."
                     )
                 P = self.neural_net_._get_predict_nonlinearity()(out[0])
@@ -983,17 +983,10 @@ if successful_skorch_torch_import:
             criterion : Callable or torch.nn.Module
                 The loss used by the internal network. May be pre-wrapped to
                 handle tuple targets or other conventions.
-            params : dict
-                Keyword arguments for ``skorch.NeuralNet`` construction. Must be a
-                mapping; may be empty.
-
-            Raises
-            ------
-            ValueError
-                If inferred hyperparameters are inconsistent (e.g., classifier
-                output dimension mismatches ``n_classes``).
-            TypeError
-                If any provided argument has an unexpected type.
+            net_params : dict
+                Additional keyword arguments for ``skorch.NeuralNet``
+                construction (e.g., ``optimizer``, ``callbacks``, ``device``).
+                Empty if none.
             """
             criterion = self.criterion
             if self.filter_criterion_input:

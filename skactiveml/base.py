@@ -1759,14 +1759,6 @@ if successful_skorch_torch_import:
             params : dict
                 Keyword arguments for ``skorch.NeuralNet`` construction. Must be
                 a mapping and may be empty.
-
-            Raises
-            ------
-            ValueError
-                If inferred hyperparameters are inconsistent (e.g., classifier
-                output dimension mismatches ``n_classes``).
-            TypeError
-                If any provided argument has an unexpected type.
             """
             raise NotImplementedError
 
