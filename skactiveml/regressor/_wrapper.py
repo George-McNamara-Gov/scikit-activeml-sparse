@@ -628,5 +628,7 @@ if successful_skorch_torch_import:
             is_lbld = is_labeled(y, missing_label=self.missing_label_)
             if np.sum(is_lbld) > 0:
                 X_lbld = X[is_lbld]
-                y_lbld = y[is_lbld].astype(np.float32, copy=True).reshape(-1, 1)
+                y_lbld = (
+                    y[is_lbld].astype(np.float32, copy=True).reshape(-1, 1)
+                )
             return X_lbld, y_lbld
