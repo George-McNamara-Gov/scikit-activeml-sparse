@@ -116,7 +116,7 @@ class TestSubSamplingWrapper(
             (DummyNonQueryStrategy(), TypeError),
         ]
         self._test_param("init", "exclude_non_subsample", test_cases)
-        
+
     def test_init_param_embed_samples_func(self, test_cases=None):
         test_cases = [] if test_cases is None else test_cases
         func_valid = lambda x: x
@@ -130,7 +130,6 @@ class TestSubSamplingWrapper(
             (func_invalid, TypeError),
         ]
         self._test_param("init", "embed_samples_func", test_cases)
-
 
     def test_query_param_query_kwargs(self, test_cases=None):
         test_cases = [] if test_cases is None else test_cases

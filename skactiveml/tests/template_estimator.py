@@ -80,7 +80,7 @@ class TemplateEstimator:
         test_cases += [
             (np.nan, ValueError),
             ([1], ValueError),
-            (np.zeros((len(self.fit_default_params["y"]), 1)), None),
+            (np.full_like(self.fit_default_params["X"], 0), None),
         ]
         self._test_param("fit", "X", test_cases)
 
@@ -131,7 +131,7 @@ class TemplateEstimator:
             test_cases += [
                 (np.nan, ValueError),
                 ([1], ValueError),
-                (np.zeros((len(self.fit_default_params["y"]), 1)), None),
+                (np.full_like(self.fit_default_params["X"], 0), None),
             ]
             self._test_param(
                 "partial_fit",
@@ -713,12 +713,14 @@ class TemplateSkactivemlRegressor(TemplateEstimator):
     def test_fit_param_y(self, test_cases=None):
         test_cases = [] if test_cases is None else test_cases
         test_cases += [
-            ([np.nan, np.nan, np.nan], None),
-            ("state", TypeError),
-            (np.nan, TypeError),
-            ([1.0, 1.1, 0.9], None),
+            ([np.nan] * len(self.fit_default_params["X"]), None),
+            ([np.nan] + [1.0] * (len(self.fit_default_params["X"]) - 1), None),
         ]
-        super().test_fit_param_y(test_cases)
+        replace_init_params = {"missing_label": np.nan}
+        super().test_fit_param_y(
+            test_cases,
+            replace_init_params=replace_init_params,
+        )
         # TODO: Test schould throw a TypeError
         # Wrapper classes are failing because of
         # "numpy.core._exceptions._UFuncNoLoopError: ufunc 'add' did not
@@ -728,7 +730,10 @@ class TemplateSkactivemlRegressor(TemplateEstimator):
         # test_cases = [([1.0, "nan", 0.9], None)]
         replace_init_params = {"missing_label": "nan"}
         self._test_param(
-            "fit", "y", test_cases, replace_init_params=replace_init_params
+            "fit",
+            "y",
+            test_cases,
+            replace_init_params=replace_init_params,
         )
 
 

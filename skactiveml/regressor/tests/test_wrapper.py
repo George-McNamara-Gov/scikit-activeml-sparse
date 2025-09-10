@@ -25,8 +25,19 @@ from skactiveml.tests.template_estimator import (
     TemplateProbabilisticRegressor,
 )
 
+successful_skorch_torch_import = False
+try:
+    import torch
+    from torch import nn
+    from skactiveml.regressor import SkorchRegressor
+    from skorch.utils import to_numpy
 
-class TestWrapper(TemplateSkactivemlRegressor, unittest.TestCase):
+    successful_skorch_torch_import = True
+except ImportError:
+    pass  # pragma: no cover
+
+
+class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
     def setUp(self):
         estimator_class = SklearnRegressor
         estimator = SGDRegressor()
@@ -416,3 +427,269 @@ class TestSklearnProbabilisticRegressor(
                 pred_orig_0 = pretrained_estimator.predict(X_test)
                 pred_wrapped_0 = reg.predict(X_test)
                 np.testing.assert_array_equal(pred_orig_0, pred_wrapped_0)
+
+
+if successful_skorch_torch_import:
+
+    class TestSkorchRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
+        def setUp(self):
+            self.X, self.y_true = make_regression(
+                n_samples=200, n_features=10, random_state=0
+            )
+            self.X = self.X.astype(np.float32)
+            self.y = np.copy(self.y_true).astype(np.float32)
+            self.y[:100] = MISSING_LABEL
+            self.y_ulbld = np.full_like(self.y, fill_value=MISSING_LABEL)
+
+            estimator_class = SkorchRegressor
+            neural_net_param_dict = {
+                "train_split": None,
+                "verbose": False,
+                "optimizer": torch.optim.RAdam,
+                "device": "cpu",
+                "lr": 0.01,
+                "max_epochs": 100,
+                "batch_size": 32,
+            }
+            init_default_params = {
+                "module": TestNeuralNet,
+                "criterion": nn.HuberLoss,
+                "missing_label": MISSING_LABEL,
+                "random_state": 1,
+                "neural_net_param_dict": neural_net_param_dict,
+                "sample_dtype": np.float32,
+            }
+            fit_default_params = {
+                "X": self.X,
+                "y": self.y,
+            }
+            predict_default_params = {"X": self.X}
+            super().setUp(
+                estimator_class=estimator_class,
+                init_default_params=init_default_params,
+                fit_default_params=fit_default_params,
+                predict_default_params=predict_default_params,
+            )
+
+        def test_init_param_module(self, test_cases=None):
+            reg = SkorchRegressor(module="Test")
+            self.assertEqual(reg.module, "Test")
+
+            test_cases = [] if test_cases is None else test_cases
+            test_cases += [
+                ("Test", TypeError),
+                (None, TypeError),
+                ([("nn.Module", TestNeuralNet)], TypeError),
+            ]
+            self._test_param("init", "module", test_cases)
+
+        def test_init_param_criterion(self, test_cases=None):
+            test_cases = [] if test_cases is None else test_cases
+            test_cases += [
+                ("Test", TypeError),
+                (None, TypeError),
+                (nn.MSELoss, None),
+                (nn.HuberLoss, None),
+                (nn.MSELoss(), None),
+                (nn.HuberLoss(), None),
+            ]
+            self._test_param("init", "criterion", test_cases)
+
+        def test_fit(self):
+            # Check standard fitting cases.
+            reg = SkorchRegressor(**self.init_default_params)
+            self.assertRaises(NotFittedError, check_is_fitted, reg)
+            reg.fit(self.X, self.y)
+            check_is_fitted(reg)
+
+            # Check fitting without `warm_restart`.
+            init_default_params1 = self.init_default_params.copy()
+            init_default_params1["neural_net_param_dict"]["warm_start"] = False
+            reg = SkorchRegressor(**init_default_params1)
+            reg.fit(self.X, self.y_ulbld)
+            init_weights = to_numpy(
+                deepcopy(reg.neural_net_.module_.input_to_hidden.weight)
+            )
+            reg.fit(self.X, self.y_ulbld)
+            new_weights = to_numpy(
+                deepcopy(reg.neural_net_.module_.input_to_hidden.weight)
+            )
+            self.assertRaises(
+                AssertionError,
+                np.testing.assert_array_equal,
+                init_weights,
+                new_weights,
+            )
+
+            # Check fitting with `warm_restart`.
+            init_default_params2 = self.init_default_params.copy()
+            init_default_params2["neural_net_param_dict"]["warm_start"] = True
+            reg = SkorchRegressor(**init_default_params2)
+            self.assertRaises(NotFittedError, check_is_fitted, reg)
+            reg.fit(self.X, self.y_ulbld)
+            check_is_fitted(reg)
+            init_weights = to_numpy(
+                deepcopy(reg.neural_net_.module_.input_to_hidden.weight)
+            )
+            reg.fit(self.X, self.y_ulbld)
+            new_weights = to_numpy(
+                deepcopy(reg.neural_net_.module_.input_to_hidden.weight)
+            )
+            np.testing.assert_array_equal(init_weights, new_weights)
+            reg.fit(self.X, self.y)
+            new_weights = to_numpy(
+                deepcopy(reg.neural_net_.module_.input_to_hidden.weight)
+            )
+            self.assertRaises(
+                AssertionError,
+                np.testing.assert_array_equal,
+                init_weights,
+                new_weights,
+            )
+
+            # Setup for initialized Pytorch module as input.
+            init_default_params3 = self.init_default_params.copy()
+            reg_module = TestNeuralNet()
+            init_weights = to_numpy(
+                deepcopy(reg_module.input_to_hidden.weight)
+            )
+            init_default_params3["module"] = reg_module
+            reg = SkorchRegressor(**init_default_params3)
+
+            # Fitting with only unlabeled data must preserve weights.
+            reg.fit(self.X, self.y_ulbld)
+            new_weights = to_numpy(deepcopy(reg_module.input_to_hidden.weight))
+            np.testing.assert_array_equal(init_weights, new_weights)
+
+            # Fitting with partially label data must change weights.
+            reg.fit(self.X, self.y)
+            new_weights = to_numpy(
+                deepcopy(reg.neural_net_.module_.input_to_hidden.weight)
+            )
+            self.assertRaises(
+                AssertionError,
+                np.testing.assert_array_equal,
+                init_weights,
+                new_weights,
+            )
+
+        def test_partial_fit(self):
+            reg = SkorchRegressor(**self.init_default_params)
+            self.assertRaises(NotFittedError, check_is_fitted, reg)
+            reg.partial_fit(self.X, self.y)
+            check_is_fitted(reg)
+
+            init_default_params2 = self.init_default_params.copy()
+            reg = SkorchRegressor(**init_default_params2)
+            self.assertRaises(NotFittedError, check_is_fitted, reg)
+            reg.partial_fit(self.X, self.y_ulbld)
+            reg.partial_fit(self.X, self.y)
+            check_is_fitted(reg)
+
+            y_pred_0 = reg.predict(self.X)
+            reg.partial_fit(self.X, self.y_ulbld)
+            y_pred_1 = reg.predict(self.X)
+            np.testing.assert_almost_equal(y_pred_0, y_pred_1)
+
+        def test_predict(self):
+            reg = SkorchRegressor(**self.init_default_params)
+            y_pred, X_embed = reg.predict(self.X, return_embeddings=True)
+            self.assertEqual(len(y_pred), len(self.X))
+            self.assertTrue(X_embed.shape[1], 2)
+            init_default_params = self.init_default_params.copy()
+            reg = SkorchRegressor(**init_default_params)
+            y_pred_0 = reg.predict(self.X)
+            reg.partial_fit(self.X, self.y_ulbld)
+            y_pred_1 = reg.predict(self.X)
+            np.testing.assert_almost_equal(y_pred_0, y_pred_1)
+            reg.fit(self.X, self.y)
+            self.assertGreaterEqual(reg.score(self.X, self.y_true), 0.9)
+
+        def test_init_param_sample_dtype(self):
+            test_cases = [
+                (None, None),
+                (np.float32, None),
+                (np.int32, RuntimeError),
+            ]
+            self._test_param("init", "sample_dtype", test_cases)
+
+        def test_init_param_neural_net_param_dict(self):
+            default_dict = self.init_default_params["neural_net_param_dict"]
+            test_cases = [
+                (None, None),
+                (default_dict, None),
+                (default_dict, None),
+                (np.int32, TypeError),
+                ("a", TypeError),
+                ({"abcdefg": 0}, ValueError),
+            ]
+            self._test_param("init", "neural_net_param_dict", test_cases)
+
+        def test_init_param_filter_criterion_input(self):
+            test_cases = [
+                (True, None),
+                (False, AttributeError),
+            ]
+            self._test_param("init", "filter_criterion_input", test_cases)
+            test_cases = [
+                (False, None),
+            ]
+            default_dict = deepcopy(
+                self.init_default_params["neural_net_param_dict"]
+            )
+            default_dict["module__return_embeddings"] = False
+            self._test_param(
+                "init",
+                "filter_criterion_input",
+                test_cases,
+                replace_init_params={"neural_net_param_dict": default_dict},
+            )
+
+        def test_predict_param_return_embeddings(self):
+            test_cases = [
+                ("a", TypeError),
+                (None, TypeError),
+                (True, None),
+                (False, None),
+            ]
+            self._test_param(
+                "predict",
+                "return_embeddings",
+                test_cases,
+                extras_params={"X": self.X},
+            )
+            test_cases = [(True, ValueError), (False, None)]
+            default_dict = deepcopy(
+                self.init_default_params["neural_net_param_dict"]
+            )
+            default_dict["module__return_embeddings"] = False
+            self._test_param(
+                "predict",
+                "return_embeddings",
+                test_cases,
+                extras_params={"X": self.X},
+                replace_init_params={"neural_net_param_dict": default_dict},
+            )
+
+    class TestNeuralNet(nn.Module):
+        def __init__(self, return_embeddings=True):
+            super().__init__()
+            self.return_embeddings = return_embeddings
+            self.input_to_hidden = nn.Linear(
+                in_features=10,
+                out_features=128,
+                bias=True,
+                dtype=torch.float32,
+            )
+            self.hidden_to_output = nn.Linear(
+                in_features=128, out_features=1, bias=True, dtype=torch.float32
+            )
+
+        def forward(self, X):
+            hidden = self.input_to_hidden(X)
+            hidden = torch.relu(hidden)
+            output_values = self.hidden_to_output(hidden)
+            if self.return_embeddings:
+                return output_values, hidden
+            else:
+                return output_values

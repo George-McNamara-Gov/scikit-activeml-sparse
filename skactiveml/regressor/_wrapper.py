@@ -508,7 +508,7 @@ if successful_skorch_torch_import:
             """
             return self._fit("partial_fit", X, y, **fit_params)
 
-        def predict(self, X, return_embeddings=False, return_std=False):
+        def predict(self, X, return_embeddings=False):
             """Return probability estimates for the test data X.
 
             Parameters
