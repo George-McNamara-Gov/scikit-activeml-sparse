@@ -308,7 +308,7 @@ class TestSklearnClassifier(TemplateSkactivemlClassifier, unittest.TestCase):
             np.testing.assert_array_equal(pred_orig_1, pred_wrapped_1)
 
             # check that it fails when classes of estimator was trained on
-            # different classes than profided to the `classes` parameter of
+            # different classes than provided to the `classes` parameter of
             # SklearnClassifier
             if not isinstance(missing_label, float):
                 self.assertRaises(TypeError, clf.fit, X_train, y_train_true)
@@ -1112,20 +1112,25 @@ if successful_skorch_torch_import:
 
         def test_predict_proba(self):
             clf = SkorchClassifier(**self.init_default_params)
-            proba, X_embed = clf.predict_proba(self.X, return_embeddings=True)
-            self.assertTrue((proba.sum(axis=-1).round(3) == 1).all())
+            P_class, L_class, X_embed = clf.predict_proba(
+                self.X, return_logits=True, return_embeddings=True
+            )
+            self.assertTrue((P_class.sum(axis=-1).round(3) == 1).all())
+            self.assertTrue((P_class > +0).all())
+            np.testing.assert_array_equal(L_class.shape, (len(self.X), 2))
+            self.assertTrue((L_class < 0).any())
             self.assertTrue(X_embed.shape[1], 2)
             init_default_params = self.init_default_params.copy()
             init_default_params["classes"] = [0, 1]
             clf = SkorchClassifier(**init_default_params)
-            predict_proba_0 = clf.predict_proba(self.X)
+            P_class_0 = clf.predict_proba(self.X)
             clf.partial_fit(self.X, self.y_ulbld)
-            predict_proba_1 = clf.predict_proba(self.X)
-            np.testing.assert_almost_equal(predict_proba_0, predict_proba_1)
+            P_class_1 = clf.predict_proba(self.X)
+            np.testing.assert_almost_equal(P_class_0, P_class_1)
             clf.fit(self.X, self.y)
-            predict_proba_2 = clf.predict_proba(self.X)
-            self.assertEqual(len(predict_proba_2), len(self.X))
-            self.assertEqual(predict_proba_2.shape[1], 2)
+            P_class_2 = clf.predict_proba(self.X)
+            self.assertEqual(len(P_class_2), len(self.X))
+            self.assertEqual(P_class_2.shape[1], 2)
 
         def test_init_param_sample_dtype(self):
             test_cases = [
@@ -1193,6 +1198,20 @@ if successful_skorch_torch_import:
                 replace_init_params={"neural_net_param_dict": default_dict},
             )
 
+        def test_predict_proba_param_return_logits(self):
+            test_cases = [
+                ("a", TypeError),
+                (None, TypeError),
+                (True, None),
+                (False, None),
+            ]
+            self._test_param(
+                "predict_proba",
+                "return_logits",
+                test_cases,
+                extras_params={"X": self.X},
+            )
+
         def test_predict_param_return_embeddings(self):
             test_cases = [
                 ("a", TypeError),
@@ -1203,6 +1222,20 @@ if successful_skorch_torch_import:
             self._test_param(
                 "predict",
                 "return_embeddings",
+                test_cases,
+                extras_params={"X": self.X},
+            )
+
+        def test_predict_param_return_logits(self):
+            test_cases = [
+                ("a", TypeError),
+                (None, TypeError),
+                (True, None),
+                (False, None),
+            ]
+            self._test_param(
+                "predict",
+                "return_logits",
                 test_cases,
                 extras_params={"X": self.X},
             )

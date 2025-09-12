@@ -881,13 +881,22 @@ if successful_skorch_torch_import:
             """
             return self._fit("partial_fit", X, y, **fit_params)
 
-        def predict(self, X, return_embeddings=False):
+        def predict(self, X, return_logits=False, return_embeddings=False):
             """Return class label predictions for the test samples `X`.
+            Optionally, a tuple is returned whose elements appear in this exact
+            order if they were requested:
+
+            (0) `y_pred` – always returned,
+            (1) `L` – if `return_logits=True`,
+            (2) `X_embed`  – if `return_embeddings=True`.
 
             Parameters
             ----------
             X :  array-like of shape (n_samples, ...)
                 Input samples.
+            return_logits : bool, default=False
+                If `return_logits=True`, the forward method of the neural
+                network module is expected to return logits as first element.
             return_embeddings : boolean, default=False
                 If `return_embeddings=True`, the forward method of the neural
                 network module is expected to return multiple outputs,
@@ -899,6 +908,10 @@ if successful_skorch_torch_import:
             -------
             y : numpy.ndarray of shape (n_samples,)
                 Predicted class labels of the test samples `X`.
+            L : numpy.ndarray of shape (n_samples, n_classes)
+                The class logits of the test samples, which are only returned if
+                `return_logits=True`. Classes are ordered according to
+                `self.classes_`.
             X_embed : numpy.ndarray of shape (n_samples, ...)
                 Sample embeddings, which are only returned if
                 `return_embeddings=True`.
@@ -908,13 +921,24 @@ if successful_skorch_torch_import:
                 predict_dict=predict_dict
             )
 
-        def predict_proba(self, X, return_embeddings=False):
-            """Return probability estimates for the test data X.
+        def predict_proba(
+            self, X, return_logits=False, return_embeddings=False
+        ):
+            """Return probability estimates for the test data X. Optionally, a
+            tuple is returned whose elements appear in this exact order if they
+            were requested:
+
+            (0) `P` – always returned,
+            (1) `L` – if `return_logits=True`,
+            (2) `X_embed`  – if `return_embeddings=True`.
 
             Parameters
             ----------
             X : array-like of shape (n_samples, ...)
                 Test samples.
+            return_logits : bool, default=False
+                If `return_logits=True`, the forward method of the neural
+                network module is expected to return logits as first element.
             return_embeddings : boolean, default=False
                 If `return_embeddings=True`, the forward method of the neural
                 network module is expected to return multiple outputs,
@@ -927,6 +951,10 @@ if successful_skorch_torch_import:
             P : numpy.ndarray of shape (n_samples, classes)
                 The class probabilities of the test samples. Classes are
                 ordered according to `self.classes_`.
+            L : numpy.ndarray of shape (n_samples, n_classes)
+                The class logits of the test samples, which are only returned if
+                `return_logits=True`. Classes are ordered according to
+                `self.classes_`.
             X_embed : numpy.ndarray of shape (n_samples, ...)
                 Sample embeddings, which are only returned if
                 `return_embeddings=True`.
@@ -943,13 +971,21 @@ if successful_skorch_torch_import:
             check_scalar(
                 return_embeddings, name="return_embeddings", target_type=bool
             )
+            check_scalar(return_logits, name="return_logits", target_type=bool)
 
-            if not return_embeddings:
+            # Fast path: probabilities only.
+            if not (return_logits or return_embeddings):
                 P = self.neural_net_.predict_proba(X)
-                out = P
+                self._initialize_fallbacks(P=P)
+                return P
+
+            # Class forward of module.
+            fw_out = self.neural_net_.forward(X)
+            if isinstance(fw_out, tuple):
+                L, X_embed = fw_out[0], fw_out[1]
             else:
-                out = self.neural_net_.forward(X)
-                if not isinstance(out, tuple):
+                L, X_embed = fw_out, None
+                if return_embeddings:
                     raise ValueError(
                         "`return_embeddings=True` only works when module is "
                         "expected to return multiple outputs, of which the "
@@ -957,15 +993,20 @@ if successful_skorch_torch_import:
                         "(probabilities, logits, etc.) and the second element "
                         "is a tensor of embeddings."
                     )
-                P = self.neural_net_._get_predict_nonlinearity()(out[0])
-                P = to_numpy(P)
-                X_embed = to_numpy(out[1])
-                out = (P, X_embed)
 
-            # Initialize fallbacks if the classifier hasn't been fitted before.
+            # Convert logits to probabilities via the net's configured nonlinearity.
+            P_t = self.neural_net_._get_predict_nonlinearity()(L)
+            P = to_numpy(P_t)
+
+            out = [P]
+            if return_logits:
+                out.append(to_numpy(L))
+            if return_embeddings:
+                out.append(to_numpy(X_embed))
+
+            # Ensure fallbacks are initialized with probabilities.
             self._initialize_fallbacks(P=P)
-
-            return out
+            return tuple(out)
 
         def _net_parts(self, X, y):
             """
