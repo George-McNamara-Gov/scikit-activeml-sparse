@@ -223,16 +223,15 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
                 subset_and_labeled_indices = np.concatenate(
                     [all_labeled, new_candidates]
                 )
-            subset_and_labeled_indices = np.sort(subset_and_labeled_indices)
+            sorted_idx = np.argsort(subset_and_labeled_indices)
+            subset_and_labeled_indices = subset_and_labeled_indices[sorted_idx]
 
             new_X = X[subset_and_labeled_indices]
             new_y = y[subset_and_labeled_indices]
-            # for explicitely provided candidates recalculate candidate indices
+            # for explicitly provided candidates recalculate candidate indices
             # that are passed to the wrapped query strategy
             if candidates is None or candidates.ndim == 1:
-                new_candidates = unlabeled_indices(
-                    y=new_y, missing_label=self.missing_label_
-                )
+                new_candidates = np.flatnonzero(sorted_idx >= len(all_labeled))
         else:
             new_X = X
             new_y = y

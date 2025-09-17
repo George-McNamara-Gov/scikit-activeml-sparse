@@ -7,7 +7,7 @@ import numpy as np
 from sklearn.datasets import load_breast_cancer
 from sklearn.preprocessing import StandardScaler
 
-from skactiveml.classifier import SklearnClassifier
+from skactiveml.classifier import SklearnClassifier, ParzenWindowClassifier
 from skactiveml.regressor import SklearnRegressor
 from skactiveml.pool import (
     SubSamplingWrapper,
@@ -208,7 +208,13 @@ class TestSubSamplingWrapper(
                         )
 
         us = UncertaintySampling()
-        qs_us = SubSamplingWrapper(us)
+        qs_us = SubSamplingWrapper(us, exclude_non_subsample=True)
+        qs_us.query(
+            X=self.X,
+            y=np.ones(len(self.X)),
+            candidates=np.arange(len(self.X)),
+            clf=ParzenWindowClassifier(),
+        )
         sig_qs_us = inspect.signature(qs_us.query).parameters
         sig_us = inspect.signature(us.query).parameters
         self.assertEqual(sig_qs_us, sig_us)
