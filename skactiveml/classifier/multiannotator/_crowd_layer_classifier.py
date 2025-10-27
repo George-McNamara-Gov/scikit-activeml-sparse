@@ -18,6 +18,7 @@ try:
     from ._utils import (
         _MultiAnnotatorClassifier,
         _MultiAnnotatorClassificationModule,
+        _MultiAnnotatorCollate,
     )
 
     successful_skorch_torch_import = True
@@ -40,8 +41,9 @@ if successful_skorch_torch_import:
             A PyTorch module as classification model outputting logits for
             samples as input. In general, the uninstantiated class should
             be passed, although instantiated modules will also work.
-        n_annotators : int
-            Number of annotators.
+        n_annotators : int, default=None
+            Number of annotators. If `n_annotators=None`, the number of
+            annotators is inferred from `y` when calling `fit`.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is None, no additional arguments
@@ -96,48 +98,58 @@ if successful_skorch_torch_import:
         def predict(
             self,
             X,
+            return_logits=False,
             return_embeddings=False,
             return_annotator_perf=False,
             return_annotator_class=False,
         ):
-            """Returns class predictions for the test data
-            `X`. Optionally, a tuple is returned whose elements appear
-            **in this exact order** *if* they were requested:
+            """Returns class predictions for the test data `X`. Optionally, a
+            tuple is returned whose elements appear in this exact order if they
+            were requested:
 
-            (0) `P_class` – always returned,
-            (1) `X_embed` – if `return_embeddings`,
-            (2) `P_annotator_perf`  – if `return_annotator_perf`,
-            (3) `P_annotator_class` – if `return_annotator_class`.
+            - (0) `y_pred` – always returned,
+            - (1) `L_class` - if `return_logits`,
+            - (2) `X_embed` – if `return_embeddings`,
+            - (3) `P_annotator_perf`  – if `return_annotator_perf`,
+            - (4) `P_annotator_class` – if `return_annotator_class`.
 
             Parameters
             ----------
             X : array-like of shape (n_samples, ...)
                 Test samples.
+            return_logits : bool, default=False
+                If `return_logits=True`, additionally return the
+                class-membership logits for the samples in `X` as the second
+                element of the output tuple.
             return_embeddings : bool, default=False
-                If True, additionally return the learned embeddings `X_embed`
-                for the samples in `X` as the second element of the output tuple.
+                If `return_embeddings=True`, additionally return the learned
+                embeddings `X_embed` for the samples in `X` as the next
+                element of the output tuple.
             return_annotator_perf : bool, default=False
-                If True, additionally return the estimated annotator performance
-                probabilities `P_perf` for each sample–annotator pair as the
-                next element of the output tuple.
+                If `return_annotator_perf=True`, additionally return the
+                estimated annotator performance probabilities `P_perf` for each
+                sample–annotator pair as the next element of the output tuple.
             return_annotator_class : bool, default=False
-                If True, additionally return the annotator–class probability
-                estimates `P_annot` for each sample, class, and annotator as the
-                last element of the output tuple.
+                If `return_annotator_class=True`, additionally return the
+                annotator–class probability estimates `P_annot` for each sample,
+                class, and annotator as the last element of the output tuple.
 
             Returns
             -------
-            y_pred : numpy.ndarray of shape (n_samples,)
+            y_pred : np.ndarray of shape (n_samples,)
                 `y_pred[n]` is the predicted class label for sample `X[n]`.
-            X_embed : numpy.ndarray of shape (n_samples, ...)
+            L_class : np.ndarray of shape (n_samples, n_classes)
+                `L_class[n, c]` is the logit the class `classes_[c]` of sample
+                `X[n]`.
+            X_embed : np.ndarray of shape (n_samples, ...)
                 `X_embed[n]` refers to the learned embedding for sample `X[n]`.
                 Only returned, if `return_embeddings=True`.
-            P_perf : numpy.ndarray of shape (n_samples, n_annotators)
+            P_perf : np.ndarray of shape (n_samples, n_annotators)
                 `P_perf[n, m]` refers to the estimated correct probability
                 (performance) of annotator `m` when labeling sample `X[n]`.
                 Only returned, if `return_annotator_perf=True`.
-            P_annot : numpy.ndarray of shape (n_samples, n_classes, n_annotators)
-                `P_annot[n, c, m]` refers to the probability that annotator
+            P_annot : np.ndarray of shape (n_samples, n_annotators, n_classes)
+                `P_annot[n, m, c]` refers to the probability that annotator
                 `m` provides the class label `c` for instance `X[n]`.
                 Only returned, if `return_annotator_class=True`.
             """
@@ -149,49 +161,59 @@ if successful_skorch_torch_import:
         def predict_proba(
             self,
             X,
+            return_logits=False,
             return_embeddings=False,
             return_annotator_perf=False,
             return_annotator_class=False,
         ):
             """Returns class-membership probability estimates for the test data
-            `X`. Optionally, a tuple is returned whose elements appear
-            **in this exact order** *if* they were requested:
+            `X`. Optionally, a tuple is returned whose elements appear in this
+            exact order if they were requested:
 
-            (0) `P_class` – always returned,
-            (1) `X_embed` – if `return_embeddings`,
-            (2) `P_annotator_perf`  – if `return_annotator_perf`,
-            (3) `P_annotator_class` – if `return_annotator_class`.
+            - (0) `P_class` – always returned,
+            - (1) `L_class` - if `return_logits`,
+            - (2) `X_embed` – if `return_embeddings`,
+            - (3) `P_annotator_perf`  – if `return_annotator_perf`,
+            - (4) `P_annotator_class` – if `return_annotator_class`.
 
             Parameters
             ----------
             X : array-like of shape (n_samples, ...)
                 Test samples.
+            return_logits : bool, default=False
+                If `return_logits=True`, additionally return the
+                class-membership logits for the samples in `X` as the second
+                element of the output tuple.
             return_embeddings : bool, default=False
-                If True, additionally return the learned embeddings `X_embed`
-                for the samples in `X` as the second element of the output tuple.
+                If `return_embeddings=True`, additionally return the learned
+                embeddings `X_embed` for the samples in `X` as the next
+                element of the output tuple.
             return_annotator_perf : bool, default=False
-                If True, additionally return the estimated annotator performance
-                probabilities `P_perf` for each sample–annotator pair as the
-                next element of the output tuple.
+                If `return_annotator_perf=True`, additionally return the
+                estimated annotator performance probabilities `P_perf` for each
+                sample–annotator pair as the next element of the output tuple.
             return_annotator_class : bool, default=False
-                If True, additionally return the annotator–class probability
-                estimates `P_annot` for each sample, class, and annotator as the
-                last element of the output tuple.
+                If `return_annotator_class=True`, additionally return the
+                annotator–class probability estimates `P_annot` for each sample,
+                class, and annotator as the last element of the output tuple.
 
             Returns
             -------
-            P_class : numpy.ndarray of shape (n_samples, classes)
+            P_class : np.ndarray of shape (n_samples, classes)
                 `p_class[n, c]` is the probability, that sample `X[n]`
                 belongs to the `classes_[c]`.
-            X_embed : numpy.ndarray of shape (n_samples, ...)
+            L_class : np.ndarray of shape (n_samples, n_classes)
+                `L_class[n, c]` is the logit the class `classes_[c]` of sample
+                `X[n]`.
+            X_embed : np.ndarray of shape (n_samples, ...)
                 `X_embed[n]` refers to the learned embedding for sample `X[n]`.
                 Only returned, if `return_embeddings=True`.
-            P_perf : numpy.ndarray of shape (n_samples, n_annotators)
+            P_perf : np.ndarray of shape (n_samples, n_annotators)
                 `P_perf[n, m]` refers to the estimated correct probability
                 (performance) of annotator `m` when labeling sample `X[n]`.
                 Only returned, if `return_annotator_perf=True`.
-            P_annot : numpy.ndarray of shape (n_samples, n_classes, n_annotators)
-                `P_annot[n, c, m]` refers to the probability that annotator
+            P_annot : np.ndarray of shape (n_samples, n_annotators, n_classes)
+                `P_annot[n, m, c]` refers to the probability that annotator
                 `m` provides the class label `c` for instance `X[n]`.
                 Only returned, if `return_annotator_class=True`.
             """
@@ -200,6 +222,9 @@ if successful_skorch_torch_import:
             X = check_array(X, **self.check_X_dict_)
             check_n_features(
                 self, X, reset=not hasattr(self, "n_features_in_")
+            )
+            check_scalar(
+                return_embeddings, name="return_logits", target_type=bool
             )
             check_scalar(
                 return_embeddings, name="return_embeddings", target_type=bool
@@ -223,7 +248,7 @@ if successful_skorch_torch_import:
             # by the input parameters.
             net = self.neural_net_.module_
             old_forward_return = net.forward_return
-            forward_options = ["p_class"]
+            forward_options = ["logits_class"]
             if return_embeddings:
                 forward_options.append("x_embed")
             if return_annotator_perf or return_annotator_class:
@@ -235,22 +260,25 @@ if successful_skorch_torch_import:
             try:
                 out_torch = self.neural_net_.forward(X)
                 if isinstance(out_torch, tuple):
-                    P_class = to_numpy(out_torch[0])
+                    P_class = to_numpy(out_torch[0].softmax(dim=-1))
                     out_numpy = [P_class]
                 else:
-                    P_class = to_numpy(out_torch)
+                    P_class = to_numpy(out_torch.softmax(dim=-1))
                     out_numpy = P_class
+                if return_logits:
+                    L_class = to_numpy(out_torch[0])
+                    out_numpy.append(L_class)
                 if return_embeddings:
                     X_embed = to_numpy(out_torch[1])
                     out_numpy.append(X_embed)
                 if return_annotator_perf or return_annotator_class:
                     L_annot = out_torch[-1]
-                    P_annot = to_numpy(L_annot.softmax(dim=1))
+                    P_annot = to_numpy(L_annot.softmax(dim=-1))
                     if return_annotator_perf:
-                        P_perf = P_class[:, None] @ P_annot
-                        out_numpy.append(P_perf[:, 0, :])
+                        P_perf = np.einsum("nc,nmc->nm", P_class, P_annot)
+                        out_numpy.append(P_perf)
                     if return_annotator_class:
-                        out_numpy.append(P_annot.swapaxes(1, 2))
+                        out_numpy.append(P_annot)
             finally:
                 net.set_forward_return(old_forward_return)
 
@@ -262,11 +290,14 @@ if successful_skorch_torch_import:
                 return tuple(out_numpy)
 
         def _build_neural_net_param_overrides(self, X, y):
+            collate_fn = _MultiAnnotatorCollate(missing_label=-1)
             return {
                 "criterion__reduction": "mean",
                 "criterion__ignore_index": -1,
                 "module__n_classes": len(self.classes_),
                 "module__n_annotators": self.n_annotators_,
+                "iterator_train__collate_fn": collate_fn,
+                "predict_nonlinearity": None,
             }
 
     class _CrowdLayerModule(_MultiAnnotatorClassificationModule):
@@ -286,6 +317,8 @@ if successful_skorch_torch_import:
         clf_module : nn.Module
             Pytorch module of the classification module taking samples as
             input to predict class-membership logits.
+        clf_module_param_dict : dict
+            Keyword args for constructing `clf_module` if a class is passed.
 
         References
         ----------
@@ -300,61 +333,70 @@ if successful_skorch_torch_import:
                 clf_module=clf_module,
                 clf_module_param_dict=clf_module_param_dict,
                 default_forward_outputs="logits_annot",
-                full_forward_outputs=["p_class", "x_embed", "logits_annot"],
+                full_forward_outputs=[
+                    "logits_class",
+                    "x_embed",
+                    "logits_annot",
+                ],
             )
             self.n_classes = n_classes
             self.n_annotators = n_annotators
 
             # Setup crowd layer.
-            self.annotator_layers = nn.ModuleList()
-            for i in range(n_annotators):
-                layer = nn.Linear(n_classes, n_classes, bias=False)
-                layer.weight = nn.Parameter(torch.eye(n_classes))
-                self.annotator_layers.append(layer)
+            self.W_annot = torch.eye(n_classes).repeat(n_annotators, 1, 1)
+            self.W_annot = nn.Parameter(self.W_annot)
 
-        def forward(self, x):
+        def forward(self, x, input_ids=None):
             """
-            Forward pass.
+            Forward pass through the classification module and optionally
+            through the crowd layer.
 
             Parameters
             ----------
             x : torch.Tensor of shape (batch_size, ...)
                 Input samples.
+            input_ids : torch.Tensor of shape (batch_size, 2), default=None
+                - If `isinstance(input_ids, torch.Tensor)=True`, the column
+                  `input_ids[:, 0]` refers to the sample indices and the column
+                  `input_ids[:, 1]` to the annotator indices to be propagated
+                  through the crowd-layer.
+                - If `input_ids=None`, all combinations of samples and
+                  annotators are propagated through the crowd-layer.
 
             Returns
             -------
-            p_class : torch.Tensor of shape (batch_size, n_classes)
-                Class-membership probabilities.
+            logits_class : torch.Tensor of shape (batch_size, n_classes)
+                Class-membership logits.
             x_embed : torch.Tensor of shape (batch_size, ...)
                 Learned embeddings of samples. Only returned if "x_embed" in
-                self.forward_return.
-            logits_annot : torch.Tensor of shape (batch_size, n_classes,\
-                    n_annotators)
-                Annotation logits for each sample-annotator pair. Only returned
-                if "logits_annot" in self.forward_return.
+                `self.forward_return`.
+            logits_annot : torch.Tensor of shape (batch_size, n_annotators,\
+                    n_classes) or (len(input_ids), n_annotators, n_classes)
+                Annotation logits for sample-annotator pairs. Only returned
+                if "logits_annot" in self.forward_return. Shape depends on
+                whether `input_ids` is given or `None`.
             """
+            # Inference of classification model.
             logits_class, x_embed = self.clf_module_forward(x)
-            p_class = F.softmax(logits_class, dim=-1)
 
-            # Check whether to add sampled embeddings to `outputs`.
-            outputs = []
-            if "p_class" in self.forward_return:
-                outputs.append(p_class)
-
+            # Append classifier outputs to `out` if required.
+            out = []
+            if "logits_class" in self.forward_return:
+                out.append(logits_class)
             if "x_embed" in self.forward_return:
-                if x_embed is None:
-                    raise RuntimeError(
-                        "`x_embed` was requested, but the classification "
-                        "module did not return it."
-                    )
-                outputs.append(x_embed)
+                out.append(x_embed)
 
-            # Compute logits for the annotator labels and add them to `outputs`.
+            # Add annotator logits to `out` if required.
             if "logits_annot" in self.forward_return:
-                logits_annot = []
-                for layer in self.annotator_layers:
-                    logits_annot.append(layer(p_class))
-                logits_annot = torch.stack(logits_annot, dim=2)
-                outputs.append(logits_annot)
+                p_class = F.softmax(logits_class, dim=-1)
+                if isinstance(input_ids, torch.Tensor):
+                    x = p_class.index_select(0, input_ids[:, 0])
+                    W_sel = self.W_annot.index_select(0, input_ids[:, 1])
+                    logits_annot = torch.einsum("mi,moi->mo", x, W_sel)
+                else:
+                    logits_annot = torch.einsum(
+                        "ni,aoi->nao", p_class, self.W_annot
+                    )
+                out.append(logits_annot)
 
-            return outputs[0] if len(outputs) == 1 else tuple(outputs)
+            return out[0] if len(out) == 1 else tuple(out)

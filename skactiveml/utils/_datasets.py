@@ -266,6 +266,7 @@ if successful_skorch_torch_import:
 
         loader = DataLoader(
             dataset,
+            # Use dict as input.
             batch_size=batch_size,
             shuffle=False,
             num_workers=num_workers or os.cpu_count() // 2,

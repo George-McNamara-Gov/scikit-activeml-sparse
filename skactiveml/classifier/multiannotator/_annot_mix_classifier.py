@@ -31,10 +31,10 @@ from ...utils import (
 
 if successful_skorch_torch_import:
 
-    class AnnotatorMixClassifier(_MultiAnnotatorClassifier):
+    class AnnotMixClassifier(_MultiAnnotatorClassifier):
         """AnnotMixClassifier
 
-        AnnotMix [1]_ rains a multi-annotator classifier using an extension of
+        AnnotMix [1]_ trains a multi-annotator classifier using an extension of
         MixUp [2]_.
 
         Parameters
@@ -43,15 +43,43 @@ if successful_skorch_torch_import:
             A PyTorch module as classification model outputting logits for
             samples as input. In general, the uninstantiated class should
             be passed, although instantiated modules will also work.
+        clf_sample_embed_dim : int or None, default=0
+            - If `clf_sample_embed_dim=0`, samples are ignored in subsequent
+              inference stages.
+            - If `clf_sample_embed_dim>0`, the `clf_module` is expected to
+              output a per-sample embedding with the given dimensionality.
+            - If `clf_sample_embed_dim` is `None`, the dimensionality of the
+              raw samples is assumed.
+        alpha : float, default=1.0
+            MixUp concentration parameter. The mix coefficient `lambda` is
+            drawn from `Beta(alpha, alpha)`. Use `alpha=0` to disable MixUp.
+        annotator_embed_dim : int, default=128
+            Dimensionality of the annotator embedding used to model annotator-
+            specific behavior.
+        sample_embed_dim : int or None, default=0
+            Dimensionality of an optional learnable sample-embedding used to
+            model instance-specific behavior of each annotator. If
+            ``sample_embed_dim=0``, no additional sample embedding is learned.
+        hidden_dim : int or None, default=None
+            Hidden size of the fusion multi-layer perceptron that propagates
+            sample and annotator representations. If ``None``, a sensible
+            default is used, which depends on the other input parameters.
+        n_hidden_layers : int, default=1
+            Number of hidden layers in the fusion multi-layer perceptron.
+        hidden_dropout : float, default=0.0
+            Dropout probability applied in the fusion multi-layer perceptron.
+        eta : float in (0, 1), default=0.9
+            Prior annotator performance, i.e., the probability of obtaining a
+            correct annotation from an arbitrary annotator for an arbitrary
+            sample of an arbitrary class.
         n_annotators : int
             Number of annotators.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
-            `neural_net_param_dict` is None, no additional arguments
-             are added.
+            `neural_net_param_dict` is `None`, no extra arguments are added.
         sample_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `sample_dtype` is `None`,
-            the datatype is preserved.
+            The type or typecode all data is casted to. If `sample_dtype` is
+            `None`, the datatype is preserved.
         classes : array-like of shape (n_classes,), default=None
             Holds the label for each class. If `None`, the classes are determined
             during the fit.
@@ -78,12 +106,13 @@ if successful_skorch_torch_import:
         def __init__(
             self,
             clf_module,
+            clf_sample_embed_dim=0,
             alpha=1.0,
-            sample_embed_dim=None,
+            sample_embed_dim=0,
             annotator_embed_dim=128,
             hidden_dim=None,
             n_hidden_layers=1,
-            hidden_dropout=0.5,
+            hidden_dropout=0.0,
             eta=0.9,
             n_annotators=None,
             neural_net_param_dict=None,
@@ -93,7 +122,7 @@ if successful_skorch_torch_import:
             missing_label=MISSING_LABEL,
             random_state=None,
         ):
-            super(AnnotatorMixClassifier, self).__init__(
+            super(AnnotMixClassifier, self).__init__(
                 multi_annotator_module=_AnnotMixModule,
                 clf_module=clf_module,
                 criterion=KLDivLoss,
@@ -105,6 +134,7 @@ if successful_skorch_torch_import:
                 sample_dtype=sample_dtype,
             )
             self.clf_module = clf_module
+            self.clf_sample_embed_dim = clf_sample_embed_dim
             self.alpha = alpha
             self.sample_embed_dim = sample_embed_dim
             self.annotator_embed_dim = annotator_embed_dim
@@ -114,45 +144,143 @@ if successful_skorch_torch_import:
             self.eta = eta
             self.n_annotators = n_annotators
 
-        def predict_proba(
+        def predict(
             self,
             X,
-            return_embeddings=False,
             return_logits=False,
+            return_embeddings=False,
             return_annotator_perf=False,
             return_annotator_class=False,
             return_annotator_embeddings=False,
         ):
-            """Returns class-membership probability estimates for the test data
-            `X`. Optionally, a tuple is returned whose elements appear
-            **in this exact order** *if* they were requested:
+            """Returns class predictions for the test data `X`. Optionally, a
+            tuple is returned whose elements appear in this exact order if they
+            were requested:
 
-            (0) `P_class` – always returned,
-            (1) `X_embed` – if `return_embeddings`,
-            (2) `P_perf`  – if `return_annotator_perf`,
-            (3) `P_annot` – if `return_annotator_class`.
+            - (0) `y_pred` – always returned,
+            - (1) `L_class` - if `return_logits`,
+            - (2) `X_embed` – if `return_embeddings`,
+            - (3) `P_annotator_perf`  – if `return_annotator_perf`,
+            - (4) `P_annotator_class` – if `return_annotator_class`,
+            - (5) `A_embed` - if `return_annotator_embeddings`.
 
             Parameters
             ----------
             X : array-like of shape (n_samples, ...)
                 Test samples.
+            return_logits : bool, default=False
+                If `return_logits=True`, additionally return the
+                class-membership logits for the samples in `X` as the second
+                element of the output tuple.
+            return_embeddings : bool, default=False
+                If `return_embeddings=True`, additionally return the learned
+                embeddings `X_embed` for the samples in `X` as the next
+                element of the output tuple.
+            return_annotator_perf : bool, default=False
+                If `return_annotator_perf=True`, additionally return the
+                estimated annotator performance probabilities `P_perf` for each
+                sample–annotator pair as the next element of the output tuple.
+            return_annotator_class : bool, default=False
+                If `return_annotator_class=True`, additionally return the
+                annotator–class probability estimates `P_annot` for each sample,
+                class, and annotator as the last element of the output tuple.
+            return_annotator_embeddings : bool, default=False
+                If `return_annotator_embeddings=True`, additionally return the
+                learned embeddings `A_embed` for the annotators as the next
+                element of the output tuple.
 
             Returns
             -------
-            P_class : numpy.ndarray of shape (n_samples, classes)
-                `p_class[n, c]` is the probability, that instance `X[n]`
-                belongs to the `classes_[c]`.
-            X_embed : numpy.ndarray of shape (n_samples, ...)
+            y_pred : np.ndarray of shape (n_samples,)
+                `y_pred[n]` is the predicted class label for sample `X[n]`.
+            L_class : np.ndarray of shape (n_samples, n_classes)
+                `L_class[n, c]` is the logit the class `classes_[c]` of sample
+                `X[n]`.
+            X_embed : np.ndarray of shape (n_samples, ...)
                 `X_embed[n]` refers to the learned embedding for sample `X[n]`.
                 Only returned, if `return_embeddings=True`.
-            P_perf : numpy.ndarray of shape (n_samples, n_annotators)
+            P_perf : np.ndarray of shape (n_samples, n_annotators)
                 `P_perf[n, m]` refers to the estimated correct probability
                 (performance) of annotator `m` when labeling sample `X[n]`.
                 Only returned, if `return_annotator_perf=True`.
-            P_annot : numpy.ndarray of shape (n_samples, n_classes, n_annotators)
-                `P_annot[n, c, m]` refers to the probability that annotator
+            P_annot : np.ndarray of shape (n_samples, n_annotators, n_classes)
+                `P_annot[n, m, c]` refers to the probability that annotator
                 `m` provides the class label `c` for instance `X[n]`.
                 Only returned, if `return_annotator_class=True`.
+            A_embed : np.ndarray of shape (n_annotators, annotator_embed_dim)
+                `A_embed[m]` refers to the learned embedding for annotator `m`.
+            """
+            predict_dict = {k: v for k, v in locals().items() if k != "self"}
+            return self._transform_predict_proba_output(
+                predict_dict=predict_dict
+            )
+
+        def predict_proba(
+            self,
+            X,
+            return_logits=False,
+            return_embeddings=False,
+            return_annotator_perf=False,
+            return_annotator_class=False,
+            return_annotator_embeddings=False,
+        ):
+            """Returns class-membership probability estimates for the test data
+            `X`. Optionally, a tuple is returned whose elements appear in this
+            exact order if they were requested:
+
+            - (0) `P_class` – always returned,
+            - (1) `L_class` - if `return_logits`,
+            - (2) `X_embed` – if `return_embeddings`,
+            - (3) `P_annotator_perf`  – if `return_annotator_perf`,
+            - (4) `P_annotator_class` – if `return_annotator_class`,
+            - (5) `A_embed` - if `return_annotator_embeddings`.
+
+            Parameters
+            ----------
+            X : array-like of shape (n_samples, ...)
+                Test samples.
+            return_logits : bool, default=False
+                If `return_logits=True`, additionally return the
+                class-membership logits for the samples in `X` as the second
+                element of the output tuple.
+            return_embeddings : bool, default=False
+                If `return_embeddings=True`, additionally return the learned
+                embeddings `X_embed` for the samples in `X` as the next
+                element of the output tuple.
+            return_annotator_perf : bool, default=False
+                If `return_annotator_perf=True`, additionally return the
+                estimated annotator performance probabilities `P_perf` for each
+                sample–annotator pair as the next element of the output tuple.
+            return_annotator_class : bool, default=False
+                If `return_annotator_class=True`, additionally return the
+                annotator–class probability estimates `P_annot` for each sample,
+                class, and annotator as the last element of the output tuple.
+            return_annotator_embeddings : bool, default=False
+                If `return_annotator_embeddings=True`, additionally return the
+                learned embeddings `A_embed` for the annotators as the next
+                element of the output tuple.
+
+            Returns
+            -------
+            P_class : np.ndarray of shape (n_samples, classes)
+                `p_class[n, c]` is the probability, that sample `X[n]`
+                belongs to the `classes_[c]`.
+            L_class : np.ndarray of shape (n_samples, n_classes)
+                `L_class[n, c]` is the logit the class `classes_[c]` of sample
+                `X[n]`.
+            X_embed : np.ndarray of shape (n_samples, ...)
+                `X_embed[n]` refers to the learned embedding for sample `X[n]`.
+                Only returned, if `return_embeddings=True`.
+            P_perf : np.ndarray of shape (n_samples, n_annotators)
+                `P_perf[n, m]` refers to the estimated correct probability
+                (performance) of annotator `m` when labeling sample `X[n]`.
+                Only returned, if `return_annotator_perf=True`.
+            P_annot : np.ndarray of shape (n_samples, n_annotators, n_classes)
+                `P_annot[n, m, c]` refers to the probability that annotator
+                `m` provides the class label `c` for instance `X[n]`.
+                Only returned, if `return_annotator_class=True`.
+            A_embed : np.ndarray of shape (n_annotators, annotator_embed_dim)
+                `A_embed[m]` refers to the learned embedding for annotator `m`.
             """
             # Check input parameters.
             self._validate_data_kwargs()
@@ -205,13 +333,13 @@ if successful_skorch_torch_import:
                 else:
                     P_class = to_numpy(out_torch.softmax(dim=-1))
                     out_numpy = P_class
+                if return_logits:
+                    L_class = to_numpy(out_torch[0])
+                    out_numpy.append(L_class)
                 if return_embeddings:
                     X_embed = to_numpy(out_torch[out_idx])
                     out_numpy.append(X_embed)
                     out_idx += 1
-                if return_logits:
-                    L_class = to_numpy(out_torch[0])
-                    out_numpy.append(L_class)
                 if return_annotator_perf:
                     P_annotator_perf = to_numpy(out_torch[out_idx].exp())
                     P_annotator_perf = P_annotator_perf.reshape(
@@ -226,12 +354,9 @@ if successful_skorch_torch_import:
                     )
                     out_numpy.append(P_annotator_class)
                     out_idx += 1
-                if return_annotator_class:
-                    A_embed = to_numpy(
-                        out_torch[out_idx][: self.n_annotators_]
-                    )
-                    out_numpy.append(A_embed)
-                    out_idx += 1
+                if return_annotator_embeddings:
+                    a_embed = to_numpy(out_torch[out_idx])
+                    out_numpy.append(a_embed[:self.n_annotators_])
             finally:
                 net.set_forward_return(old_forward_return)
 
@@ -257,12 +382,19 @@ if successful_skorch_torch_import:
                     "`sample_embed_dim` must be specified, "
                     "if no `X` is given or `X.ndim > 2`."
                 )
-            sample_embed_dim = self.sample_embed_dim or X.shape[-1]
+            clf_sample_embed_dim = self.clf_sample_embed_dim or X.shape[-1]
             check_scalar(
-                sample_embed_dim,
+                clf_sample_embed_dim,
+                name="clf_sample_embed_dim",
+                target_type=int,
+                min_val=0,
+                min_inclusive=True,
+            )
+            check_scalar(
+                self.sample_embed_dim,
                 name="sample_embed_dim",
                 target_type=int,
-                min_val=1,
+                min_val=0,
                 min_inclusive=True,
             )
             check_scalar(
@@ -276,7 +408,7 @@ if successful_skorch_torch_import:
                 4 * len(self.classes_),
                 max(
                     128,
-                    2 * (self.annotator_embed_dim + sample_embed_dim),
+                    2 * (self.annotator_embed_dim + self.sample_embed_dim),
                 ),
             )
             check_scalar(
@@ -290,7 +422,7 @@ if successful_skorch_torch_import:
                 self.n_hidden_layers,
                 name="n_hidden_layers",
                 target_type=int,
-                min_val=1,
+                min_val=0,
                 min_inclusive=True,
             )
             check_scalar(
@@ -321,9 +453,10 @@ if successful_skorch_torch_import:
                 "criterion__reduction": "batchmean",
                 "module__n_classes": len(self.classes_),
                 "module__n_annotators": self.n_annotators_,
-                "module__sample_embed_dim": sample_embed_dim,
+                "module__clf_sample_embed_dim": clf_sample_embed_dim,
+                "module__sample_embed_dim": self.sample_embed_dim,
                 "module__annotator_embed_dim": self.annotator_embed_dim,
-                "module__hidden_dim": self.hidden_dim,
+                "module__hidden_dim": hidden_dim,
                 "module__n_hidden_layers": self.n_hidden_layers,
                 "module__hidden_dropout": self.hidden_dropout,
                 "module__eta": self.eta,
@@ -340,40 +473,41 @@ if successful_skorch_torch_import:
         ----------
         n_classes : int
             Number of classes.
+        n_annotators : int
+            Number of annotators.
         clf_module : nn.Module or type
             Classifier backbone/head that maps `x -> logits_class` or
             `(logits_class, x_embed)`. If it returns only logits, `x_embed` is
             set to the input `x` (or to `None` if `x` is not an embedding).
         clf_module_param_dict : dict
             Keyword args for constructing `clf_module` if a class is passed.
-        annotator_encoder : nn.Module or type or None, default=None
-            Maps annotator features/IDs `a -> a_embed`. If ``None``, identity.
-        annotator_encoder_param_dict : dict
-            Keyword args for constructing `annotator_encoder` if a class is passed.
-        sample_encoder : nn.Module or type or None, default=None
-            Maps sample embeddings `x_embed -> x_embed_ap` used by the AP head.
-            If ``None``, identity.
-        sample_encoder_param_dict : dict
-            Keyword args for constructing `sample_encoder` if a class is passed.
-        annotator_confusion_head : nn.Module or type
-            Maps concatenated `[x_embed_ap, a_embed] -> logits_conf` with shape
-            `(batch_size, n_classes * n_classes)`.
-        annotator_confusion_head_param_dict : dict
-            Keyword args for constructing `annotator_confusion_head` if a class is
-            passed.
-        freeze_clf_for_ap : bool, default=True
-            If True, detach `x_embed` before feeding the AP branch (no gradient
-            from AP back into the classifier). Set False to train jointly.
-
-        Notes
-        -----
-        - Return order is **fixed**: elements appear in the order
-          `("logits_class", "x_embed", "a_embed", "log_p_annotator_class", "p_perf")`
-          if requested via `set_forward_return`.
-        - `log_p_annotator_class` has shape `(batch_size, n_classes)` and represents
-          `log p(y_annot | x, a)`.
-        - `log_p_annotator_perf` has shape `(batch_size,)` and equals
-          `log sum_c p(y_true=c | x) * p(y_annot=c | y_true=c, a)`.
+                clf_module : nn.Module or nn.Module.__class__
+            A PyTorch module as classification model outputting logits for
+            samples as input. In general, the uninstantiated class should
+            be passed, although instantiated modules will also work.
+        clf_sample_embed_dim : int or None, default=0
+            - If `clf_sample_embed_dim=0`, samples are ignored in subsequent
+              inference stages.
+            - If `clf_sample_embed_dim>0`, the `clf_module` is expected to
+              output a per-sample embedding with the given dimensionality.
+        annotator_embed_dim : int
+            Dimensionality of the annotator embedding used to model annotator-
+            specific behavior.
+        sample_embed_dim : int or None
+            Dimensionality of an optional learnable sample-embedding used to
+            model instance-specific behavior of each annotator. If
+            ``sample_embed_dim=0``, no additional sample embedding is learned.
+        hidden_dim : int or None
+            Hidden size of the fusion multi-layer perceptron that propagates
+            sample and annotator representations. If ``None``, a sensible
+            default is used, which depends on the other input parameters.
+        n_hidden_layers : int
+            Number of hidden layers in the fusion multi-layer perceptron.
+        hidden_dropout : float
+            Dropout probability applied in the fusion multi-layer perceptron.
+        eta : float in (0, 1)
+            Prior annotator performance, i.e., the probability of obtaining a
+            correct annotation from an arbitrary annotator for an arbitrary
 
         References
         ----------
@@ -400,6 +534,7 @@ if successful_skorch_torch_import:
             n_annotators,
             clf_module,
             clf_module_param_dict,
+            clf_sample_embed_dim,
             sample_embed_dim,
             annotator_embed_dim,
             hidden_dim,
@@ -427,6 +562,12 @@ if successful_skorch_torch_import:
             self.register_buffer(
                 "a", torch.eye(n_annotators, dtype=torch.float32)
             )
+            self.sample_embed = None
+            if clf_sample_embed_dim > 0 and sample_embed_dim > 0:
+                self.sample_embed = nn.Linear(
+                    in_features=clf_sample_embed_dim,
+                    out_features=sample_embed_dim,
+                )
             self.annotator_embed = nn.Linear(
                 in_features=n_annotators,
                 out_features=annotator_embed_dim,
@@ -460,24 +601,20 @@ if successful_skorch_torch_import:
             ----------
             x : torch.Tensor of shape (batch_size, ...)
                 Input batch. Shape depends on `clf_module`.
-            a : torch.Tensor or None
+            a : torch.Tensor of shape (batch_size, ...) or None
                 Annotator features/IDs. Needed if any of {"a_embed",
-                "log_p_annotator_class", "p_perf"} are requested. Shape
-                `(n_annotators, ...)` if using `combs`, or `(batch_size, ...)`
-                when predicting per-batch annotators without `combs`.
+                "log_p_annotator_class", "p_perf"} are requested.
 
             Returns
             -------
             out : torch.Tensor or tuple
                 Given `set_forward_return`, tensors are appended in the order:
-                `"logits_class"`, `"x_embed"`, `"a_embed"`, `"log_p_annotator_class"`,
-                `"p_perf"`.
 
-            Raises
-            ------
-            ValueError
-                If AP outputs are requested but `a`/`combs` are missing or
-                shapes mismatch.
+                - `"logits_class"`,
+                - `"x_embed"`,
+                - "log_p_annotator_class"`
+                - "log_p_annotator_perf"`
+                - `"a_embed"`.
             """
             # Obtain classifier outputs.
             logits_class, x_embed = self.clf_module_forward(x)
@@ -501,16 +638,18 @@ if successful_skorch_torch_import:
                 a = a if a is not None else self.a
 
                 # Sample/annotator embeddings for annotator head.
-                x_embed = x_embed.detach()
+                if self.sample_embed:
+                    x_embed = self.sample_embed(x_embed.detach())
                 a_embed = self.annotator_embed(a)
 
                 # Generate pairs of samples and annotator if not done yet.
-                if len(x_embed) != len(a_embed):
+                if not self.training:
                     combs = torch.cartesian_prod(
-                        torch.arange(len(x_embed), device=x_embed.device),
+                        torch.arange(len(x), device=x.device),
                         torch.arange(len(a_embed), device=a_embed.device),
                     )
-                    x_embed = x_embed[combs[:, 0]]
+                    if self.sample_embed:
+                        x_embed = x_embed[combs[:, 0]]
                     a_embed_return = a_embed.clone().detach()
                     a_embed = a_embed[combs[:, 1]]
                     logits_class = logits_class[combs[:, 0]]
@@ -518,9 +657,10 @@ if successful_skorch_torch_import:
                     a_embed_return = a_embed
 
                 # Compute confusion matrix logits per sample-annotator pair.
-                logits_conf = self.annotator_confusion_head(
-                    torch.cat([x_embed, a_embed], dim=-1)
-                )
+                annot_head_input = a_embed
+                if self.sample_embed:
+                    annot_head_input = torch.cat([x_embed, a_embed], dim=-1)
+                logits_conf = self.annotator_confusion_head(annot_head_input)
                 logits_conf = logits_conf.view(
                     -1, self.n_classes, self.n_classes
                 )

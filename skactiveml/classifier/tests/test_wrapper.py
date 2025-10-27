@@ -951,7 +951,7 @@ if successful_skorch_torch_import:
                 "optimizer": torch.optim.RAdam,
                 "device": "cpu",
                 "lr": 0.001,
-                "max_epochs": 10,
+                "max_epochs": 30,
                 "batch_size": 2,
                 "predict_nonlinearity": nn.Softmax(dim=1),
             }
@@ -1112,6 +1112,7 @@ if successful_skorch_torch_import:
 
         def test_predict_proba(self):
             clf = SkorchClassifier(**self.init_default_params)
+            clf.fit(self.X, self.y_true)
             P_class, L_class, X_embed = clf.predict_proba(
                 self.X, return_logits=True, return_embeddings=True
             )

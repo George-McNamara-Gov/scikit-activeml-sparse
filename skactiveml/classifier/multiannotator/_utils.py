@@ -262,3 +262,73 @@ if successful_skorch_torch_import:
             raise TypeError(
                 "Expected nn.Module instance or class for a submodule."
             )
+
+
+    class _MultiAnnotatorCollate:
+        """
+        Collate that expands a batch into all (sample, annotator) pairs and
+        optionally applies MixUp jointly to samples, annotators, and labels.
+
+        Parameters
+        ----------
+        n_classes : int
+            Number of classes (for one-hot encoding).
+        a : torch.Tensor or array-like of shape (n_annotators, ...)\
+                or (n_annotators,)
+            Annotator representations/features. Will be converted to a CPU tensor
+            once and reused across batches.
+        alpha : float, default=1.0
+            MixUp Beta(alpha, alpha) parameter. If <= 0, no MixUp is applied.
+        missing_label : int or float, default=-1
+            Value in `y` indicating an unlabeled sample. Rows whose sample label
+            equals `missing_label` are excluded from the (sample, annotator)
+            pairs. If set to `float('nan')` or `numpy.nan`, NaN labels are
+            treated as missing.
+
+        Notes
+        -----
+        - This collate runs on CPU (inside DataLoader workers). For maximum
+          speed, keep heavy augmentations inside the model on GPU and use this
+          collate only if you truly need CPU-side MixUp across
+          `(sample, annotator)` pairs.
+        - Labels are returned as one-hot vectors of length `n_classes`.
+        """
+
+        def __init__(
+            self, missing_label=-1
+        ):
+            self.missing_label = missing_label
+
+        def __call__(self, batch):
+            # Basic collation (supports tensors/ndarrays/nested dicts of X, y).
+            x = default_collate([b[0] for b in batch])
+            y = default_collate([b[1] for b in batch])
+
+            # Flatten labels to (n_samples * n_annotators,)
+            n_samples, n_annotators = y.shape
+            y = y.view(-1)
+
+            # Sample indices: 0..B-1 repeated for each annotator.
+            idx_s = torch.arange(
+                n_samples, dtype=torch.long
+            ).repeat_interleave(n_annotators)
+
+            # Annotator indices: 0..A-1 repeated for each annotator.
+            idx_a = torch.arange(n_annotators, dtype=torch.long).repeat(
+                n_samples
+            )
+
+            # Mask out pairs whose sample is unlabeled.
+            if isinstance(self.missing_label, float) and (
+                self.missing_label != self.missing_label
+            ):  # NaN
+                mask = ~torch.isnan(y.to(torch.float32))
+            else:
+                mask = y != self.missing_label
+            idx_s = idx_s[mask]
+            idx_a = idx_a[mask]
+            y = y[mask]
+
+            # Return batches including sample and annotator indices.
+            x_out = {"x": x, "input_ids": torch.column_stack((idx_s, idx_a))}
+            return x_out, y

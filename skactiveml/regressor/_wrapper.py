@@ -469,7 +469,7 @@ if successful_skorch_torch_import:
             X : matrix-like, shape (n_samples, n_features)
                 Training data set, usually complete, i.e. including the labeled
                 and unlabeled samples
-            y : array-like of shape (n_samples, )
+            y : array-like of shape (n_samples,)
                 Labels of the training data set (possibly including unlabeled
                 ones indicated by self.missing_label)
             fit_params : dict-like
@@ -632,3 +632,125 @@ if successful_skorch_torch_import:
                     y[is_lbld].astype(np.float32, copy=True).reshape(-1, 1)
                 )
             return X_lbld, y_lbld
+
+    class SkorchProbabilisticRegressor(SkorchRegressor, ProbabilisticRegressor):
+        """SkorchProbabilisticRegressor
+
+        Implement a wrapper class, to make it possible to use `torch` with
+        `skactiveml`. This is achieved by providing a wrapper around `torch`
+        that has a `skactiveml` interface and also be able to handle missing
+        labels. This wrapper is based on the open-source library `skorch` [1]_.
+        In contrast to the `SkorchRegressor`, this class expects the neural
+        network module to output standard deviation estimates next to the
+        target estimates and the optional sample embeddings.
+
+        Parameters
+        ----------
+        module : torch module (class or instance)
+            A PyTorch :class:`~torch.nn.Module`. In general, the uninstantiated
+            class should be passed, although instantiated modules will also
+            work.
+        criterion : torch.nn.Module.__class__, default=torch.nn.NLLoss
+            The uninitialized criterion (loss) used to optimize the module. By
+            default, `torch.nn.NLLoss` is used as criterion.
+        filter_criterion_input : bool, default=True
+            - If True, this flag ensures criteria expecting tensors as input,
+            e.g., `nn.MSELoss`, work with implementations of the
+            `module.forward` methods outputting tuples, e.g., where the first
+            element corresponds to the target predictions and the second element
+            is a tensor of embeddings (cf. `return_embeddings` in `predict`).
+            - If False, the criterion is used as is and must be able to process
+            the full output `module.forward`.
+        neural_net_param_dict : dict, default=None
+            Additional arguments for `skorch.net.NeuralNet`. If
+            `neural_net_param_dict` is `None`, no additional arguments are
+            added.
+        sample_dtype : str or type, default=None
+            The type or typecode all data is casted to. If `sample_dtype` is
+            None, the datatype is preserved.
+        missing_label : scalar or string or np.nan or None, default=np.nan
+            Value to represent a missing label.
+        random_state : int or RandomState instance or None, default=None
+            Determines random number for 'predict' method. Pass an int for
+            reproducible results across multiple method calls.
+
+        References
+        ----------
+        .. [1] Marian Tietz, Thomas J. Fan, Daniel Nouri, Benjamin Bossan, and
+           skorch Developers. skorch: A scikit-learn compatible neural network
+           library that wraps PyTorch, July 2017.
+        """
+
+        def __init__(
+            self,
+            module,
+            criterion=nn.NLLLoss,
+            filter_criterion_input=True,
+            neural_net_param_dict=None,
+            sample_dtype=None,
+            missing_label=MISSING_LABEL,
+            random_state=None,
+        ):
+            super(SkorchProbabilisticRegressor, self).__init__(
+                missing_label=missing_label,
+                random_state=random_state,
+                module=module,
+                criterion=criterion,
+                filter_criterion_input=filter_criterion_input,
+                neural_net_param_dict=neural_net_param_dict,
+                sample_dtype=sample_dtype,
+            )
+
+
+        def predict_target_distribution(self, X, return_embeddings=False):
+            """Returns the predicted target distribution conditioned on the test
+            samples `X`.
+
+            Parameters
+            ----------
+            X :  array-like, shape (n_samples, n_features)
+                Input samples.
+
+            Returns
+            -------
+            dist : scipy.stats._distn_infrastructure.rv_frozen
+                The distribution of the targets at the test samples.
+
+            """
+            # Initialize module, if not done yet.
+            if not hasattr(self, "neural_net_"):
+                self.initialize()
+
+            # Check input parameters.
+            X = check_array(X, **self.check_X_dict_)
+            check_n_features(
+                self, X, reset=not hasattr(self, "n_features_in_")
+            )
+            check_scalar(
+                return_embeddings, name="return_embeddings", target_type=bool
+            )
+
+            out = self.neural_net_.forward(X)
+            if not isinstance(out, tuple):
+                raise ValueError(
+                    "`The module is expected to return at least two outputs,"
+                    "of which the first element corresponds to the target"
+                    "predictions, the second element to the standard deviation"
+                    "estimates, and the third element is a tensor of"
+                    "embeddings."
+                )
+            if return_embeddings and len(out) != 3:
+                raise ValueError(
+                    "`return_embeddings=True` only works when the module "
+                    "returns three multiple outputs, of which the "
+                    "first element corresponds to the target predictions,"
+                    "the second element to the standard deviation estimates, "
+                    "and the third element is a tensor of embeddings."
+                )
+            y_pred = self.neural_net_._get_predict_nonlinearity()(out[0])
+            y_pred = to_numpy(y_pred).ravel()
+            X_embed = to_numpy(out[1])
+            out = (y_pred, X_embed)
+
+            return out
+
