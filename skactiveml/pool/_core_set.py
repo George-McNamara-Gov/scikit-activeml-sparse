@@ -32,6 +32,12 @@ class CoreSet(SingleAnnotatorPoolQueryStrategy):
 
     Parameters
     ----------
+    metric : str or callable, default='euclidean'
+        The metric must comply with the function
+        `sklearn.metrics.pairwise_distances_argmin_min`.
+    metric_dict : dict, default=None
+        Any further parameters are passed directly to the function
+        `sklearn.metrics.pairwise_distances_argmin_min` as `metric_kwargs`.
     missing_label : scalar or string or np.nan or None, default=np.nan
         Value to represent a missing label.
     random_state : None or int or np.random.RandomState, default=None
@@ -43,10 +49,18 @@ class CoreSet(SingleAnnotatorPoolQueryStrategy):
        Networks: A Core-Set Approach. In Int. Conf. Learn. Represent., 2018.
     """
 
-    def __init__(self, missing_label=MISSING_LABEL, random_state=None):
+    def __init__(
+        self,
+        metric="euclidean",
+        metric_dict=None,
+        missing_label=MISSING_LABEL,
+        random_state=None,
+    ):
         super().__init__(
             missing_label=missing_label, random_state=random_state
         )
+        self.metric = metric
+        self.metric_dict = metric_dict
 
     def query(
         self,
@@ -114,12 +128,14 @@ class CoreSet(SingleAnnotatorPoolQueryStrategy):
 
         if mapping is not None:
             query_indices, utilities = k_greedy_center(
-                X,
-                y,
-                batch_size,
-                self.random_state_,
-                self.missing_label_,
-                mapping,
+                X=X,
+                y=y,
+                batch_size=batch_size,
+                random_state=self.random_state_,
+                missing_label=self.missing_label_,
+                mapping=mapping,
+                metric=self.metric,
+                metric_dict=self.metric_dict,
             )
         else:
             selected_samples = labeled_indices(
@@ -133,13 +149,15 @@ class CoreSet(SingleAnnotatorPoolQueryStrategy):
             )
             mapping = np.arange(n_new_cand)
             query_indices, utilities = k_greedy_center(
-                X_with_cand,
-                y_with_cand,
-                batch_size,
-                self.random_state_,
-                self.missing_label_,
-                mapping,
-                n_new_cand,
+                X=X_with_cand,
+                y=y_with_cand,
+                batch_size=batch_size,
+                random_state=self.random_state_,
+                missing_label=self.missing_label_,
+                mapping=mapping,
+                n_new_cand=n_new_cand,
+                metric=self.metric,
+                metric_dict=self.metric_dict,
             )
 
         if return_utilities:
@@ -156,6 +174,8 @@ def k_greedy_center(
     missing_label=MISSING_LABEL,
     mapping=None,
     n_new_cand=None,
+    metric="euclidean",
+    metric_dict=None,
 ):
     """
     An active learning method that greedily forms a batch to minimize the
@@ -207,7 +227,6 @@ def k_greedy_center(
         - If `candidates` is of shape `(n_candidates, n_features)`,
           the indexing refers to the samples in `candidates`.
     """
-
     # valid the input shape whether is valid or not.
     X = check_array(X, allow_nd=True)
     y = check_array(
@@ -245,7 +264,13 @@ def k_greedy_center(
 
     for i in range(batch_size):
         if i == 0:
-            update_dist = _update_distances(X, selected_samples, mapping)
+            update_dist = _update_distances(
+                X=X,
+                cluster_centers=selected_samples,
+                mapping=mapping,
+                metric=metric,
+                metric_dict=metric_dict,
+            )
         else:
             latest_dist = utilities[i - 1]
             update_dist = _update_distances(
@@ -253,6 +278,8 @@ def k_greedy_center(
                 cluster_centers=[query_indices[i - 1]],
                 mapping=mapping,
                 latest_distance=latest_dist,
+                metric=metric,
+                metric_dict=metric_dict,
             )
 
         if n_new_cand is None:
@@ -268,7 +295,14 @@ def k_greedy_center(
     return query_indices, utilities
 
 
-def _update_distances(X, cluster_centers, mapping, latest_distance=None):
+def _update_distances(
+    X,
+    cluster_centers,
+    mapping,
+    latest_distance=None,
+    metric="euclidean",
+    metric_dict=None,
+):
     """
     Update minimum distances by given cluster centers.
 
@@ -284,6 +318,12 @@ def _update_distances(X, cluster_centers, mapping, latest_distance=None):
     latest_distance : array-like of shape (n_samples) default None
         The distance between each sample and its nearest center. Used to
         speed up the computation of distances for the next selected sample.
+    metric : str or callable, default='euclidean'
+        The metric must comply with the function
+        `sklearn.metrics.pairwise_distances_argmin_min`.
+    metric_dict : dict, default=None
+        Any further parameters are passed directly to the function
+        `sklearn.metrics.pairwise_distances_argmin_min` as `metric_kwargs`.
 
     Returns
     -------
@@ -298,10 +338,14 @@ def _update_distances(X, cluster_centers, mapping, latest_distance=None):
         value in `result-dist` will be also `np.nan`.
     """
     dist = np.zeros(shape=X.shape[0])
+    if metric_dict is None:
+        metric_dict = {}
 
     if len(cluster_centers) > 0:
         cluster_center_feature = X[cluster_centers]
-        _, dist = pairwise_distances_argmin_min(X, cluster_center_feature)
+        _, dist = pairwise_distances_argmin_min(
+            X, cluster_center_feature, metric=metric, metric_kwargs=metric_dict
+        )
 
     if latest_distance is not None:
         sum_dist = np.nansum(latest_distance)

@@ -20,6 +20,25 @@ class TestCoreSet(TemplateSingleAnnotatorPoolQueryStrategy, unittest.TestCase):
             query_default_params_clf=query_default_params,
         )
 
+    def test_init_param_metric(self):
+        test_cases = [
+            ("cosine", None),
+            ("canberra", None),
+            (lambda x, y: 0, None),
+            (0, TypeError),
+            (None, TypeError),
+        ]
+        self._test_param("init", "metric", test_cases)
+
+    def test_init_param_metric_dict(self):
+        test_cases = [
+            ({}, None),
+            ({"test": 0}, None),
+            (None, None),
+            ("Hello", TypeError),
+        ]
+        self._test_param("init", "metric_dict", test_cases)
+
     def test_query(self):
         # test case 1: with the same random state the init pick up
         # is the same
