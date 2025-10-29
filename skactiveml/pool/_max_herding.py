@@ -20,8 +20,11 @@ from ..utils import (
 class MaxHerding(SingleAnnotatorPoolQueryStrategy):
     """MaxHerding
 
-    This class implements the MaxHerding query strategy [1]_, which aims at
-    maximizing the generalized coverage in a meaningful sample embedding space.
+    This class implements the MaxHerding query strategy [1]_, which greedily
+    selects `batch_size` unlabeled samples that most increase a smooth,
+    kernel-based coverage objective in embedding space, accounting for the
+    already labeled set. The objective promotes representativeness and
+    diversity via kernel similarity.
 
     Parameters
     ----------
