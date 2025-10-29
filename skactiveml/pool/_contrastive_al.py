@@ -23,9 +23,11 @@ class ContrastiveAL(SingleAnnotatorPoolQueryStrategy):
     """Contrastive Active Learning (ContrastiveAL)
 
     This class implements the Contrastive Active Learning (ContrastiveAL) query
-    strategy [1]_, which  selects samples similar in the (classifier's learned)
-    feature space, while the classifier predicts maximally different
-    class-membership probabilities.
+    strategy [1]_, which finds for each unlabeled sample its k-nearest labeled
+    neighbors in an embedding space and scores it by the average KL divergence
+    between their predictive distributions. Finally, the top-scoring
+    unlabeled samples are selected to favor the ones that strongly disagree
+    with their labeled neighbors.
 
     Parameters
     ----------
