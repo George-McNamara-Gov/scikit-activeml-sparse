@@ -36,7 +36,7 @@ class KLDivergenceMaximization(SingleAnnotatorPoolQueryStrategy):
         Dictionary for integration arguments, i.e. `integration method` etc.,
         used for calculating the cross entropy between the updated conditional
         estimator by the `X_cand` value and the old conditional estimator.
-        For details see method `conditional_expect`.
+        For details see method `skactiveml.pool.utils._conditional_expect`.
     missing_label : scalar or string or np.nan or None, default=np.nan
         Value to represent a missing label.
     random_state : int or RandomState instance, default=None
