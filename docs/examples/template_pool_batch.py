@@ -17,9 +17,8 @@ import numpy as np
 from matplotlib import pyplot as plt, animation
 from sklearn.datasets import make_blobs
 
-from skactiveml.utils import MISSING_LABEL, labeled_indices, unlabeled_indices
+from skactiveml.utils import MISSING_LABEL, labeled_indices
 from skactiveml.visualization import (
-    plot_utilities,
     plot_decision_boundary,
     plot_contour_for_samples,
 )
