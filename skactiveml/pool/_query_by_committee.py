@@ -29,11 +29,11 @@ from ..utils import (
 class QueryByCommittee(SingleAnnotatorPoolQueryStrategy):
     """Query-by-Committee (QBC)
 
-    The Query-by-Committee (QBC) [1]_, [2]_, [3]_, [4]_, [5]_ strategy maintains
-    a committee of models and selects unlabeled samples where the committee most
-    disagrees, targeting epistemic uncertainty. In batch mode, it ranks points
-    by a disagreement score and takes the top `batch_size` samples. There are
-    multiple variants to measure the disagreement:
+    The Query-by-Committee (QBC) [1]_, [2]_, [3]_, [4]_, [5]_ strategy
+    maintains a committee of models and selects unlabeled samples where the
+    committee most disagrees, targeting epistemic uncertainty. In batch mode,
+    it ranks points by a disagreement score and takes the top `batch_size`
+    samples. There are multiple variants to measure the disagreement:
 
     - KL-divergence disagreement (classification). For each model, compute the
       Kullback–Leibler divergence between its predictive distribution and the
@@ -42,8 +42,9 @@ class QueryByCommittee(SingleAnnotatorPoolQueryStrategy):
     - Vote entropy (classification). Each model votes for a class, the entropy
       of the vote histogram measures disagreement, and higher entropy is
       preferred.
-    - Variation ratios (classification). One minus the fraction of votes for the
-      modal class measures lack of consensus, and higher values are preferred.
+    - Variation ratios (classification). One minus the fraction of votes for
+      the modal class measures lack of consensus, and higher values are
+      preferred.
     - Empirical variance (regression). The variance of the committee's
       real-valued predictions quantifies disagreement, and higher variance is
       preferred.
