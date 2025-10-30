@@ -5,7 +5,7 @@
     "method" : "Multi-class Probabilistic Active Learning (McPAL)",
     "category" : "Hybrid",
     "template" : "examples/template_pool.py",
-    "tags" : ["pool",  "classification", "single-annotator"],
+    "tags" : ["pool",  "classification", "single-annotator", "top-k-batch"],
     "title" : "Multi-class Probabilistic Active Learning (McPAL)",
     "refs" : ["kottke2016multi"],
     "sequence" : ["title", "text_0", "plot", "refs"],

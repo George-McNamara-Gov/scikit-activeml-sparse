@@ -5,7 +5,7 @@
     "category" : "Informativeness",
     "method" : "Regression based Kullback Leibler Divergence Maximization",
     "template" : "examples/template_pool_regression.py",
-    "tags" : ["pool",  "regression", "single-annotator"],
+    "tags" : ["pool",  "regression", "single-annotator", "top-k-batch"],
     "title" : "Regression based Kullback Leibler Divergence Maximization",
     "refs" : ["elreedy2019novel"],
     "sequence" : ["title", "text_0", "plot", "refs"],

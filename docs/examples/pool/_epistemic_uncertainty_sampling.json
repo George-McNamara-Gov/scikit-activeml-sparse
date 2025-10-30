@@ -5,7 +5,7 @@
     "method" : "Epistemic Uncertainty Sampling (EpisUS)",
     "category" : "Informativeness",
     "template" : "examples/template_pool.py",
-    "tags" : ["pool",  "classification", "single-annotator"],
+    "tags" : ["pool",  "classification", "single-annotator", "top-k-batch"],
     "title" : "Epistemic Uncertainty Sampling (EpisUS)",
     "refs" : ["nguyen2019epistemic"],
     "sequence" : ["title", "text_0", "plot", "refs"],

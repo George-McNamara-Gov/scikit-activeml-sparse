@@ -231,11 +231,17 @@ def generate_strategy_overview_rst(gen_path, json_data):
             'value="classification">\n '
             "   <label>Classification</label>\n"
             '   <input type="checkbox" class="input-tag" '
-            'value="multi-annotator">\n '
-            "   <label>Multi-Annotator</label>\n"
+            'value="top-k-batch">\n '
+            "   <label>Top-k-Batch</label>\n"
+            '   <input type="checkbox" class="input-tag" '
+            'value="diverse-batch">\n '
+            "   <label>Diverse-Batch</label>\n"
             '   <input type="checkbox" class="input-tag" '
             'value="single-annotator">\n '
             "   <label>Single-Annotator</label>\n"
+            '   <input type="checkbox" class="input-tag" '
+            'value="multi-annotator">\n '
+            "   <label>Multi-Annotator</label>\n"
         )
         file.write("\n")
 
