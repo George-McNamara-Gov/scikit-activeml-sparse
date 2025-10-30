@@ -5,7 +5,7 @@
     "method" : "Bayesian Active Learning by Disagreement (BALD)",
     "category" :  "Informativeness",
     "template" : "examples/template_pool.py",
-    "tags" : ["pool",  "classification", "single-annotator"],
+    "tags" : ["pool",  "classification", "single-annotator", "top-k-batch"],
     "title" : "Bayesian Active Learning by Disagreement (BALD)",
     "refs" : ["houlsby2011bayesian"],
     "sequence" : ["title", "text_0", "plot", "refs"],

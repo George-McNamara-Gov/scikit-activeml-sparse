@@ -5,7 +5,7 @@
     "method" : "Querying Informative and Representative Examples (QUIRE)",
     "category" : "Hybrid",
     "template" : "examples/template_pool.py",
-    "tags" : ["pool",  "classification", "single-annotator"],
+    "tags" : ["pool",  "classification", "single-annotator", "top-k-batch"],
     "title" : "Querying Informative and Representative Examples (QUIRE)",
     "refs" : ["huang2010active", "huang2014active"],
     "sequence" : ["title", "text_0", "plot", "refs"],

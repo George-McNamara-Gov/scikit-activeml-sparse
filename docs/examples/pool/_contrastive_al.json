@@ -5,7 +5,7 @@
     "method" : "Contrastive Active Learning (CAL)",
     "category" : "Hybrid",
     "template" : "examples/template_pool.py",
-    "tags" : ["pool", "classification", "single-annotator"],
+    "tags" : ["pool", "classification", "single-annotator", "top-k-batch"],
     "title" : "Contrastive Active Learning (CAL)",
     "refs" : ["margatina2021active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
