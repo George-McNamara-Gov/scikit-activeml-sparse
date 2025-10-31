@@ -198,10 +198,18 @@ def generate_strategy_overview_rst(gen_path, json_data):
         file.write("#################\n")
         file.write("\n")
 
+        file.write("|\n\n")
+        # TODO: Replace image path.
+        file.write(".. image:: ../logos/scikit-activeml-query-strategy-overview.svg\n")
+        file.write("   :class: dark-light\n")
+        file.write("   :align: center\n")
+        file.write("   :width: 100%\n\n")
+        file.write("|\n\n")
+
         file.write(
-            f"This is an overview of all implemented active learning "
-            f"strategies, which are often divided into three main "
-            "categories based on the utilities they compute for sample "
+            f"This is an overview of all implemented pool- and stream-based "
+            f"active learning strategies, which are often divided into three"
+            f"main categories based on the utilities they compute for sample "
             "selection:\n\n"
             "1. **Informativeness-based** strategies mostly select samples "
             "for which the model is most uncertain (e.g., via "
@@ -216,7 +224,11 @@ def generate_strategy_overview_rst(gen_path, json_data):
         file.write(
             "Furthermore, we distinguish between **regression** and "
             "**classification** as supervised learning tasks, where labels can"
-            "be provided by a **single annotator** or **multiple annotators**. "
+            "be provided by a **single annotator** or "
+            "**multiple annotators**. Finally, a strategy builds a "
+            "batch of samples by either including the samples with "
+            "the **top-k** utilities or by including **diverse** samples "
+            "with high utility scores.\n\n"
             "You can use the checkboxes below to filter the query strategies "
             "based on these distinctions.\n"
         )
@@ -229,13 +241,13 @@ def generate_strategy_overview_rst(gen_path, json_data):
             "   <label>Regression</label>\n"
             '   <input type="checkbox" class="input-tag" '
             'value="classification">\n '
-            "   <label>Classification</label>\n"
+            "   <label>Classification</label>\n\n"
             '   <input type="checkbox" class="input-tag" '
             'value="top-k-batch">\n '
             "   <label>Top-k-Batch</label>\n"
             '   <input type="checkbox" class="input-tag" '
             'value="diverse-batch">\n '
-            "   <label>Diverse-Batch</label>\n"
+            "   <label>Diverse-Batch</label>\n\n"
             '   <input type="checkbox" class="input-tag" '
             'value="single-annotator">\n '
             "   <label>Single-Annotator</label>\n"
