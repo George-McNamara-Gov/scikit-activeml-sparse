@@ -63,9 +63,9 @@ classes = np.unique(y_true)
 # Preparation for plotting.
 fig, ax = plt.subplots()
 fig.subplots_adjust(top=0.825)
-feature_bound = [[0, len(X)], [min(X), max(X)]]
-ax.set_xlim(0, len(X))
-ax.set_ylim(bottom=min(X), top=max(X))
+feature_bound = [[0, len(X_stream)], [min(X_stream), max(X_stream)]]
+ax.set_xlim(0, len(X_stream))
+ax.set_ylim(bottom=min(X_stream), top=max(X_stream))
 artists = []  # List to store frames for the animation
 
 # List to track whether each sample was queried (True) or not (False).
