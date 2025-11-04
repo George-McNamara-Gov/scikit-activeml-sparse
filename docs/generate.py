@@ -172,9 +172,7 @@ def automodule(module, api_root_path, level=0):
 
     for item in modules:
         automodule(
-            getattr(module, item),
-            api_root_path=api_root_path,
-            level=level + 1
+            getattr(module, item), api_root_path=api_root_path, level=level + 1
         )
 
 
@@ -385,10 +383,7 @@ def table_data_to_rst_table(
 
 
 def generate_examples(
-        gen_path,
-        json_path,
-        example_notebook_directory,
-        recursive=True
+    gen_path, json_path, example_notebook_directory, recursive=True
 ):
     """
     Creates all example scripts for the specified package and returns the data
@@ -440,7 +435,7 @@ def generate_examples(
                         root=root,
                         local_dir_path=sub_dir_str,
                         dst=dst,
-                        notebook_directory=example_notebook_directory
+                        notebook_directory=example_notebook_directory,
                     )
                     for filename in files
                 )
@@ -454,7 +449,7 @@ def generate_examples(
                         root=root,
                         local_dir_path=sub_dir_str,
                         dst=dst,
-                        notebook_directory=example_notebook_directory
+                        notebook_directory=example_notebook_directory,
                     )
                 )
         for json_data_list in json_data_lists:
@@ -474,12 +469,8 @@ def generate_examples(
 
 
 def _generate_single_example(
-        filename,
-        root,
-        local_dir_path,
-        dst,
-        notebook_directory
-        ):
+    filename, root, local_dir_path, dst, notebook_directory
+):
     """_summary_
 
     Parameters
@@ -518,7 +509,7 @@ def _generate_single_example(
                     data=data,
                     package=current_package,
                     template_path=os.path.abspath(data["template"]),
-                    notebook_directory=notebook_directory
+                    notebook_directory=notebook_directory,
                 )
     elif not filename.startswith("template"):
         if filename.endswith(".py") or filename.endswith(".ipynb"):
@@ -534,14 +525,14 @@ def _generate_single_example(
 
 
 def generate_example_script(
-        filename,
-        dir_path,
-        local_dir_path,
-        data,
-        package,
-        template_path,
-        notebook_directory,
-        google_colab_link=None
+    filename,
+    dir_path,
+    local_dir_path,
+    data,
+    package,
+    template_path,
+    notebook_directory,
+    google_colab_link=None,
 ):
     """
     Generates a python example file needed, for the 'sphinx-gallery' extension.
@@ -576,15 +567,15 @@ def generate_example_script(
 
     google_colab_link = check_google_colab_link(google_colab_link)
 
-    notebook_filename = filename.replace('.py', '.ipynb')
+    notebook_filename = filename.replace(".py", ".ipynb")
 
-    data["colab_link"] = "/".join([
-        google_colab_link,
-        notebook_directory,
-        local_dir_path,
-        notebook_filename
-    ]
-
+    data["colab_link"] = "/".join(
+        [
+            google_colab_link,
+            notebook_directory,
+            local_dir_path,
+            notebook_filename,
+        ]
     )
 
     first_title = True
@@ -863,20 +854,20 @@ def generate_tutorials(src_path, dst_path, dst_path_colab):
     post_process_tutorials(
         dst_path,
         colab_notebook_path=dst_path_colab,
-        show_installation_code=False
+        show_installation_code=False,
     )
     post_process_tutorials(
         dst_path_colab,
         colab_notebook_path=dst_path_colab,
-        show_installation_code=True
+        show_installation_code=True,
     )
 
 
 def post_process_tutorials(
-        tutorials_path,
-        colab_notebook_path,
-        show_installation_code=False,
-        google_colab_link=None
+    tutorials_path,
+    colab_notebook_path,
+    show_installation_code=False,
+    google_colab_link=None,
 ):
     """This function allows to post-process the tutorial notebooks. In
     particular, the placeholder (<colab_link>) within notebooks are replaced
@@ -903,7 +894,7 @@ def post_process_tutorials(
         file_path_colab = f"{colab_notebook_path}/{file_name}"
 
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 file_content = f.read()
         except OSError:
             file_content = None
@@ -914,9 +905,7 @@ def post_process_tutorials(
                 processed_file_content
             )
             processed_file_content = replace_colab_link(
-                processed_file_content,
-                file_path_colab,
-                google_colab_link
+                processed_file_content, file_path_colab, google_colab_link
             )
             if show_installation_code:
                 processed_file_content = uncomment_installation_code(
@@ -925,16 +914,14 @@ def post_process_tutorials(
 
             if file_content != processed_file_content:
                 try:
-                    with open(file_path, 'w') as f:
+                    with open(file_path, "w") as f:
                         f.write(processed_file_content)
                 except OSError:
                     print("Error while writing {}")
                     pass
 
 
-def add_orphan_metadata(
-        file_content
-):
+def add_orphan_metadata(file_content):
     """This function adds the orphan metadata that nbsphinx require so that the
     notebooks don't need to appear in any toctree.
 
@@ -949,18 +936,14 @@ def add_orphan_metadata(
         The notebook with the added metadata.
     """
     notebook_json = json.loads(file_content)
-    nbsphinx_dict = notebook_json['metadata'].get('nbsphinx', {})
-    nbsphinx_dict['orphan'] = True
-    notebook_json['metadata']['nbsphinx'] = nbsphinx_dict
+    nbsphinx_dict = notebook_json["metadata"].get("nbsphinx", {})
+    nbsphinx_dict["orphan"] = True
+    notebook_json["metadata"]["nbsphinx"] = nbsphinx_dict
     output = json.dumps(notebook_json)
     return output
 
 
-def replace_colab_link(
-        file_content,
-        colab_path,
-        google_colab_link=None
-):
+def replace_colab_link(file_content, colab_path, google_colab_link=None):
     """This function replaces the placeholder (<colab_link>) within
     `file_content` with the link that matches the location once the notebook is
     included into the deployed documentation.
@@ -985,9 +968,7 @@ def replace_colab_link(
     google_colab_link = check_google_colab_link(google_colab_link)
     colab_link = f"{google_colab_link}/{colab_path}"
     output = re.sub(
-        pattern="<colab_link>",
-        repl=colab_link,
-        string=file_content
+        pattern="<colab_link>", repl=colab_link, string=file_content
     )
     return output
 
@@ -1013,12 +994,10 @@ def check_google_colab_link(google_colab_link):
     """
     output = google_colab_link
     if google_colab_link is None:
-        colab_github = 'https://colab.research.google.com/github'
-        docs_repo_name = 'scikit-activeml/scikit-activeml.github.io'
-        docs_branch_path = 'blob/gh-pages/latest'
-        output = (
-            f"{colab_github}/{docs_repo_name}/{docs_branch_path}"
-        )
+        colab_github = "https://colab.research.google.com/github"
+        docs_repo_name = "scikit-activeml/scikit-activeml.github.io"
+        docs_branch_path = "blob/gh-pages/latest"
+        output = f"{colab_github}/{docs_repo_name}/{docs_branch_path}"
     return output
 
 
@@ -1036,21 +1015,13 @@ def uncomment_installation_code(file_content):
     output : str
         The notebook that would install the needed packages.
     """
-    pattern = r'\"# (!pip install .*?)\"'
+    pattern = r"\"# (!pip install .*?)\""
     repl = r'"\1"'
-    output = re.sub(
-        pattern=pattern,
-        repl=repl,
-        string=file_content
-    )
+    output = re.sub(pattern=pattern, repl=repl, string=file_content)
 
-    pattern = r'\"# (!jupyter nbextension install .*?)\"'
+    pattern = r"\"# (!jupyter nbextension install .*?)\""
     repl = r'"\1"'
-    output = re.sub(
-        pattern=pattern,
-        repl=repl,
-        string=output
-    )
+    output = re.sub(pattern=pattern, repl=repl, string=output)
     return output
 
 
@@ -1147,46 +1118,82 @@ def generate_multi_annotator_pool_legend(path):
     handles = []
     labels = []
     fig, ax = plt.subplots(1, 1, figsize=(8, 4), tight_layout=True)
-    handles.append(plt.Rectangle((0, 0), 1, 1, color='grey'))
-    labels.append('Requested Labels (Total)')
+    handles.append(plt.Rectangle((0, 0), 1, 1, color="grey"))
+    labels.append("Requested Labels (Total)")
     handles.append(
-        Line2D([0], [0], color='black', markerfacecolor='black',
-               markeredgecolor='black', linewidth=0.5, markeredgewidth=0.2)
+        Line2D(
+            [0],
+            [0],
+            color="black",
+            markerfacecolor="black",
+            markeredgecolor="black",
+            linewidth=0.5,
+            markeredgewidth=0.2,
+        )
     )
-    labels.append('AP = Annotator Performance')
+    labels.append("AP = Annotator Performance")
     handles.append(
-        Line2D([0], [0], color='black', markerfacecolor='black',
-               markeredgecolor='black', linewidth=0.5, markeredgewidth=0.2)
+        Line2D(
+            [0],
+            [0],
+            color="black",
+            markerfacecolor="black",
+            markeredgecolor="black",
+            linewidth=0.5,
+            markeredgewidth=0.2,
+        )
     )
-    labels.append(r'$\widehat{\text{AP}}$ = Estimated Annotator Performance')
+    labels.append(r"$\widehat{\text{AP}}$ = Estimated Annotator Performance")
     handles.append(
-        Line2D([0], [0], marker='X', color='w',
-               markerfacecolor=plt.get_cmap('coolwarm')(0), markersize=10),
+        Line2D(
+            [0],
+            [0],
+            marker="X",
+            color="w",
+            markerfacecolor=plt.get_cmap("coolwarm")(0),
+            markersize=10,
+        ),
     )
-    labels.append('Erroneous majority vote for class 0')
+    labels.append("Erroneous majority vote for class 0")
     handles.append(
-    Line2D([0], [0], marker='X', color='w',
-           markerfacecolor=plt.get_cmap('coolwarm')(0.99), markersize=10),
+        Line2D(
+            [0],
+            [0],
+            marker="X",
+            color="w",
+            markerfacecolor=plt.get_cmap("coolwarm")(0.99),
+            markersize=10,
+        ),
     )
-    labels.append('Erroneous majority vote for class 1')
+    labels.append("Erroneous majority vote for class 1")
     handles.append(
-        Line2D([0], [0], marker='o', color='w',
-               markerfacecolor=plt.get_cmap('coolwarm')(0), markersize=10),
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=plt.get_cmap("coolwarm")(0),
+            markersize=10,
+        ),
     )
-    labels.append('Correct majority vote for class 0')
+    labels.append("Correct majority vote for class 0")
     handles.append(
-        Line2D([0], [0], marker='o', color='w',
-               markerfacecolor=plt.get_cmap('coolwarm')(0.99), markersize=10),
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=plt.get_cmap("coolwarm")(0.99),
+            markersize=10,
+        ),
     )
-    labels.append('Correct majority vote for class 1')
+    labels.append("Correct majority vote for class 1")
 
     export_legend(handles, labels, ax, path=path, ncol=3)
 
 
 def generate_switcher(
-        repo_path=None,
-        switcher_location=None,
-        blacklisted_versions=None
+    repo_path=None, switcher_location=None, blacklisted_versions=None
 ):
     """Creates the version switcher file used by the PyDate theme.
 

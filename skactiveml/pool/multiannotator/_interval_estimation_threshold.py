@@ -385,7 +385,10 @@ class IntervalEstimationThreshold(MultiAnnotatorPoolQueryStrategy):
         A_perf = A_perf[np.newaxis]
         max_range = np.max(A_perf) + 1
         rand_permutation = self.random_state_.permutation(len(uncertainties))
-        uncertainties[rand_permutation] = rankdata(uncertainties[rand_permutation], method="ordinal") * max_range
+        uncertainties[rand_permutation] = (
+            rankdata(uncertainties[rand_permutation], method="ordinal")
+            * max_range
+        )
         uncertainties = np.tile(uncertainties, (n_annotators, 1)).T
         utilities = uncertainties + A_perf
 

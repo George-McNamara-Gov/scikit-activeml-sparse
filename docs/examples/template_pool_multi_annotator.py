@@ -25,8 +25,18 @@ import matplotlib.patheffects as path_effects
 from matplotlib.ticker import MaxNLocator
 from sklearn.datasets import make_blobs
 
-from skactiveml.utils import MISSING_LABEL, labeled_indices, unlabeled_indices, majority_vote, is_labeled
-from skactiveml.visualization import plot_utilities, plot_decision_boundary, mesh
+from skactiveml.utils import (
+    MISSING_LABEL,
+    labeled_indices,
+    unlabeled_indices,
+    majority_vote,
+    is_labeled,
+)
+from skactiveml.visualization import (
+    plot_utilities,
+    plot_decision_boundary,
+    mesh,
+)
 
 "$import_clf|from skactiveml.classifier import ParzenWindowClassifier"
 "$import_misc"
@@ -41,9 +51,12 @@ X_all, y_true_all = make_blobs(
     cluster_std=0.7,
     random_state=random_state,
 )
-X, X_test = X_all[:len(X_all)//2], X_all[len(X_all)//2:]
+X, X_test = X_all[: len(X_all) // 2], X_all[len(X_all) // 2 :]
 y_true_all = y_true_all % 2
-y_true, y_true_test = y_true_all[:len(X_all)//2], y_true_all[len(X_all)//2:]
+y_true, y_true_test = (
+    y_true_all[: len(X_all) // 2],
+    y_true_all[len(X_all) // 2 :],
+)
 n_annotators = 5
 y_annot = np.zeros(shape=(len(X), n_annotators), dtype=int)
 annotator_error_prob = np.linspace(0.0, 0.3, num=n_annotators)
@@ -73,15 +86,23 @@ for c in range(n_cycles):
 
     # Fit the annotation performance model
     if np.all(np.any(is_labeled(y), axis=0)):
-        A_perf_clf = np.sum(np.where(is_labeled(y), y_annot == clf.predict(X)[:, None], 0), axis=0)/np.sum(is_labeled(y), axis=0)
+        A_perf_clf = np.sum(
+            np.where(is_labeled(y), y_annot == clf.predict(X)[:, None], 0),
+            axis=0,
+        ) / np.sum(is_labeled(y), axis=0)
     else:
         A_perf_clf = None
 
     A_perf_clf_individual = np.full(n_annotators, np.nan)
     has_labels = np.any(is_labeled(y), axis=0)
     A_perf_clf_individual[has_labels] = np.sum(
-        np.where(is_labeled(y)[:, has_labels], y_annot[:, has_labels] == clf.predict(X)[:, None], 0), axis=0) / np.sum(
-        is_labeled(y)[:, has_labels], axis=0)
+        np.where(
+            is_labeled(y)[:, has_labels],
+            y_annot[:, has_labels] == clf.predict(X)[:, None],
+            0,
+        ),
+        axis=0,
+    ) / np.sum(is_labeled(y)[:, has_labels], axis=0)
 
     # Query the next sample(s).
     query_idx = qs.query("$query_params")
@@ -89,11 +110,13 @@ for c in range(n_cycles):
     # Capture the current plot state.
     coll_old = list(ax1.collections) + list(ax2.collections)
     title = ax1.text(
-        0.5, 1.05,
+        0.5,
+        1.05,
         f"Decision boundary after acquiring {c} labels\n"
         f"Test Accuracy: {clf.score(X_test, y_true_test):.4f}",
         size=plt.rcParams["axes.titlesize"],
-        ha="center", transform=ax1.transAxes,
+        ha="center",
+        transform=ax1.transAxes,
     )
 
     y_mv = majority_vote(y, random_state=0)
@@ -104,21 +127,47 @@ for c in range(n_cycles):
     axes = [ax1, ax2]
     # axes = plot_annotator_utilities(ma_qs, X=X, y=y, clf=clf, axes=axes, feature_bound=bound)
     X_mesh, Y_mesh, mesh_samples = mesh(feature_bound, 25)
-    _, utilities = qs.query("$query_params", return_utilities=True, candidates=mesh_samples)
-    ax1.contourf(X_mesh, Y_mesh, np.mean(utilities[0], axis=1).reshape(X_mesh.shape), **{"cmap": "Greens", "alpha": 0.75})
+    _, utilities = qs.query(
+        "$query_params", return_utilities=True, candidates=mesh_samples
+    )
+    ax1.contourf(
+        X_mesh,
+        Y_mesh,
+        np.mean(utilities[0], axis=1).reshape(X_mesh.shape),
+        **{"cmap": "Greens", "alpha": 0.75},
+    )
     # for a in range(n_annotators):
     plot_decision_boundary(clf, ax=ax1, feature_bound=feature_bound)
     ax1.scatter(
-        X[~is_labeled_sample, 0], X[~is_labeled_sample, 1], c=y_true[~is_labeled_sample], cmap="coolwarm", marker=".",
-        zorder=2, s=10,
+        X[~is_labeled_sample, 0],
+        X[~is_labeled_sample, 1],
+        c=y_true[~is_labeled_sample],
+        cmap="coolwarm",
+        marker=".",
+        zorder=2,
+        s=10,
     )
     ax1.scatter(
-        X[is_correctly_labeled_sample, 0], X[is_correctly_labeled_sample, 1], c=y_mv[is_correctly_labeled_sample],
-        cmap="coolwarm", marker="o", s=20, zorder=100, vmin=0, vmax=1,
+        X[is_correctly_labeled_sample, 0],
+        X[is_correctly_labeled_sample, 1],
+        c=y_mv[is_correctly_labeled_sample],
+        cmap="coolwarm",
+        marker="o",
+        s=20,
+        zorder=100,
+        vmin=0,
+        vmax=1,
     )
     ax1.scatter(
-        X[is_wrongly_labeled_sample, 0], X[is_wrongly_labeled_sample, 1], c=y_mv[is_wrongly_labeled_sample],
-        cmap="coolwarm", marker="x", s=20, zorder=100, vmin=0, vmax=1,
+        X[is_wrongly_labeled_sample, 0],
+        X[is_wrongly_labeled_sample, 1],
+        c=y_mv[is_wrongly_labeled_sample],
+        cmap="coolwarm",
+        marker="x",
+        s=20,
+        zorder=100,
+        vmin=0,
+        vmax=1,
     )
     ax1.scatter(
         X[is_labeled_sample, 0],
@@ -129,32 +178,51 @@ for c in range(n_cycles):
         edgecolors="black",
         s=300,
     )
-    ax1.set_xlabel('Feature 1')
-    ax1.set_ylabel('Feature 2')
+    ax1.set_xlabel("Feature 1")
+    ax1.set_ylabel("Feature 2")
 
     requests_per_annotator = np.sum(is_labeled(y), axis=0)
-    bar_labels = ax2.bar(np.arange(n_annotators), requests_per_annotator, width=0.4, color='grey')
+    bar_labels = ax2.bar(
+        np.arange(n_annotators),
+        requests_per_annotator,
+        width=0.4,
+        color="grey",
+    )
 
-    ax2.set_xlabel('Annotators')
-    ax2.set_xticks(np.arange(n_annotators), [f"(AP={1-ep})" for ep in annotator_error_prob])
-    ax2.set_ylabel('Requested Labels')
+    ax2.set_xlabel("Annotators")
+    ax2.set_xticks(
+        np.arange(n_annotators),
+        [f"(AP={1-ep})" for ep in annotator_error_prob],
+    )
+    ax2.set_ylabel("Requested Labels")
     text_elements = []
     for i in range(n_annotators):
         if not np.isnan(A_perf_clf_individual[i]):
-            text = ax2.text(i, requests_per_annotator[i] + 0.1,
-                            r"($\widehat{\text{AP}}$=" + f"{A_perf_clf_individual[i]:.2})",
-                            horizontalalignment='center', color='black', fontsize=10)
+            text = ax2.text(
+                i,
+                requests_per_annotator[i] + 0.1,
+                r"($\widehat{\text{AP}}$=" + f"{A_perf_clf_individual[i]:.2})",
+                horizontalalignment="center",
+                color="black",
+                fontsize=10,
+            )
             text_elements.append(text)
     ax2.yaxis.set_major_locator(MaxNLocator(integer=True, nbins=5))
 
     coll_new = list(ax1.collections) + list(ax2.collections)
     coll_new.append(title)
-    artists.append([x for x in coll_new if x not in coll_old] + bar_labels.get_children() + text_elements)
+    artists.append(
+        [x for x in coll_new if x not in coll_old]
+        + bar_labels.get_children()
+        + text_elements
+    )
 
     # Update labels based on query.
-    y[query_idx[:, 0], query_idx[:, 1]] = y_annot[query_idx[:, 0], query_idx[:, 1]]
+    y[query_idx[:, 0], query_idx[:, 1]] = y_annot[
+        query_idx[:, 0], query_idx[:, 1]
+    ]
 lower_y_limit, upper_y_limit = ax2.get_ylim()
-ax2.set_ylim((lower_y_limit, upper_y_limit*1.2))
+ax2.set_ylim((lower_y_limit, upper_y_limit * 1.2))
 ani = animation.ArtistAnimation(fig, artists, interval=1000, blit=True)
 # %%
 # .. image:: ../../examples/pool_classification_legend.png
