@@ -11,6 +11,7 @@ import warnings
 import copy
 
 import numpy as np
+from matplotlib.lines import Line2D
 from pybtex.database import parse_file
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -271,7 +272,9 @@ def json_data_to_strategy_table(json_data, gen_path):
             # Collect the data needed to generate the strategy overview.
             qs_name = data["class"]
             method = data["method"]
-            package = getattr(skactiveml, data["package"])
+            package = skactiveml
+            for subpackage in data["package"].split("."):
+                package = getattr(package, subpackage)
             package_name = package.__name__.replace("skactiveml.", "")
             methods_text = (
                 f":doc:`{method} </generated/sphinx_gallery_examples/"
@@ -505,12 +508,15 @@ def _generate_single_example(
                     + "-"
                     + data["method"].replace(" ", "_")
                 )
+                current_package = skactiveml
+                for subpackage in data["package"].split("."):
+                    current_package = getattr(current_package, subpackage)
                 generate_example_script(
                     filename=plot_filename + ".py",
                     dir_path=dst,
                     local_dir_path=local_dir_path,
                     data=data,
-                    package=getattr(skactiveml, data["package"]),
+                    package=current_package,
                     template_path=os.path.abspath(data["template"]),
                     notebook_directory=notebook_directory
                 )
@@ -1048,7 +1054,7 @@ def uncomment_installation_code(file_content):
     return output
 
 
-def export_legend(handles, labels, ax, path="legend.pdf", expand=None):
+def export_legend(handles, labels, ax, path="legend.pdf", expand=None, ncol=4):
     if expand is None:
         expand = [-5, -5, 5, 5]
 
@@ -1059,7 +1065,7 @@ def export_legend(handles, labels, ax, path="legend.pdf", expand=None):
         loc=3,
         framealpha=1,
         frameon=True,
-        ncol=4,
+        ncol=ncol,
         mode="expand",
         bbox_to_anchor=(0.0, 0.0, 1.0, 1.0),
         fontsize=8,
@@ -1135,6 +1141,46 @@ def generate_regression_legend(path):
     labels.append("Labeled Sample")
 
     export_legend(handles, labels, ax, path=path)
+
+
+def generate_multi_annotator_pool_legend(path):
+    handles = []
+    labels = []
+    fig, ax = plt.subplots(1, 1, figsize=(8, 4), tight_layout=True)
+    handles.append(plt.Rectangle((0, 0), 1, 1, color='grey'))
+    labels.append('Requested Labels (Total)')
+    handles.append(
+        Line2D([0], [0], color='black', markerfacecolor='black',
+               markeredgecolor='black', linewidth=0.5, markeredgewidth=0.2)
+    )
+    labels.append('AP = Annotator Performance')
+    handles.append(
+        Line2D([0], [0], color='black', markerfacecolor='black',
+               markeredgecolor='black', linewidth=0.5, markeredgewidth=0.2)
+    )
+    labels.append(r'$\widehat{\text{AP}}$ = Estimated Annotator Performance')
+    handles.append(
+        Line2D([0], [0], marker='X', color='w',
+               markerfacecolor=plt.get_cmap('coolwarm')(0), markersize=10),
+    )
+    labels.append('Erroneous majority vote for class 0')
+    handles.append(
+    Line2D([0], [0], marker='X', color='w',
+           markerfacecolor=plt.get_cmap('coolwarm')(0.99), markersize=10),
+    )
+    labels.append('Erroneous majority vote for class 1')
+    handles.append(
+        Line2D([0], [0], marker='o', color='w',
+               markerfacecolor=plt.get_cmap('coolwarm')(0), markersize=10),
+    )
+    labels.append('Correct majority vote for class 0')
+    handles.append(
+        Line2D([0], [0], marker='o', color='w',
+               markerfacecolor=plt.get_cmap('coolwarm')(0.99), markersize=10),
+    )
+    labels.append('Correct majority vote for class 1')
+
+    export_legend(handles, labels, ax, path=path, ncol=3)
 
 
 def generate_switcher(
