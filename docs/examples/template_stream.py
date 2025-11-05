@@ -106,7 +106,7 @@ for t_x, (x_t, y_t) in enumerate(zip(X_stream, y_stream)):
         # Save current plot elements to determine what is new.
         coll_old = list(ax.collections)
         ax, predictions_list = plot_stream_decision_boundary(
-            ax, t_x, plot_step, clf, X, predictions_list, res="$res|25"
+            ax, t_x, plot_step, clf, X_stream, predictions_list, res="$res|25"
         )
         data_lines = plot_stream_training_data(
             ax, X, y, queried_indices, classes, feature_bound
@@ -130,6 +130,8 @@ for t_x, (x_t, y_t) in enumerate(zip(X_stream, y_stream)):
             ha="center",
             transform=ax.transAxes,
         )
+        ax.set_xlabel('number of observed samples')
+        ax.set_ylabel('sample')
         coll_new = list(ax.collections)
         coll_new.append(title)
 

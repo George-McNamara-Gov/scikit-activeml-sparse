@@ -51,10 +51,7 @@ qs = "$init_qs"
 "$preproc"
 # Preparation for plotting.
 fig, ax = plt.subplots()
-feature_bound = [
-    [min(X[:, 0]), min(X[:, 1])],
-    [max(X[:, 0]), max(X[:, 1])]
-]
+feature_bound = [[min(X[:, 0]), min(X[:, 1])],[max(X[:, 0]), max(X[:, 1])]]
 artists = []
 
 # Active learning cycle:
@@ -103,6 +100,8 @@ for c in range(n_cycles):
         s=300,
     )
     ax = plot_decision_boundary(clf, feature_bound, ax=ax)
+    ax.set_xlabel('feature 1')
+    ax.set_ylabel('feature 2')
 
     coll_new = list(ax.collections)
     coll_new.append(title)
