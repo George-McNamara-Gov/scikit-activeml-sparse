@@ -22,7 +22,8 @@ class ExpectedModelOutputChange(SingleAnnotatorPoolQueryStrategy):
 
     This class implements an "Expected Model Output Change" (EMOC) based
     approach for regression [1]_, where samples are queried that change the
-    output of the regression model the most.
+    output of the regression model the most. The difference in output is
+    measured by the loss function.
 
     Parameters
     ----------
