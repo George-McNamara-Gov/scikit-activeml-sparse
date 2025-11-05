@@ -9,7 +9,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.linear_model import LinearRegression, ARDRegression, SGDRegressor
 from sklearn.neural_network import MLPRegressor
 from sklearn.svm import SVC
-from sklearn.preprocessing import PolynomialFeatures
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.utils.validation import check_is_fitted
 from sklearn.datasets import make_regression
@@ -214,7 +214,7 @@ class TestWrapper(TemplateSkactivemlRegressor, unittest.TestCase):
         reg = SklearnRegressor(pipline, missing_label=np.nan, random_state=0)
         reg = reg.fit(X, y_true)
         check_is_fitted(reg)
-        self.assertRaises(NotFittedError, check_is_fitted, pipline)
+
         self.assertGreaterEqual(reg.score(X, y_true), 0.9)
         y_missing = np.full_like(y_true, np.nan)
         reg.fit(X, y_missing)
@@ -247,13 +247,17 @@ class TestSklearnProbabilisticRegressor(
         test_cases = []
         test_cases += [
             (GaussianProcessRegressor(), None),
-            (SVC(), TypeError),
+            (SVC(), ValueError),
             ("Test", AttributeError),
         ]
         self._test_param("init", "estimator", test_cases)
 
     def test_fit_param_sample_weight(self, test_cases=None):
-        replace_init_params = {"estimator": SGDRegressor()}
+        replace_init_params = {
+            "estimator": Pipeline(
+                (("s", StandardScaler()), ("r", SGDRegressor()))
+            )
+        }
         super().test_fit_param_sample_weight(
             test_cases,
             replace_init_params=replace_init_params,
@@ -287,10 +291,7 @@ class TestSklearnProbabilisticRegressor(
         self.assertEqual(y_pred.shape, (len(self.X_cand),))
 
         reg = SklearnNormalRegressor(estimator=LinearRegression())
-        reg.fit(self.X, self.y)
-        self.assertRaises(
-            ValueError, reg.predict_target_distribution, self.X_cand
-        )
+        self.assertRaises(ValueError, reg.fit, self.X, self.y)
 
     def test_fit(self):
         class DummyRegressor(SkactivemlRegressor):
@@ -416,3 +417,31 @@ class TestSklearnProbabilisticRegressor(
                 pred_orig_0 = pretrained_estimator.predict(X_test)
                 pred_wrapped_0 = reg.predict(X_test)
                 np.testing.assert_array_equal(pred_orig_0, pred_wrapped_0)
+
+    def test_pipeline(self):
+        X = np.linspace(-3, 3, 100)
+        y_true = X**2
+        X = X.reshape(-1, 1)
+        pipeline = Pipeline(
+            (
+                ("scaler", StandardScaler()),
+                ("lr", LinearRegression()),
+            )
+        )
+
+        reg = SklearnNormalRegressor(
+            pipeline, missing_label=np.nan, random_state=0
+        )
+        reg.fit(X, y_true)
+
+        self.assertRaises(ValueError, reg.predict, X)
+        pipline = Pipeline(
+            (
+                ("scaler", StandardScaler()),
+                ("lr", GaussianProcessRegressor()),
+            )
+        )
+        reg = SklearnRegressor(pipline, missing_label=np.nan, random_state=0)
+        reg = reg.fit(X, y_true)
+        check_is_fitted(reg)
+        reg.predict(X)

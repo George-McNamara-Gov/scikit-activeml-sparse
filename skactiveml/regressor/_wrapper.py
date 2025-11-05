@@ -349,6 +349,48 @@ class SklearnNormalRegressor(ProbabilisticRegressor, SklearnRegressor):
             estimator, missing_label=missing_label, random_state=random_state
         )
 
+    @match_signature("estimator", "fit")
+    def fit(self, X, y, sample_weight=None, **fit_kwargs):
+        """Fit the model using X as training data and y as labels.
+
+        Parameters
+        ----------
+        X : matrix-like of shape (n_samples, n_features)
+            The sample matrix X is the feature matrix representing the samples.
+        y : array-like of shape (n_samples,)
+            It contains the numeric target values of the training samples.
+            Missing labels are represented as `self.missing_label`.
+        sample_weight : array-like of shape (n_samples,), default=None
+            It contains the weights of the training samples´ labels. It
+            must have the same shape as y.
+        fit_kwargs : dict-like
+            Further parameters are passed as input to the `fit` method of the
+            'estimator'.
+
+        Returns
+        -------
+        self: SklearnRegressor,
+            The SklearnRegressor is fitted on the training data.
+        """
+        if (
+            hasattr(self.estimator, "predict")
+            and "return_std"
+            not in inspect.signature(self.estimator.predict).parameters.keys()
+            and inspect.getfullargspec(self.estimator.predict).varkw is None
+        ):
+            raise ValueError(
+                f"`{self.estimator}` must have key_word argument"
+                f"`return_std` for predict."
+            )
+
+        return self._fit(
+            fit_function="fit",
+            X=X,
+            y=y,
+            sample_weight=sample_weight,
+            **fit_kwargs,
+        )
+
     def predict_target_distribution(self, X):
         """Returns the estimated target normal distribution conditioned on the
         test samples `X`.
@@ -366,14 +408,14 @@ class SklearnNormalRegressor(ProbabilisticRegressor, SklearnRegressor):
         """
         check_is_fitted(self)
 
-        if (
-            "return_std"
-            not in inspect.signature(self.estimator.predict).parameters.keys()
-        ):
-            raise ValueError(
-                f"`{self.estimator}` must have key_word argument"
-                f"`return_std` for predict."
-            )
-
-        loc, scale = SklearnRegressor.predict(self, X, return_std=True)
-        return norm(loc=loc, scale=scale)
+        try:
+            loc, scale = SklearnRegressor.predict(self, X, return_std=True)
+            return norm(loc=loc, scale=scale)
+        except TypeError as e:
+            if (
+                "predict() got an unexpected keyword argument 'return_std'"
+                in str(e)
+            ):
+                raise ValueError(
+                    "SklearnNormalRegressors require the Regressor from Sklearn to accept 'return_std'"
+                ) from e
