@@ -244,13 +244,17 @@ def generate_strategy_overview_rst(gen_path, json_data):
         for section_name in strategy_order:
             cats = strategy_table[section_name]
             if len(section_name) > 0:
-                with open(os.path.join(os.path.dirname(gen_path), f'examples/{section_name}/README.rst'), 'r') as f:
+                with open(
+                    os.path.join(
+                        os.path.dirname(gen_path),
+                        f"examples/{section_name}/README.rst",
+                    ),
+                    "r",
+                ) as f:
                     first_line = f.readline().strip()
             else:
                 first_line = ""
-            file.write(
-                f"{first_line}\n"
-            )
+            file.write(f"{first_line}\n")
             file.write("".ljust(len(first_line), "-") + "\n")
             file.write("\n")
 
