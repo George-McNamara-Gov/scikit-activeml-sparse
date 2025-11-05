@@ -1,4 +1,5 @@
 import os
+from collections import OrderedDict
 
 import packaging.version
 import importlib
@@ -187,7 +188,6 @@ def generate_strategy_overview_rst(gen_path, json_data):
     json_data : dict
         The data of the examples directory stored in a dictionary.
     """
-
     strategy_table = json_data_to_strategy_table(json_data, gen_path)
 
     # Generate file
@@ -239,12 +239,19 @@ def generate_strategy_overview_rst(gen_path, json_data):
         file.write("\n")
 
         # Iterate over the sections.
-        for section_name, cats in strategy_table.items():
+        strategy_order = list(strategy_table.keys())
+        strategy_order.sort()
+        for section_name in strategy_order:
+            cats = strategy_table[section_name]
+            if len(section_name) > 0:
+                with open(os.path.join(os.path.dirname(gen_path), f'examples/{section_name}/README.rst'), 'r') as f:
+                    first_line = f.readline().strip()
+            else:
+                first_line = ""
             file.write(
-                " ".join([s.capitalize() for s in section_name.split(os.sep)])
-                + "\n"
+                f"{first_line}\n"
             )
-            file.write("".ljust(len(section_name), "-") + "\n")
+            file.write("".ljust(len(first_line), "-") + "\n")
             file.write("\n")
 
             # Iterate over the examples.
@@ -267,16 +274,16 @@ def json_data_to_strategy_table(json_data, gen_path):
     for section_name, section_items in json_data.items():
         table = np.ndarray(shape=(0, 5))
         for data in section_items["data"]:
+
             # Collect the data needed to generate the strategy overview.
             qs_name = data["class"]
             method = data["method"]
             package = skactiveml
             for subpackage in data["package"].split("."):
                 package = getattr(package, subpackage)
-            package_name = package.__name__.replace("skactiveml.", "")
             methods_text = (
                 f":doc:`{method} </generated/sphinx_gallery_examples/"
-                f"{package_name}/plot-{qs_name}-"
+                f"{section_name}/plot-{qs_name}-"
                 f'{method.replace(" ", "_")}>`'
             )
             strategy_text = (
@@ -410,7 +417,7 @@ def generate_examples(
     # create directory if it does not exist.
     os.makedirs(gen_path, exist_ok=True)
 
-    json_data = dict()
+    json_data = OrderedDict()
     # iterate over json example files
     for root, dirs, files in os.walk(json_path, topdown=True):
         if root.endswith("__pycache__"):
@@ -457,7 +464,7 @@ def generate_examples(
             json_data_entry = json_data
             for sp in package_structure:
                 if sp not in json_data_entry.keys():
-                    json_data_entry[sp] = dict()
+                    json_data_entry[sp] = OrderedDict()
                 json_data_entry = json_data_entry[sp]
             if "data" not in json_data_entry.keys():
                 json_data_entry["data"] = list()
