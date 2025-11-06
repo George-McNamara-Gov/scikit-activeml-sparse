@@ -36,9 +36,7 @@ n_features, classes = X_stream.shape[1], np.unique(y_stream)
 missing_label = -1
 
 
-# Build your `torch` module for classification, which outputs:
-# - classification logits,
-# - learned sample embeddings.
+# Build `torch` module for classification, outputting classification logits.
 class ClassificationModule(nn.Module):
     def __init__(self, n_features, n_classes, n_hidden_units):
         super().__init__()
@@ -49,7 +47,7 @@ class ClassificationModule(nn.Module):
     def forward(self, x):
         x_embed = self.linear_1(x)
         logits = self.linear_2(self.activation(x_embed))
-        return logits, x_embed
+        return logits
 
 # Wrap your torch module via a `skactiveml` wrapper, which requires the
 # definition of training parameters.
