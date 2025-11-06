@@ -158,8 +158,8 @@ class GreedySamplingTarget(SingleAnnotatorPoolQueryStrategy):
     diversity in the feature and the target space (GSi), optionally only the
     diversity in the target space can be maximized (GSy).
     The diversity is maximized by selecting those samples that are the
-    furthest away from all previous samples. To measure the distance in the
-    target space the strategy predicts the label corresponding to each
+    furthest away from all previously labeled samples. To measure the distance
+    in the target space the strategy predicts the label corresponding to each
     sample. For GSi this distances is measured as the product of the distance
     in the feature space and the target space.
 
