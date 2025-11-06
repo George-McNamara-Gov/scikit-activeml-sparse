@@ -25,7 +25,7 @@ class ExpectedModelChangeMaximization(SingleAnnotatorPoolQueryStrategy):
     This class implements "Expected Model Change" (EMC) [1]_, an active
     learning query strategy designed for linear regression. It chooses those
     samples that have a maximal expected gradient length with respect to the
-    model parameters. While designed for a linear regressor the formulas 
+    model parameters. While designed for a linear regressor the formulas
     obtained from the linear case can be applied to arbitrary regressors.
 
     Parameters
