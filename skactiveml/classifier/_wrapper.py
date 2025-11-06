@@ -1100,6 +1100,7 @@ if successful_skorch_torch_import:
                   ``(1 - I_n)`` if ``self.cost_matrix`` is ``None``, otherwise
                   uses ``self.cost_matrix``.
             """
+            self.random_state_ = check_random_state(self.random_state)
             if not hasattr(self, "_le"):
                 self._le = ExtLabelEncoder(
                     classes=self.classes, missing_label=self.missing_label

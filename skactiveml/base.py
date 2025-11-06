@@ -48,6 +48,7 @@ __all__ = [
     "AnnotatorModelMixin",
     "SkactivemlRegressor",
     "ProbabilisticRegressor",
+    "SkorchMixin",
 ]
 
 successful_skorch_torch_import = False
@@ -1139,8 +1140,9 @@ class SkactivemlClassifier(ClassifierMixin, BaseEstimator, ABC):
         score : float
             Mean accuracy of `self.predict(X)` regarding `y`.
         """
+        y_pred = self.predict(X)
+        y_pred = self._le.transform(y_pred)
         y = self._le.transform(y)
-        y_pred = self._le.transform(self.predict(X))
         return accuracy_score(y, y_pred, sample_weight=sample_weight)
 
     def _validate_data(
