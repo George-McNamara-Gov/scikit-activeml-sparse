@@ -25,6 +25,7 @@ y_test = np.asarray(ds_test["label"], dtype=np.int64)
 n_features, classes = X_pool.shape[1], np.unique(y_pool)
 missing_label = -1
 
+
 # Build your `torch` module for classification, which outputs:
 # - classification logits,
 # - learned sample embeddings.
@@ -39,6 +40,7 @@ class ClassificationModule(nn.Module):
         x_embed = self.linear_1(x)
         logits = self.linear_2(self.activation(x_embed))
         return logits, x_embed
+
 
 # Wrap your torch module via a `skactiveml` wrapper, which requires the
 # definition of training parameters.
@@ -118,6 +120,7 @@ for c in range(-1, n_cycles):
             y=y_train,
             batch_size=batch_size,
             clf=clf,
+            fit_clf=False,
         )
         y_train[query_idx] = y_pool[query_idx]
     clf.fit(X_pool, y_train)

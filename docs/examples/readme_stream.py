@@ -21,12 +21,16 @@ processor = AutoImageProcessor.from_pretrained(
     "facebook/dinov2-small", use_fast=True
 )
 model = Dinov2Model.from_pretrained("facebook/dinov2-small").to(device).eval()
+
+
 def embed(batch):
     inputs = processor(images=batch["img"], return_tensors="pt").to(device)
     with torch.no_grad():
         out = model(**inputs).last_hidden_state[:, 0]
     batch["emb"] = out.cpu().numpy()
     return batch
+
+
 ds = ds.map(embed, batched=True, batch_size=128)
 X_stream = np.stack(ds["train"]["emb"], dtype=np.float32)[:1000]
 y_stream = np.array(ds["train"]["label"], dtype=np.int64)[:1000]
@@ -48,6 +52,7 @@ class ClassificationModule(nn.Module):
         x_embed = self.linear_1(x)
         logits = self.linear_2(self.activation(x_embed))
         return logits
+
 
 # Wrap your torch module via a `skactiveml` wrapper, which requires the
 # definition of training parameters.
@@ -120,7 +125,6 @@ for t in range(-1, n_cycles):
         )
         qs.update(candidates=X_stream[[t]], queried_indices=query_idx)
         if len(query_idx) > 0:
-            print(t)
             y_train[t] = y_stream[t]
             clf.fit(X_stream, y_train)
         budgets.append(
