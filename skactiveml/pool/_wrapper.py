@@ -20,7 +20,14 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
 
     This class implements a wrapper for single-annotator pool-based strategies
     that randomly sub-samples a set of candidates before computing their
-    utilities.
+    utilities. This is useful when the number of available candidates is too
+    large and a small subset of candidates is sufficient to select a good batch
+    for labeling. The number of candidates can be controlled using
+    `max_candidates` which supports an absolute number or a fraction of the
+    available candidates. Additionally, `exclude_non_subsample` provides an
+    option to mask all candidates that were not included in the subsample. This
+    can further improve the runtime for query strategies that utilize all
+    available unlabeled data in their selection.
 
     Parameters
     ----------
@@ -295,7 +302,7 @@ class ParallelUtilityEstimationWrapper(SingleAnnotatorPoolQueryStrategy):
     This class implements a wrapper for single-annotator pool-based strategies
     such that utilities for candidates can be calculated in parallel. The main
     assumption for this is that the utility computations are independent from
-    another. Therefore, only `batch_size=1` is supported.
+    another. Therefore, only `batch_size=1` is supported. 
 
     Parameters
     ----------
