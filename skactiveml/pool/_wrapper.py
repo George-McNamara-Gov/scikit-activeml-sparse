@@ -302,7 +302,7 @@ class ParallelUtilityEstimationWrapper(SingleAnnotatorPoolQueryStrategy):
     This class implements a wrapper for single-annotator pool-based strategies
     such that utilities for candidates can be calculated in parallel. The main
     assumption for this is that the utility computations are independent from
-    another. Therefore, only `batch_size=1` is supported. 
+    another. Therefore, only `batch_size=1` is supported.
 
     Parameters
     ----------
