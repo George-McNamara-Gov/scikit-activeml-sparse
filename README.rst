@@ -327,6 +327,59 @@ which have been tested for the current package release:
 
 .. examples_start
 
+📚 In-depth Tutorials
+---------------------
+
+The table below summarizes a selection of our in-depth tutorials.
+Each entry lists the active learning scenario, prediction task, data
+modality, and model family used in the tutorial.
+
+.. list-table:: In-depth tutorials
+   :header-rows: 1
+   :widths: 20 12 12 12 12
+
+   * - Tutorial
+     - Scenario
+     - Task
+     - Data
+     - Model
+   * - Pool-based Active Learning: Getting Started
+     - Pool
+     - Classification
+     - Toy
+     - Logistic Regression
+   * - Stream-based Active Learning: Getting Started
+     - Stream
+     - Classification
+     - Toy
+     - Parzen Window Classifier
+   * - Pool-based Active Learning for Regression: Getting Started
+     - Pool
+     - Regression
+     - Toy
+     - Kernel Regressor
+   * - Deep Active Learning for Fine-tuning Vision Foundation Models
+     - Pool
+     - Classification
+     - Image
+     - Vision Transformer
+   * - Stream-based Acitve Learning in Batches
+     - Stream
+     - Classification
+     - Toy
+     - Parzen Window Classifier
+   * - Deep Active Learning for Regression Tasks
+     - Pool
+     - Regression
+     - Tabular
+     - Extreme Gradient Boosted Regressor
+   * - Paper Annotation Tool
+     - Pool
+     - Classification
+     - Text Embeddings
+     - Logistic Regression
+
+
 🗂️ Query Strategy Overview
 --------------------------
 For better orientation, we provide a `overview <https://scikit-activeml
