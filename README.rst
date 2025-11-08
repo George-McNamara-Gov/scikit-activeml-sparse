@@ -334,7 +334,7 @@ The table below summarizes a selection of our in-depth tutorials.
 Each entry lists the active learning scenario, prediction task, data
 modality, and model family used in the tutorial.
 
-.. list-table:: In-depth tutorials
+.. list-table::
    :header-rows: 1
    :widths: 20 12 12 12 12
 
@@ -372,11 +372,11 @@ modality, and model family used in the tutorial.
      - Pool
      - Regression
      - Tabular
-     - Extreme Gradient Boosted Regressor
+     - Extreme Gradient Boosted Tree
    * - Paper Annotation Tool
      - Pool
      - Classification
-     - Text Embeddings
+     - Text
      - Logistic Regression
 
 
@@ -385,7 +385,14 @@ modality, and model family used in the tutorial.
 For better orientation, we provide a `overview <https://scikit-activeml
 .github.io/latest/generated/strategy_overview.html>`_
 (including paper references and `visual examples <https://scikit-activeml.github.io/latest/generated/sphinx_gallery_examples/index.html>`_)
-of the query strategies implemented by ``skactiveml``. We indicate each strategy’s target learning tasks (regression and/or classification), flag multi-annotator scenarios, and mark strategies that consider diversity between samples within a selected batch. Furthermore, we categorize query strategies by their selection principles, i.e., informativeness (model uncertainty), representativeness (data‐distribution coverage), and hybrid (combining both). A mind map that illustrates these different attributes of a query strategy.
+of the query strategies implemented by ``skactiveml``. We indicate each
+strategy’s target learning tasks (regression and/or classification),
+flag multi-annotator scenarios, and mark strategies that consider diversity
+between samples within a selected batch. Furthermore, we categorize query
+strategies by their selection principles, i.e., informativeness (model
+uncertainty), representativeness (data‐distribution coverage), and hybrid
+(combining both). The following mind map that illustrates these different
+attributes of a query strategy.
 
 .. image:: https://raw.githubusercontent.com/scikit-activeml/scikit-activeml/refs/heads/518-strategy-documentation/docs/logos/scikit-activeml-query-strategy-overview.svg
    :class: dark-light

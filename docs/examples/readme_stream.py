@@ -1,16 +1,17 @@
 import numpy as np
 import torch
 
-from matplotlib import pyplot as plt, animation
-from torch import nn
-from torch.optim.lr_scheduler import CosineAnnealingLR
 from datasets import load_dataset
+from matplotlib import pyplot as plt, animation
 from skactiveml.classifier import SkorchClassifier
 from skactiveml.stream import Split
 from sklearn.manifold import TSNE
 from skorch.callbacks import LRScheduler
 from skactiveml.utils import is_labeled
+from torch import nn
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from transformers import AutoImageProcessor, Dinov2Model
+
 
 # Define the device depending on its availability.
 device = "cuda" if torch.cuda.is_available() else "cpu"
