@@ -188,4 +188,4 @@ for t in range(-1, n_cycles):
 # Plotting stuff.
 fig.tight_layout()
 ani = animation.ArtistAnimation(fig, artists, interval=100, blit=True)
-ani.save(filename="../logos/readme_stream.gif", writer="pillow")
+ani.save(filename="logos/readme_stream.gif", writer="pillow")

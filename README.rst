@@ -360,11 +360,11 @@ instructions of from `skorch <https://github.com/skorch-dev/skorch?tab=readme-ov
 
 🗂️ Query Strategy Overview
 --------------------------
-For better orientation, we provide a `overview <https://scikit-activeml
+For better orientation, we provide an `overview <https://scikit-activeml
 .github.io/latest/generated/strategy_overview.html>`_
 (including paper references and `visual examples <https://scikit-activeml.github.io/latest/generated/sphinx_gallery_examples/index.html>`_)
-of the query strategies implemented by ``skactiveml``. We indicate each
-strategy’s target learning tasks (regression and/or classification),
+of the over **60 query strategies** implemented by ``skactiveml``. We indicate
+each strategy’s target learning tasks (regression and/or classification),
 flag multi-annotator scenarios, and mark strategies that consider diversity
 between samples within a selected batch. Furthermore, we categorize query
 strategies by their selection principles, i.e., informativeness (model
@@ -412,11 +412,11 @@ modality, and model family used in the tutorial.
      - Regression
      - Toy
      - Kernel Regressor
-   * - Deep Active Learning for Fine-tuning Vision Foundation Models
+   * - Deep Active Learning for Fine-tuning Vision Transformers
      - Pool
      - Classification
      - Image
-     - Vision Transformer
+     - Vision Transformer + Full Fine-tuning
    * - Stream-based Acitve Learning in Batches
      - Stream
      - Classification
@@ -431,7 +431,7 @@ modality, and model family used in the tutorial.
      - Pool
      - Classification
      - Text
-     - Logistic Regression
+     - Text Transformer + Linear Probing
 
 .. examples_end
 
