@@ -46,6 +46,8 @@ dependencies = { file = ["requirements.txt"] }
 [tool.setuptools.dynamic.optional-dependencies]
 dev = { file = ["requirements_extra.txt"] }
 max = { file = ["requirements_max.txt"] }
+opt = { file = ["requirements_opt.txt"] }
+opt_max = { file = ["requirements_opt_max.txt"] }
 
 [tool.setuptools.packages.find]
 include = ["skactiveml", "skactiveml.*"]

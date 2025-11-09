@@ -308,20 +308,53 @@ default :code:`skactiveml` installation and must be installed separately.
 
 💾 User Installation
 --------------------------
-The easiest way to install scikit-activeml is using ``pip``:
+**Minimal installation:** The easiest way to install scikit-activeml is using
+``pip``:
 
-::
+.. code-block:: bash
 
-    pip install -U scikit-activeml
+   pip install -U scikit-activeml
 
-This installation via `pip` includes only the minimum requirements to avoid
-potential package downgrades within your installation. If you encounter any incompatibility issues,
-you can install the `maximum requirements <https://github.com/scikit-activeml/scikit-activeml/blob/master/requirements_max.txt>`_,
-which have been tested for the current package release:
+This installs only the minimum requirements to avoid potential package
+downgrades within your existing environment.
 
-::
+**Recommended installation for deep active learning:** In most cases, we
+recommend installing scikit-activeml together with the optional dependencies:
 
-    pip install -U scikit-activeml[max]
+.. code-block:: bash
+
+   pip install -U scikit-activeml[opt]
+
+The ``opt`` extra installs additional packages such as ``skorch`` to enable
+more sophisticated deep learning support and other extended functionality.
+Version constraints are chosen to be reasonably flexible so that scikit-activeml
+can integrate well into an existing environment.
+
+**Tested fallback configuration:** If you prefer a configuration where
+dependency versions have been tested explicitly for this release, you can
+install scikit-activeml with the maximum tested core and optional requirements:
+
+.. code-block:: bash
+
+   pip install -U scikit-activeml[max,opt_max]
+
+This setup uses the versions listed in ``requirements_max.txt`` and
+``requirements_opt_max.txt`` and corresponds to the configuration used in
+our continuous integration tests. You can also install only the maximum
+tested core dependencies via:
+
+.. code-block:: bash
+
+   pip install -U scikit-activeml[max]
+
+**Note on PyTorch and skorch:** The optional deep learning functionality
+(via ``skorch``) assumes that ``torch`` (PyTorch) is already installed in
+your environment. Since the correct PyTorch build depends on your hardware
+and CUDA setup, we do **not** install PyTorch automatically.
+Please install PyTorch separately by following the installation
+instructions at
+
+    https://github.com/skorch-dev/skorch?tab=readme-ov-file#pytorch.
 
 .. user_installation_end
 

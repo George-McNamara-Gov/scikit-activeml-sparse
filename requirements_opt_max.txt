@@ -1,1 +1,1 @@
-skorch @ git+https://github.com/skorch-dev/skorch.git
+skorch<=1.2.0
