@@ -19,6 +19,10 @@
    :end-before: user_installation_end
 
 .. include:: ../README.rst
+   :start-after: overview_start
+   :end-before: overview_end
+
+.. include:: ../README.rst
    :start-after: examples_start
    :end-before: examples_end
 

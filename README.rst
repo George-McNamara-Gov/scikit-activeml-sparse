@@ -352,11 +352,32 @@ tested core dependencies via:
 your environment. Since the correct PyTorch build depends on your hardware
 and CUDA setup, we do **not** install PyTorch automatically.
 Please install PyTorch separately by following the installation
-instructions at
-
-    https://github.com/skorch-dev/skorch?tab=readme-ov-file#pytorch.
+instructions of from `skorch <https://github.com/skorch-dev/skorch?tab=readme-ov-file#pytorch>`_.
 
 .. user_installation_end
+
+.. overview_start
+
+🗂️ Query Strategy Overview
+--------------------------
+For better orientation, we provide a `overview <https://scikit-activeml
+.github.io/latest/generated/strategy_overview.html>`_
+(including paper references and `visual examples <https://scikit-activeml.github.io/latest/generated/sphinx_gallery_examples/index.html>`_)
+of the query strategies implemented by ``skactiveml``. We indicate each
+strategy’s target learning tasks (regression and/or classification),
+flag multi-annotator scenarios, and mark strategies that consider diversity
+between samples within a selected batch. Furthermore, we categorize query
+strategies by their selection principles, i.e., informativeness (model
+uncertainty), representativeness (data‐distribution coverage), and hybrid
+(combining both). The following mind map illustrates these different
+attributes of a query strategy.
+
+.. image:: https://raw.githubusercontent.com/scikit-activeml/scikit-activeml/refs/heads/518-strategy-documentation/docs/logos/scikit-activeml-query-strategy-overview.svg
+   :class: dark-light
+   :align: center
+   :width: 100%
+
+.. overview_end
 
 .. examples_start
 
@@ -412,26 +433,6 @@ modality, and model family used in the tutorial.
      - Text
      - Logistic Regression
 
-
-🗂️ Query Strategy Overview
---------------------------
-For better orientation, we provide a `overview <https://scikit-activeml
-.github.io/latest/generated/strategy_overview.html>`_
-(including paper references and `visual examples <https://scikit-activeml.github.io/latest/generated/sphinx_gallery_examples/index.html>`_)
-of the query strategies implemented by ``skactiveml``. We indicate each
-strategy’s target learning tasks (regression and/or classification),
-flag multi-annotator scenarios, and mark strategies that consider diversity
-between samples within a selected batch. Furthermore, we categorize query
-strategies by their selection principles, i.e., informativeness (model
-uncertainty), representativeness (data‐distribution coverage), and hybrid
-(combining both). The following mind map that illustrates these different
-attributes of a query strategy.
-
-.. image:: https://raw.githubusercontent.com/scikit-activeml/scikit-activeml/refs/heads/518-strategy-documentation/docs/logos/scikit-activeml-query-strategy-overview.svg
-   :class: dark-light
-   :align: center
-   :width: 100%
-
 .. examples_end
 
 .. citing_start
@@ -440,7 +441,7 @@ attributes of a query strategy.
 ---------
 If you use ``skactiveml`` in your research projects and find it helpful, please cite the following:
 
-::
+.. code-block:: tex
 
     @article{skactiveml2021,
         title={{scikit-activeml: A Comprehensive and User-friendly Active Learning Library}},
