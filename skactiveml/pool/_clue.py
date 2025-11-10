@@ -23,8 +23,10 @@ class Clue(SingleAnnotatorPoolQueryStrategy):
     """Clustering Uncertainty-weighted Embeddings (CLUE)
 
     This class implements the Clustering Uncertainty-weighted Embeddings (CLUE)
-    query strategy [1]_, which considers both diversity and uncertainty of the
-    samples.
+    query strategy [1]_ clusters latent embeddings while weighting samples by
+    predictive uncertainty, then picks samples near the cluster centers. The
+    result is a diverse set biased toward uncertain regions of representation
+    space.
 
     Parameters
     ----------

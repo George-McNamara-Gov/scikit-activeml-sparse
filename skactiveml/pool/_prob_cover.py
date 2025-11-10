@@ -25,8 +25,13 @@ class ProbCover(SingleAnnotatorPoolQueryStrategy):
     """Probability Coverage (ProbCover)
 
     This class implements the Probability Coverage (ProbCover) query strategy
-    [1]_, which aims at maximizing the probability coverage in a meaningful
-    sample embedding space.
+    [1]_, which selects `batch_size` unlabeled points to maximize empirical
+    coverage under a fixed radius `delta` in the embedding space, treating
+    points within `delta` of any labeled sample as already covered and
+    greedily adding the candidate samples that covers the most new samples at
+    each step. It chooses `delta` via a purity criterion estimated from
+    unlabeled data, prioritizes dense regions, and does not use predictive
+    uncertainty.
 
     Parameters
     ----------
