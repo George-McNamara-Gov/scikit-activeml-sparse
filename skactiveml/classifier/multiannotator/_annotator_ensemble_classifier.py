@@ -5,7 +5,7 @@ Classifier Ensemble for Multiple Annotators
 from copy import deepcopy
 
 import numpy as np
-from sklearn.base import MetaEstimatorMixin, is_classifier, is_regressor
+from sklearn.base import MetaEstimatorMixin
 from sklearn.utils.validation import (
     check_array,
     check_is_fitted,
