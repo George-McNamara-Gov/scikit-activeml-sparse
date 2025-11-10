@@ -1,7 +1,4 @@
 # %%
-# .. note::
-#    The generated animation can be found at the bottom of the page.
-#
 # | **Google Colab Note**: If the notebook fails to run after installing the
 #   needed packages, try to restart the runtime (Ctrl + M) under
 #   Runtime -> Restart session.
@@ -14,12 +11,6 @@
 #   tutorial.
 
 "$install_dependencies|# !pip install scikit-activeml"
-
-# %%
-#.. raw:: html
-#
-#   <hr style="border-style: solid; border-top: 1px solid; border-right: 0; border-bottom: 0; border-left: 0;">
-#
 
 # %%
 import numpy as np

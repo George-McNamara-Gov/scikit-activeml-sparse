@@ -5,7 +5,7 @@
     "category" : "Informativeness",
     "method" : "Expected Model Variance Reduction",
     "template" : "examples/template_pool_regression.py",
-    "tags" : ["pool",  "regression", "single-annotator"],
+    "tags" : ["pool",  "regression", "single-annotator", "top-k-batch"],
     "title" : "Expected Model Variance Reduction",
     "refs" : ["cohn1996active"],
     "sequence" : ["title", "text_0", "plot", "refs"],

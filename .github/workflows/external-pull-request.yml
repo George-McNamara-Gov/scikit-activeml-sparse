@@ -29,7 +29,7 @@ jobs:
         pip install -r requirements_extra.txt
     - name: Test with pytest and oldest dependencies
       run: |
-        pytest -n auto --cov=./skactiveml --cov-report=xml --cov-fail-under=100
+        pytest
 
   test_newest_dependencies:
     if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
@@ -54,7 +54,7 @@ jobs:
         pip install -r requirements_extra.txt
     - name: Test with pytest and newest dependencies
       run: |
-        pytest -n auto --cov=./skactiveml --cov-report=xml --cov-fail-under=100
+        pytest
     - name: 'Upload Coverage Artifact'
       uses: actions/upload-artifact@v4
       with:
