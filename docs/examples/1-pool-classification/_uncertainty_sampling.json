@@ -92,9 +92,9 @@
     "package" : "pool",
     "method" : "Dual Strategy for Active Learning (DUAL)",
     "category" : "Hybrid",
-    "template" : "examples/pool/template_DUAL.py",
-    "tags" : ["pool",  "classification", "single-annotator", "top-k-batch"],
-    "title" : "Dual Strategy for Active Learning (DUAL)",
+    "template" : "examples/1-pool-classification/template_DUAL.py",
+    "tags" : ["pool",  "classification", "single-annotator"],
+    "title" : "Dual Strategy for Active Learning",
     "refs" : ["donmez2007dual"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** DUAL is simple meta-policy that switches between two base query strategies instead of only combining their scores."

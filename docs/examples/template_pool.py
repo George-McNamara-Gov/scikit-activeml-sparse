@@ -51,7 +51,10 @@ qs = "$init_qs"
 "$preproc"
 # Preparation for plotting.
 fig, ax = plt.subplots()
-feature_bound = [[min(X[:, 0]), min(X[:, 1])],[max(X[:, 0]), max(X[:, 1])]]
+feature_bound = [
+    [min(X[:, 0]), min(X[:, 1])],
+    [max(X[:, 0]), max(X[:, 1])]
+]
 artists = []
 
 # Active learning cycle:
