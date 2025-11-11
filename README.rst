@@ -307,19 +307,9 @@ default :code:`skactiveml` installation and must be installed separately.
 .. user_installation_start
 
 💾 User Installation
---------------------------
-**Minimal installation:** The easiest way to install scikit-activeml is using
-``pip``:
-
-.. code-block:: bash
-
-   pip install -U scikit-activeml
-
-This installs only the minimum requirements to avoid potential package
-downgrades within your existing environment.
-
-**Recommended installation for deep active learning:** In most cases, we
-recommend installing scikit-activeml together with the optional dependencies:
+--------------------
+In most cases, we recommend installing scikit-activeml together with the
+optional dependencies for better support of **deep active learning**:
 
 .. code-block:: bash
 
@@ -328,11 +318,41 @@ recommend installing scikit-activeml together with the optional dependencies:
 The ``opt`` extra installs additional packages such as ``skorch`` to enable
 more sophisticated deep learning support and other extended functionality.
 Version constraints are chosen to be reasonably flexible so that scikit-activeml
-can integrate well into an existing environment.
+can integrate well into an existing environment. The optional deep learning functionality
+(via ``skorch``) assumes that ``torch`` (PyTorch) is already installed in
+your environment. Since the correct PyTorch build depends on your hardware
+and CUDA setup, we do **not** install PyTorch automatically.
 
-**Tested fallback configuration:** If you prefer a configuration where
-dependency versions have been tested explicitly for this release, you can
-install scikit-activeml with the maximum tested core and optional requirements:
+    Please install PyTorch separately by following the installation
+    instructions of from `skorch <https://github.com/skorch-dev/skorch?tab=readme-ov-file#pytorch>`_.
+
+.. raw:: html
+
+   <details>
+   <summary style="font-size: 100%; font-weight: bold;">
+     <b>Minimal Installation</b>
+   </summary>
+   The minimum way to install scikit-activeml is using:
+.. code-block:: bash
+
+  pip install -U scikit-activeml
+
+This installs only the minimum requirements to avoid potential package
+downgrades within your existing environment.
+
+.. raw:: html
+
+   </details>
+
+.. raw:: html
+
+   <details>
+   <summary style="font-size: 100%; font-weight: bold;">
+     <b>Tested Fallback Installation</b>
+   </summary>
+   If you prefer a configuration where dependency versions have been tested
+   explicitly for this release, you can install scikit-activeml with the
+   maximum tested core and optional requirements:
 
 .. code-block:: bash
 
@@ -347,12 +367,9 @@ tested core dependencies via:
 
    pip install -U scikit-activeml[max]
 
-**Note on PyTorch and skorch:** The optional deep learning functionality
-(via ``skorch``) assumes that ``torch`` (PyTorch) is already installed in
-your environment. Since the correct PyTorch build depends on your hardware
-and CUDA setup, we do **not** install PyTorch automatically.
-Please install PyTorch separately by following the installation
-instructions of from `skorch <https://github.com/skorch-dev/skorch?tab=readme-ov-file#pytorch>`_.
+.. raw:: html
+
+   </details>
 
 .. user_installation_end
 
@@ -443,7 +460,7 @@ If you use ``skactiveml`` in your research projects and find it helpful, please 
 
 .. code-block:: tex
 
-    @article{skactiveml2021,
+    @article{skactiveml2025,
         title={{scikit-activeml: A Comprehensive and User-friendly Active Learning Library}},
         author={Herde, Marek and Pham, Minh Tuan and Kottke, Daniel and Benz, Alexander and L{\"u}hrs, Lukas and Mergard, Pascal and Sandrock, Christoph and Cheng, Jiaying and Roghman, Atal and M{\"u}jde, Mehmet and Rauch, Lukas and Sick, Bernahrd},
         journal={Preprints},
