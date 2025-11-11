@@ -9,7 +9,7 @@ import copy
 import numpy as np
 from sklearn import clone
 from sklearn.utils.validation import check_array, check_is_fitted
-from iteration_utilities import flatten
+from itertools import chain
 
 from ..base import (
     SingleAnnotatorPoolQueryStrategy,
@@ -309,7 +309,7 @@ class QueryByCommittee(SingleAnnotatorPoolQueryStrategy):
             ensemble_classes = ensemble.classes_
         else:
             ensemble_classes = np.unique(
-                list(flatten([est.classes_ for est in est_arr]))
+                list(chain.from_iterable([est.classes_ for est in est_arr]))
             )
         probas = np.zeros((len(est_arr), len(X_cand), len(ensemble_classes)))
         for i, est in enumerate(est_arr):
