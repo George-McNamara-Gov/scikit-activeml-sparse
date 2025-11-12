@@ -26,7 +26,7 @@ from skactiveml.tests.template_estimator import (
 )
 
 
-class TestWrapper(TemplateSkactivemlRegressor, unittest.TestCase):
+class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
     def setUp(self):
         estimator_class = SklearnRegressor
         estimator = SGDRegressor()
@@ -223,7 +223,7 @@ class TestWrapper(TemplateSkactivemlRegressor, unittest.TestCase):
         np.testing.assert_array_equal(np.zeros_like(y_pred), y_pred)
 
 
-class TestSklearnProbabilisticRegressor(
+class TestSklearnNormalRegressor(
     TemplateProbabilisticRegressor, unittest.TestCase
 ):
     def setUp(self):
