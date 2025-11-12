@@ -982,7 +982,7 @@ def _conditional_expect(
         If `vector_func` is `True`, the integration values are passes
         in vectorized form to `func`. If `vector_func` is 'both', the
         integration values might or might not be passed in vectorized form,
-        depending what is more efficient. The integration values
+        depending on what is more efficient. The integration values
         are passed in vectorized form, means that in a call like
         `func(y, x, idx)` `y` is of the form `(n_samples,
         n_integration_samples)`, `x` equals `X` and `idx` is an index map of
