@@ -1,7 +1,4 @@
 # %%
-# .. note::
-#    The generated animation can be found at the bottom of the page.
-#
 # | **Google Colab Note**: If the notebook fails to run after installing the
 #   needed packages, try to restart the runtime (Ctrl + M) under
 #   Runtime -> Restart session.
@@ -16,16 +13,12 @@
 "$install_dependencies|# !pip install scikit-activeml"
 
 # %%
-# ---
-
-# %%
 import numpy as np
 from matplotlib import pyplot as plt, animation
 from sklearn.datasets import make_blobs
 
-from skactiveml.utils import MISSING_LABEL, labeled_indices, unlabeled_indices
+from skactiveml.utils import MISSING_LABEL, labeled_indices
 from skactiveml.visualization import (
-    plot_utilities,
     plot_decision_boundary,
     plot_contour_for_samples,
 )

@@ -20,8 +20,11 @@ from ..utils import (
 class MaxHerding(SingleAnnotatorPoolQueryStrategy):
     """MaxHerding
 
-    This class implements the MaxHerding query strategy [1]_, which aims at
-    maximizing the generalized coverage in a meaningful sample embedding space.
+    This class implements the MaxHerding query strategy [1]_, which greedily
+    selects `batch_size` unlabeled samples that most increase a smooth,
+    kernel-based coverage objective in embedding space, accounting for the
+    already labeled set. The objective promotes representativeness and
+    diversity via kernel similarity.
 
     Parameters
     ----------
@@ -78,8 +81,8 @@ class MaxHerding(SingleAnnotatorPoolQueryStrategy):
         y : array-like of shape (n_samples,)
             Labels of the training data set (possibly including unlabeled ones
             indicated by `self.missing_label`).
-        candidates : None or array-like of shape (n_candidates,), dtype=int or \
-                array-like of shape (n_candidates, n_features), default=None
+        candidates : None or array-like of shape (n_candidates,), dtype=int \
+                or array-like of shape (n_candidates, n_features), default=None
             - If `candidates` is `None`, the unlabeled samples from
               `(X,y)` are considered as `candidates`.
             - If `candidates` is of shape `(n_candidates,)` and of type
@@ -140,8 +143,8 @@ class MaxHerding(SingleAnnotatorPoolQueryStrategy):
                     np.maximum(K_cand - k_max, 0), axis=1
                 )
             else:
-                # Fallback to the kernel-based densities as utilities if labeled
-                # data is unavailable.
+                # Fallback to the kernel-based densities as utilities if
+                # labeled data is unavailable.
                 utilities_cand[b] = K_cand.mean(axis=1)
                 k_max = np.zeros(len(X_cand), dtype=float)
             utilities_cand[b][query_indices_cand[:b]] = np.nan
