@@ -7,7 +7,7 @@ from skactiveml.base import (
     ProbabilisticRegressor,
     SingleAnnotatorPoolQueryStrategy,
 )
-from skactiveml.pool.utils import _update_reg, _conditional_expect
+from skactiveml.pool.utils import _update_reg, conditional_expect
 from skactiveml.utils import (
     check_type,
     simple_batch,
@@ -186,7 +186,7 @@ class ExpectedModelOutputChange(SingleAnnotatorPoolQueryStrategy):
 
             return self.loss(y_pred, y_pred_new)
 
-        change = _conditional_expect(
+        change = conditional_expect(
             X_cand,
             _model_output_change,
             reg,

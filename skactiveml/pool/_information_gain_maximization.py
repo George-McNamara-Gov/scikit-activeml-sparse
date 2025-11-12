@@ -8,7 +8,7 @@ from skactiveml.base import (
 
 from skactiveml.pool.utils import (
     _update_reg,
-    _conditional_expect,
+    conditional_expect,
     _cross_entropy,
 )
 from skactiveml.utils import (
@@ -241,7 +241,7 @@ class KLDivergenceMaximization(SingleAnnotatorPoolQueryStrategy):
             )
             return cross_ent - entropy_post
 
-        kl_div = _conditional_expect(
+        kl_div = conditional_expect(
             X_cand,
             new_kl_divergence,
             reg,
