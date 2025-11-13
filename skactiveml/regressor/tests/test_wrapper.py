@@ -238,6 +238,7 @@ class TestSklearnNormalRegressor(
         class GaussianProcessRegressorDummy(GaussianProcessRegressor):
             def partial_fit(self, X, y, sample_weight=None):
                 return self.fit(X, y, sample_weight=sample_weight)
+
         self.prob_reg_partial_fit = GaussianProcessRegressorDummy()
 
     def test_init_param_estimator(self):
