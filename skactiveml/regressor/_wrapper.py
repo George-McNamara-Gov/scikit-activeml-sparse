@@ -328,7 +328,7 @@ class SklearnNormalRegressor(ProbabilisticRegressor, SklearnRegressor):
     estimated. Therefore, samples with missing values are filtered and a normal
     distribution is fitted using the predicted means and standard deviations.
 
-    The wrapped regressor of sklearn needs `return_std` as a key_word argument
+    The wrapped regressor of sklearn needs `return_std` as a keyword argument
     for `predict`.
 
     Parameters
@@ -349,29 +349,7 @@ class SklearnNormalRegressor(ProbabilisticRegressor, SklearnRegressor):
             estimator, missing_label=missing_label, random_state=random_state
         )
 
-    @match_signature("estimator", "fit")
-    def fit(self, X, y, sample_weight=None, **fit_kwargs):
-        """Fit the model using X as training data and y as labels.
-
-        Parameters
-        ----------
-        X : matrix-like of shape (n_samples, n_features)
-            The sample matrix X is the feature matrix representing the samples.
-        y : array-like of shape (n_samples,)
-            It contains the numeric target values of the training samples.
-            Missing labels are represented as `self.missing_label`.
-        sample_weight : array-like of shape (n_samples,), default=None
-            It contains the weights of the training samples´ labels. It
-            must have the same shape as y.
-        fit_kwargs : dict-like
-            Further parameters are passed as input to the `fit` method of the
-            'estimator'.
-
-        Returns
-        -------
-        self: SklearnRegressor,
-            The SklearnRegressor is fitted on the training data.
-        """
+    def _fit(self, fit_function, X, y, sample_weight, **fit_kwargs):
         if (
             hasattr(self.estimator, "predict")
             and "return_std"
@@ -379,17 +357,11 @@ class SklearnNormalRegressor(ProbabilisticRegressor, SklearnRegressor):
             and inspect.getfullargspec(self.estimator.predict).varkw is None
         ):
             raise ValueError(
-                f"`{self.estimator}` must have key_word argument"
+                f"`{self.estimator}` must have keyword argument"
                 f"`return_std` for predict."
             )
 
-        return self._fit(
-            fit_function="fit",
-            X=X,
-            y=y,
-            sample_weight=sample_weight,
-            **fit_kwargs,
-        )
+        return super()._fit(fit_function, X, y, sample_weight, **fit_kwargs)
 
     def predict_target_distribution(self, X):
         """Returns the estimated target normal distribution conditioned on the
