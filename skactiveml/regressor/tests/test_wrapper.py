@@ -74,9 +74,9 @@ class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
 
         reg_sklearn = SGDRegressor()
         reg = SklearnRegressor(reg_sklearn)
-        self.assertRaises(NotFittedError, reg.fit, X=self.X, y=self.y)
+        self.assertRaises(NotFittedError, reg.predict, X=self.X)
         reg.partial_fit(X=self.X, y=self.y)
-        self.assertTrue(reg.is_fitted_)
+        check_is_fitted(reg)
         reg_no_partial_fit = SklearnRegressor(GaussianProcessRegressor())
         self.assertFalse(hasattr(reg_no_partial_fit, "partial_fit"))
 
