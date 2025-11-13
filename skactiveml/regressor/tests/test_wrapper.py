@@ -54,6 +54,48 @@ class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
         ]
         self._test_param("init", "estimator", test_cases)
 
+    def test_fit(self):
+        class DummyRegressor(SkactivemlRegressor):
+            def predict(self, X):
+                raise NotFittedError()
+
+            def fit(self, X, y, sample_weight=None):
+                raise ValueError()
+
+        reg = SklearnRegressor(DummyRegressor())
+
+        X = np.arange(3 * 2).reshape(3, 2)
+        y = np.append(np.full(2, MISSING_LABEL), [1.7])
+
+        self.assertWarns(Warning, reg.fit, X=X, y=y)
+        self.assertWarns(Warning, reg.predict, X=X)
+
+    def test_partial_fit(self):
+
+        reg_sklearn = SGDRegressor()
+        reg = SklearnRegressor(reg_sklearn)
+        self.assertRaises(NotFittedError, reg.fit, X=self.X, y=self.y)
+        reg.partial_fit(X=self.X, y=self.y)
+        self.assertTrue(reg.is_fitted_)
+        reg_no_partial_fit = SklearnRegressor(GaussianProcessRegressor())
+        self.assertFalse(hasattr(reg_no_partial_fit, "partial_fit"))
+
+    def test_predict(self):
+        reg = SklearnRegressor(
+            estimator=ARDRegression(),
+            random_state=self.random_state,
+        )
+
+        X = np.arange(3 * 2).reshape(3, 2)
+        y = np.full(3, MISSING_LABEL)
+
+        reg.fit(X, y)
+        y_pred = reg.predict(X)
+        np.testing.assert_array_equal(np.zeros(3), y_pred)
+        _, std_pred = reg.predict(X, return_std=True)
+        np.testing.assert_array_equal(np.ones(3), std_pred)
+        self.assertRaises(ValueError, reg.predict, X=[])
+
     def test_fit_predict(self):
         estimator = LinearRegression()
         reg = SklearnRegressor(estimator=estimator)
@@ -80,38 +122,6 @@ class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
         reg_1.fit(X, y, sample_weight=sample_weight)
         reg_2.fit(X, y)
         self.assertTrue(np.any(reg_1.predict(X) != reg_2.predict(X)))
-
-    def test_fit(self):
-        class DummyRegressor(SkactivemlRegressor):
-            def predict(self, X):
-                raise NotFittedError()
-
-            def fit(self, X, y, sample_weight=None):
-                raise ValueError()
-
-        reg = SklearnRegressor(DummyRegressor())
-
-        X = np.arange(3 * 2).reshape(3, 2)
-        y = np.append(np.full(2, MISSING_LABEL), [1.7])
-
-        self.assertWarns(Warning, reg.fit, X=X, y=y)
-        self.assertWarns(Warning, reg.predict, X=X)
-
-    def test_predict(self):
-        reg = SklearnRegressor(
-            estimator=ARDRegression(),
-            random_state=self.random_state,
-        )
-
-        X = np.arange(3 * 2).reshape(3, 2)
-        y = np.full(3, MISSING_LABEL)
-
-        reg.fit(X, y)
-        y_pred = reg.predict(X)
-        np.testing.assert_array_equal(np.zeros(3), y_pred)
-        _, std_pred = reg.predict(X, return_std=True)
-        np.testing.assert_array_equal(np.ones(3), std_pred)
-        self.assertRaises(ValueError, reg.predict, X=[])
 
     def test_getattr(self):
         reg = SklearnRegressor(
@@ -182,25 +192,6 @@ class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
         np.testing.assert_array_equal(y_sample, y_sample_exp)
         self.assertRaises(ValueError, reg.sample, X=[])
 
-    def test_partial_fit(self):
-        reg_1 = SklearnRegressor(
-            SGDRegressor(random_state=self.random_state),
-            random_state=self.random_state,
-        )
-        reg_2 = SklearnRegressor(
-            SGDRegressor(random_state=self.random_state),
-            random_state=self.random_state,
-        )
-
-        X = np.array([[0], [1], [2], [3], [4]])
-        y = np.array([3, 4, 1, 2, 1])
-
-        reg_1.partial_fit(X, y)
-        reg_2.fit(X, y)
-        self.assertTrue(
-            np.any(np.not_equal(reg_1.predict(X), reg_2.predict(X)))
-        )
-
     def test_pipeline(self):
         X = np.linspace(-3, 3, 100)
         y_true = X**2
@@ -226,6 +217,7 @@ class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
 class TestSklearnNormalRegressor(
     TemplateProbabilisticRegressor, unittest.TestCase
 ):
+
     def setUp(self):
         estimator_class = SklearnNormalRegressor
         estimator = GaussianProcessRegressor()
@@ -243,11 +235,17 @@ class TestSklearnNormalRegressor(
         self.y = np.array([1, 2, 3])
         self.X_cand = np.array([[2, 1], [3, 5]])
 
+        class GaussianProcessRegressorDummy(GaussianProcessRegressor):
+            def partial_fit(self, X, y, sample_weight=None):
+                return self.fit(X, y, sample_weight=sample_weight)
+        self.prob_reg_partial_fit = GaussianProcessRegressorDummy()
+
     def test_init_param_estimator(self):
         test_cases = []
         test_cases += [
             (GaussianProcessRegressor(), None),
             (SVC(), ValueError),
+            (LinearRegression(), ValueError),
             ("Test", AttributeError),
         ]
         self._test_param("init", "estimator", test_cases)
@@ -264,20 +262,20 @@ class TestSklearnNormalRegressor(
         )
 
     def test_partial_fit_param_X(self, test_cases=None):
-        replace_init_params = {"estimator": SGDRegressor()}
+        replace_init_params = {"estimator": self.prob_reg_partial_fit}
         super().test_partial_fit_param_X(
             test_cases,
             replace_init_params=replace_init_params,
         )
 
     def test_partial_fit_param_y(self, test_cases=None):
-        replace_init_params = {"estimator": SGDRegressor()}
+        replace_init_params = {"estimator": self.prob_reg_partial_fit}
         super().test_partial_fit_param_y(
             test_cases, replace_init_params=replace_init_params
         )
 
     def test_partial_fit_param_sample_weight(self, test_cases=None):
-        replace_init_params = {"estimator": SGDRegressor()}
+        replace_init_params = {"estimator": self.prob_reg_partial_fit}
         super().test_partial_fit_param_sample_weight(
             test_cases,
             replace_init_params=replace_init_params,
@@ -329,18 +327,18 @@ class TestSklearnNormalRegressor(
         X_fit, y_fit = X_all[:200], y_all[:200]
         X_new, y_new = X_all[200:], y_all[200:]
 
-        class GaussianProcessRegressorDummy(GaussianProcessRegressor):
-            def partial_fit(self, X, y):
-                return self.fit(X, y)
-
         reg = SklearnNormalRegressor(
-            estimator=GaussianProcessRegressorDummy(),
+            estimator=self.prob_reg_partial_fit,
             random_state=self.random_state,
         ).fit(X_fit, y_fit)
         y_pred = reg.predict(X_new)
         reg.partial_fit(X_new, y_new)
         y_pred_new = reg.predict(X_new)
         self.assertTrue(np.abs(y_pred_new - y_pred).sum() != 0)
+        reg = SklearnNormalRegressor(
+            estimator=SGDRegressor(),
+        )
+        self.assertRaises(ValueError, reg.partial_fit, X_new, y_new)
 
     def test_pretrained_estimator(self):
         random_state = np.random.RandomState(0)
