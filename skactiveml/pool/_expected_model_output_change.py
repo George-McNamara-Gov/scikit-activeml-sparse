@@ -29,7 +29,7 @@ class ExpectedModelOutputChange(SingleAnnotatorPoolQueryStrategy):
     integration_dict : dict, default=None
         Dictionary for integration arguments, i.e. `integration_method` etc.,
         used for calculating the expected `y` value for the candidate samples.
-        For details see method `skactiveml.pool.utils._conditional_expect`.
+        For details see method `skactiveml.pool.utils.conditional_expect`.
         The default `integration_method` is `assume_linear`.
     loss : callable, default=None
         The loss for predicting a target value instead of the true value.

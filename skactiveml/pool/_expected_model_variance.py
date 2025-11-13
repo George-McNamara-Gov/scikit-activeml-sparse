@@ -22,7 +22,7 @@ class ExpectedModelVarianceReduction(SingleAnnotatorPoolQueryStrategy):
     integration_dict : dict, default=None
         Dictionary for integration arguments, i.e. `integration method` etc.,
         used for calculating the expected `y` value for the candidate samples.
-        For details see method `skactiveml.pool.utils._conditional_expect`.
+        For details see method `skactiveml.pool.utils.conditional_expect`.
     missing_label : scalar or string or np.nan or None, default=np.nan
         Value to represent a missing label.
     random_state : int or np.random.RandomState or None, default=None
