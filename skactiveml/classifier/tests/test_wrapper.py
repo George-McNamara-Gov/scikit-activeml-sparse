@@ -296,7 +296,7 @@ class TestSklearnClassifier(TemplateSkactivemlClassifier, unittest.TestCase):
             np.testing.assert_array_equal(pred_orig_1, pred_wrapped_1)
 
             # check that it fails when classes of estimator was trained on
-            # different classes than profided to the `classes` parameter of
+            # different classes than provided to the `classes` parameter of
             # SklearnClassifier
             if not isinstance(missing_label, float):
                 self.assertRaises(TypeError, clf.fit, X_train, y_train_true)
