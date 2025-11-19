@@ -27,8 +27,12 @@ from sklearn.metrics import pairwise_distances_argmin_min
 class CoreSet(SingleAnnotatorPoolQueryStrategy):
     """Core Set
 
-    This class implement a core-set based query strategies, i.e., the
-    standard greedy algorithm for the k-center problem [1]_.
+    This class implements core-set based query strategies, i.e., the
+    standard greedy algorithm for the k-center problem [1]_. CoreSet
+    applies a k-center (farthest-first) selection in an embedding space,
+    seeded by the labeled set, to minimize the maximum distance of unlabeled
+    samples to the labeled/selected samples. It is a pure diversity criterion
+    without explicit consideration of prediction uncertainty.
 
     Parameters
     ----------

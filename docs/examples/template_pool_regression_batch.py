@@ -1,7 +1,4 @@
 # %%
-# .. note::
-#    The generated animation can be found at the bottom of the page.
-#
 # | **Google Colab Note**: If the notebook fails to run after installing the
 #   needed packages, try to restart the runtime (Ctrl + M) under
 #   Runtime -> Restart session.
@@ -16,14 +13,11 @@
 "$install_dependencies|# !pip install scikit-activeml"
 
 # %%
-# ---
-
-# %%
 import numpy as np
 from matplotlib import pyplot as plt, animation
 from scipy.stats import uniform
 
-from skactiveml.utils import MISSING_LABEL, labeled_indices, is_labeled
+from skactiveml.utils import MISSING_LABEL, is_labeled
 
 "$import_reg|from skactiveml.regressor import NICKernelRegressor"
 "$import_misc"
