@@ -81,10 +81,10 @@ for c in range(n_cycles):
         ha="center",
         transform=ax_1.transAxes,
     )
-    ax_1.set_xlabel('sample')
-    ax_1.set_ylabel('target value')
-    ax_2.set_xlabel('sample')
-    ax_2.set_ylabel('utility')
+    ax_1.set_xlabel('Sample')
+    ax_1.set_ylabel('Target Value')
+    ax_2.set_xlabel('Sample')
+    ax_2.set_ylabel('Utility')
 
     # Sort X values for smooth plotting of the utility curve.
     sort_mask = np.argsort(X.flatten())

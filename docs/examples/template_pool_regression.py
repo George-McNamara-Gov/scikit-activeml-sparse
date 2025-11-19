@@ -80,10 +80,10 @@ for c in range(n_cycles):
         ha="center",
         transform=ax_1.transAxes,
     )
-    ax_1.set_xlabel('sample')
-    ax_1.set_ylabel('target value')
-    ax_2.set_xlabel('sample')
-    ax_2.set_ylabel('utility')
+    ax_1.set_xlabel('Sample')
+    ax_1.set_ylabel('Target Value')
+    ax_2.set_xlabel('Sample')
+    ax_2.set_ylabel('Utility')
 
     # Compute utility values for the test candidates.
     _, utilities_test = qs.query("$query_params", candidates=X_test, return_utilities=True)

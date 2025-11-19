@@ -103,8 +103,8 @@ for c in range(n_cycles):
         s=300,
     )
     ax = plot_decision_boundary(clf, feature_bound, ax=ax)
-    ax.set_xlabel('feature 1')
-    ax.set_ylabel('feature 2')
+    ax.set_xlabel('Feature 1')
+    ax.set_ylabel('Feature 2')
 
     coll_new = list(ax.collections)
     coll_new.append(title)

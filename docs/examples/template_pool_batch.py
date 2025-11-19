@@ -103,8 +103,8 @@ for c in range(n_cycles):
             marker=".",
             s=300,
         )
-        ax.set_xlabel('feature 1')
-        ax.set_ylabel('feature 2')
+        ax.set_xlabel('Feature 1')
+        ax.set_ylabel('Feature 2')
         # Overlay the decision boundary.
         ax = plot_decision_boundary(clf, feature_bound, ax=ax)
         # Set the title indicating the current batch and subplot index.

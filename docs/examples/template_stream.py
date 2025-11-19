@@ -130,8 +130,8 @@ for t_x, (x_t, y_t) in enumerate(zip(X_stream, y_stream)):
             ha="center",
             transform=ax.transAxes,
         )
-        ax.set_xlabel('number of observed samples')
-        ax.set_ylabel('sample')
+        ax.set_xlabel('Number of Observed Samples')
+        ax.set_ylabel('Feature')
         coll_new = list(ax.collections)
         coll_new.append(title)
 
