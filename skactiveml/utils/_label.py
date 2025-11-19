@@ -12,12 +12,12 @@ def _deepflatten(to_flatten):
     Parameters
     ----------
     to_flatten : Iterable
-        The iterable to flatten
+        The iterable to flatten.
 
     Returns
     -------
     flattened_list : list
-        A list that contains all elements of `l` without being nested.
+        A list that contains all elements of `to_flatten` without being nested.
     """
     # list to keep track of objects to flatten
     iterables = [to_flatten]
