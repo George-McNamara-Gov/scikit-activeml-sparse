@@ -10,9 +10,9 @@ jobs:
       matrix:
         python-version: [ '3.10', '3.11', '3.12', '3.13' ]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install oldest dependencies
@@ -26,7 +26,7 @@ jobs:
         pip install -r requirements_extra.txt
     - name: Test with pytest and oldest dependencies
       run: |
-        pytest -n auto --cov=./skactiveml --cov-report=xml
+        pytest
 
   test_newest_base_dependencies:
     runs-on: ubuntu-latest
@@ -35,9 +35,9 @@ jobs:
       matrix:
         python-version: [ '3.10', '3.11', '3.12', '3.13']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install newest dependencies
@@ -51,7 +51,7 @@ jobs:
         pip install -r requirements_extra.txt
     - name: Test with pytest and newest dependencies
       run: |
-        pytest -n auto --cov=./skactiveml --cov-report=xml
+        pytest
 
   test_oldest_optional_dependencies:
     runs-on: ubuntu-latest
@@ -60,9 +60,9 @@ jobs:
       matrix:
         python-version: [ '3.10', '3.11', '3.12', '3.13' ]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install oldest dependencies
@@ -79,7 +79,7 @@ jobs:
         pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
     - name: Test with pytest and oldest dependencies
       run: |
-        pytest -n auto --cov=./skactiveml --cov-report=xml --cov-fail-under=100
+        pytest
 
   test_newest_optional_dependencies:
     runs-on: ubuntu-latest
@@ -88,9 +88,9 @@ jobs:
       matrix:
         python-version: [ '3.10', '3.11', '3.12', '3.13']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install newest dependencies
@@ -106,7 +106,8 @@ jobs:
         pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
     - name: Test with pytest and newest dependencies
       run: |
-        pytest -n auto --cov=./skactiveml --cov-report=xml
+        # Do not fail to upload the coverage afterwards
+        pytest --cov-fail-under=0
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
@@ -114,7 +115,7 @@ jobs:
         fail_ci_if_error: true
         flags: ${{ matrix.python-version }}
     - name: 'Upload Coverage Artifact'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: cov_${{ matrix.python-version }}
         path: coverage.xml
@@ -126,9 +127,9 @@ jobs:
       matrix:
         python-version: ['3.13']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install newest dependencies
@@ -158,9 +159,9 @@ jobs:
       matrix:
         python-version: ['3.13']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install newest dependencies
@@ -177,7 +178,7 @@ jobs:
         sphinx-build -b html docs docs/_build
         zip -r docs.zip docs
     - name: 'Upload Docs Artifact'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: docs_${{ matrix.python-version }}.zip
         path: docs

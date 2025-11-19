@@ -13,9 +13,9 @@ jobs:
       matrix:
         python-version: [ '3.9', '3.10', '3.11', '3.12' ]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install oldest dependencies
@@ -29,7 +29,7 @@ jobs:
         pip install -r requirements_extra.txt
     - name: Test with pytest and oldest dependencies
       run: |
-        pytest -n auto --cov=./skactiveml --cov-report=xml --cov-fail-under=100
+        pytest
 
   test_newest_dependencies:
     if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
@@ -39,9 +39,9 @@ jobs:
       matrix:
         python-version: [ '3.9', '3.10', '3.11', '3.12' ]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install newest dependencies
@@ -54,9 +54,9 @@ jobs:
         pip install -r requirements_extra.txt
     - name: Test with pytest and newest dependencies
       run: |
-        pytest -n auto --cov=./skactiveml --cov-report=xml --cov-fail-under=100
+        pytest
     - name: 'Upload Coverage Artifact'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: cov_${{ matrix.python-version }}
         path: coverage.xml
@@ -70,9 +70,9 @@ jobs:
       matrix:
         python-version: [ '3.9', '3.10', '3.11', '3.12' ]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install newest dependencies
@@ -103,9 +103,9 @@ jobs:
       matrix:
         python-version: [ '3.9', '3.10', '3.11', '3.12' ]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install newest dependencies
@@ -121,7 +121,7 @@ jobs:
         sphinx-build -b html docs docs/_build
         zip -r docs.zip docs
     - name: 'Upload Docs Artifact'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: docs_${{ matrix.python-version }}.zip
         path: docs

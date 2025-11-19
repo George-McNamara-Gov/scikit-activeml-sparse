@@ -359,7 +359,7 @@ class SklearnNormalRegressor(ProbabilisticRegressor, SklearnRegressor):
     estimated. Therefore, samples with missing values are filtered and a normal
     distribution is fitted using the predicted means and standard deviations.
 
-    The wrapped regressor of sklearn needs `return_std` as a key_word argument
+    The wrapped regressor of sklearn needs `return_std` as a keyword argument
     for `predict`.
 
     Parameters
@@ -380,6 +380,20 @@ class SklearnNormalRegressor(ProbabilisticRegressor, SklearnRegressor):
             estimator, missing_label=missing_label, random_state=random_state
         )
 
+    def _fit(self, fit_function, X, y, sample_weight, **fit_kwargs):
+        if (
+            hasattr(self.estimator, "predict")
+            and "return_std"
+            not in inspect.signature(self.estimator.predict).parameters.keys()
+            and inspect.getfullargspec(self.estimator.predict).varkw is None
+        ):
+            raise ValueError(
+                f"`{self.estimator}` must have keyword argument"
+                f"`return_std` for predict."
+            )
+
+        return super()._fit(fit_function, X, y, sample_weight, **fit_kwargs)
+
     def predict_target_distribution(self, X):
         """Returns the estimated target normal distribution conditioned on the
         test samples `X`.
@@ -397,17 +411,17 @@ class SklearnNormalRegressor(ProbabilisticRegressor, SklearnRegressor):
         """
         check_is_fitted(self)
 
-        if (
-            "return_std"
-            not in inspect.signature(self.estimator.predict).parameters.keys()
-        ):
-            raise ValueError(
-                f"`{self.estimator}` must have key_word argument"
-                f"`return_std` for predict."
-            )
-
-        loc, scale = SklearnRegressor.predict(self, X, return_std=True)
-        return norm(loc=loc, scale=scale)
+        try:
+            loc, scale = SklearnRegressor.predict(self, X, return_std=True)
+            return norm(loc=loc, scale=scale)
+        except TypeError as e:
+            if (
+                "predict() got an unexpected keyword argument 'return_std'"
+                in str(e)
+            ):
+                raise ValueError(
+                    "SklearnNormalRegressors require the Regressor from Sklearn to accept 'return_std'"
+                ) from e
 
 
 if successful_skorch_torch_import:

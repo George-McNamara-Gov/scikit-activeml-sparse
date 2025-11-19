@@ -25,7 +25,24 @@ class UncertaintySampling(SingleAnnotatorPoolQueryStrategy):
 
     This class implement various uncertainty based query strategies, i.e., the
     standard uncertainty measures [1]_, cost-sensitive ones [2]_, and one
-    optimizing expected average precision [3]_.
+    optimizing expected average precision [3]_. Concretely, four uncertainty
+    score definitions are available:
+
+    - least confident [1]_ selecting samples whose predicted top
+      class has the lowest confidence,
+    - margin sampling [1]_ selecting samples where the gap between the two most
+      probable classes is smallest,
+    - entropy-based uncertainty [1]_ selecting samples with the highest overall
+      predictive uncertainty across classes,
+    - and expected average precision [3] selecting samples with the highest
+      expected improvement in average precision under the model's current
+      predictions.
+
+    For the least confident and margin sampling cost-sensitive variants
+    are implemented considering a user-defined cost matrix [2]_. Finally,
+    the class can also be leverage to implement variants of density-weighted
+    uncertainty sampling (DWUS) and the dual strategy for active learning
+    (DUAL) [4]_.
 
     Parameters
     ----------
@@ -53,6 +70,10 @@ class UncertaintySampling(SingleAnnotatorPoolQueryStrategy):
     .. [3] H. Wang, X. Chang, L. Shi, Y. Yang, and Y.-D. Shen. Uncertainty
        Sampling for Action Recognition via Maximizing Expected Average
        Precision. In Int. Jt. Conf. Artif. Intell., pages 964–970, 2018.
+
+    .. [4] P. Donmez, J. G. Carbonell, and P. N. Bennett. Dual Strategy Active
+       Learning. In Eur. Conf. Mach. Learn, pages 116-127, 2007.
+
     """
 
     def __init__(

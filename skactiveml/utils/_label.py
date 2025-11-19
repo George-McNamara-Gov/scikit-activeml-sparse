@@ -1,9 +1,44 @@
 import numpy as np
-from iteration_utilities import deepflatten
 
 # Define constant for missing label used throughout the package.
 
 MISSING_LABEL = np.nan
+
+
+def _deepflatten(to_flatten):
+    """Flattens the iterable `to_flatten` recursively, in such a way that only
+    elementary items are returned in an one-dimensional list.
+
+    Parameters
+    ----------
+    to_flatten : Iterable
+        The iterable to flatten.
+
+    Returns
+    -------
+    flattened_list : list
+        A list that contains all elements of `to_flatten` without being nested.
+    """
+    # list to keep track of objects to flatten
+    iterables = [to_flatten]
+    # list to save all non-iterable elements
+    flattened_list = []
+
+    while iterables:
+        # remove last element and iterate over it
+        current_iterable = iterables.pop()
+        for e in current_iterable:
+            # check objects that return themselves as iterable (e.g. when
+            # iterating over strings)
+            if e == current_iterable:
+                flattened_list.append(e)
+            # if iterable, iterate over its elements
+            elif hasattr(e, "__iter__"):
+                iterables.append(e)
+            # if non-iterable element, append to flattened list
+            else:
+                flattened_list.append(e)
+    return flattened_list
 
 
 def is_unlabeled(y, missing_label=MISSING_LABEL):
@@ -26,7 +61,7 @@ def is_unlabeled(y, missing_label=MISSING_LABEL):
         return np.array(y, dtype=bool)
     if not isinstance(y, np.ndarray):
         types = set(
-            t.__qualname__ for t in set(type(v) for v in deepflatten(y))
+            t.__qualname__ for t in set(type(v) for v in _deepflatten(y))
         )
         types.add(type(missing_label).__qualname__)
         is_number = False

@@ -61,6 +61,14 @@ exclude = [
 Homepage       = "https://scikit-activeml.github.io"
 Source         = "https://github.com/scikit-activeml/scikit-activeml"
 
+[tool.pytest]
+addopts = [
+  "--cov=./skactiveml",
+  "--cov-report=xml",
+  "--cov-fail-under=100"
+]
+testpaths = ["./skactiveml"]
+
 [tool.black]
 line-length = 79
 target-version = ['py311']

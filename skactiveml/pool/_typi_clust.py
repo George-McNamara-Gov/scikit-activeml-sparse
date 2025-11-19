@@ -21,8 +21,12 @@ class TypiClust(SingleAnnotatorPoolQueryStrategy):
     """Typical Clustering (TypiClust)
 
     This class implements the Typical Clustering (TypiClust) query strategy
-    [1]_, which considers both diversity and typicality (representativeness) of
-    the samples.
+    [1]_, which clusters embeddings of both labeled and unlabeled data with
+    `n_clusters=n_labeled_samples + batch_size`, treating clusters that contain
+    labeled samples as covered. It then selects the most typical sample
+    (highest local density / smallest mean kNN distance) from up to
+    `batch_size` uncovered clusters, ensuring diversity while avoiding already
+    represented regions.
 
     Parameters
     ----------

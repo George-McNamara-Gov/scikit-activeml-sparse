@@ -21,10 +21,10 @@ class DropQuery(SingleAnnotatorPoolQueryStrategy):
 
     This class implements  the query strategy Dropout Query (DropQuery) [1]_
     that incorporates both uncertainty and sample diversity into every selected
-    batch. For this purpose, samples are filtered according to a
-    disagreement-based measure via dropout such that only the samples with a
-    disagreement above a threshold are clustered for selecting the samples
-    nearest to the respective clusters.
+    batch. For this purpose, unlabeled samples are filtered according to a
+    disagreement-based measure via dropout such that only the unlabeled samples
+    with a disagreement above a threshold are clustered for selecting the
+    unlabeled samples nearest to the respective clusters.
 
     Parameters
     ----------
