@@ -58,6 +58,15 @@ class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
     ----------
     estimator : sklearn.base.ClassifierMixin with predict_proba method
         The `scikit-learn` classifier to be wrapped.
+    include_unlabeled_samples : bool, default=False
+        - If `False`, only labeled samples are passed to the `fit` method of
+          the `estimator`.
+        - If `True`, all samples including the unlabeled ones are passed to
+          the `fit` method of the `estimator`. Ensure that your `estimator`
+          is able to handle unlabeled samples marked by `missing_label`.
+          Otherwise, `missing_label` is interpreted as a regular class label.
+          Note that semi-supervised classifiers of `sklearn` expect
+          `missing_label=-1`.
     classes : array-like of shape (n_classes,), default=None
         Holds the label for each class. If `None`, the classes are determined
         during `fit`.
@@ -85,6 +94,7 @@ class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
     def __init__(
         self,
         estimator,
+        include_unlabeled_samples=False,
         classes=None,
         missing_label=MISSING_LABEL,
         cost_matrix=None,
@@ -97,6 +107,7 @@ class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
             random_state=random_state,
         )
         self.estimator = estimator
+        self.include_unlabeled_samples = include_unlabeled_samples
 
     @match_signature("estimator", "fit")
     def fit(self, X, y, sample_weight=None, **fit_kwargs):
@@ -278,6 +289,13 @@ class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
                 "classifier.".format(self.estimator)
             )
 
+        # Check boolean flag.
+        check_type(
+            self.include_unlabeled_samples,
+            "include_unlabeled_samples",
+            bool,
+        )
+
         # Check whether estimator can deal with cost matrix.
         if self.cost_matrix is not None and not hasattr(
             self.estimator, "predict_proba"
@@ -292,15 +310,18 @@ class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
         else:
             self.estimator_ = deepcopy(self.estimator)
         # count labels per class
-        is_lbld = is_labeled(y, missing_label=-1)
+        if self.include_unlabeled_samples:
+            is_included = np.full_like(y, fill_value=True, dtype=bool)
+        else:
+            is_included = is_labeled(y, missing_label=-1)
         self._label_counts = [
-            np.sum(y[is_lbld] == c) for c in range(len(self._le.classes_))
+            np.sum(y[is_included] == c) for c in range(len(self._le.classes_))
         ]
         try:
-            X_lbld = X[is_lbld]
-            y_lbld = y[is_lbld].astype(np.int64)
-            y_lbld_inv = self._le.inverse_transform(y_lbld)
-            if np.sum(is_lbld) == 0:
+            X_train = X[is_included]
+            y_train = y[is_included].astype(np.int64)
+            y_train_inv = self._le.inverse_transform(y_train)
+            if np.sum(is_included) == 0:
                 raise ValueError("There is no labeled data.")
             elif (
                 not has_fit_parameter(self.estimator, "sample_weight")
@@ -309,22 +330,22 @@ class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
                 if fit_function == "partial_fit":
                     fit_kwargs["classes"] = self.classes_
                     self.estimator_.partial_fit(
-                        X=X_lbld, y=y_lbld_inv, **fit_kwargs
+                        X=X_train, y=y_train_inv, **fit_kwargs
                     )
                 elif fit_function == "fit":
-                    self.estimator_.fit(X=X_lbld, y=y_lbld_inv, **fit_kwargs)
+                    self.estimator_.fit(X=X_train, y=y_train_inv, **fit_kwargs)
             else:
                 if fit_function == "partial_fit":
                     fit_kwargs["classes"] = self.classes_
-                    fit_kwargs["sample_weight"] = sample_weight[is_lbld]
+                    fit_kwargs["sample_weight"] = sample_weight[is_included]
                     self.estimator_.partial_fit(
-                        X=X_lbld,
-                        y=y_lbld_inv,
+                        X=X_train,
+                        y=y_train_inv,
                         **fit_kwargs,
                     )
                 elif fit_function == "fit":
-                    fit_kwargs["sample_weight"] = sample_weight[is_lbld]
-                    self.estimator_.fit(X=X_lbld, y=y_lbld_inv, **fit_kwargs)
+                    fit_kwargs["sample_weight"] = sample_weight[is_included]
+                    self.estimator_.fit(X=X_train, y=y_train_inv, **fit_kwargs)
             self.is_fitted_ = True
         except Exception as e:
             self.is_fitted_ = False
@@ -787,6 +808,14 @@ if successful_skorch_torch_import:
         sample_dtype : str or type, default=None
             The type or typecode all data is casted to. If `sample_dtype` is
             None, the datatype is preserved.
+        include_unlabeled_samples : bool, default=False
+            - If `False`, only labeled samples are passed to the `fit` method
+              of the `estimator`.
+            - If `True`, all samples including the unlabeled ones are passed to
+              the `fit` method of the `estimator`. Ensure that the `criterion`
+              is able to handle unlabeled samples marked by `missing_label`.
+              Otherwise, `missing_label` is interpreted as a regular class
+              label.
         classes : array-like of shape (n_classes,), default=None
             Holds the label for each class. If none, the classes are determined
             during the fit.
@@ -814,6 +843,7 @@ if successful_skorch_torch_import:
             filter_criterion_input=True,
             neural_net_param_dict=None,
             sample_dtype=None,
+            include_unlabeled_samples=False,
             classes=None,
             cost_matrix=None,
             missing_label=MISSING_LABEL,
@@ -830,6 +860,7 @@ if successful_skorch_torch_import:
             self.filter_criterion_input = filter_criterion_input
             self.neural_net_param_dict = neural_net_param_dict
             self.sample_dtype = sample_dtype
+            self.include_unlabeled_samples = include_unlabeled_samples
 
         def fit(self, X, y, **fit_params):
             """Initialize and fit the module.
@@ -1050,34 +1081,41 @@ if successful_skorch_torch_import:
                 "allow_nd": True,
                 "dtype": self.sample_dtype,
             }
+            check_type(
+                self.include_unlabeled_samples,
+                "include_unlabeled_samples",
+                bool,
+            )
             return {"check_X_dict": self.check_X_dict_}
 
-        def _return_labeled_data(self, X, y):
+        def _return_training_data(self, X, y):
             """
-            Return only labeled samples.
+            Return only samples and labels required for training.
 
             Parameters
             ----------
-            X : matrix-like, shape (n_samples, ...)
-                Training data set, usually complete, i.e. including the labeled
-                and unlabeled samples
-            y : array-like of shape (n_samples, )
-                Labels of the training data set (possibly including unlabeled
-                ones indicated by `-1`).
+            X : array-like of shape (n_samples, ...)
+                Input samples.
+            y : array-like of shape (n_samples, ...)
+                Targets with unlabeled entries following the subclass'
+                convention.
 
             Returns
             -------
-            X_lbld : ndarray or None
-                Labeled inputs or ``None`` if none exist.
-            y_lbld : ndarray or None
-                Corresponding labeled targets or ``None`` if none exist.
+            X_train : ndarray or None
+                Training samples or ``None`` if none exist.
+            y_train : ndarray or None
+                Training labels or ``None`` if none exist.
             """
-            X_lbld, y_lbld = None, None
-            is_lbld = is_labeled(y, missing_label=-1)
-            if np.sum(is_lbld) > 0:
-                X_lbld = X[is_lbld]
-                y_lbld = y[is_lbld].astype(np.int64)
-            return X_lbld, y_lbld
+            X_train, y_train = None, None
+            if self.include_unlabeled_samples:
+                is_included = np.full_like(y, fill_value=True, dtype=bool)
+            else:
+                is_included = is_labeled(y, missing_label=-1)
+            if np.sum(is_included) > 0:
+                X_train = X[is_included]
+                y_train = y[is_included].astype(np.int64)
+            return X_train, y_train
 
         def _initialize_fallbacks(self, P):
             """

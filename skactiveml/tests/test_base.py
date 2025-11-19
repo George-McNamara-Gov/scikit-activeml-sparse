@@ -433,7 +433,7 @@ if successful_skorch_torch_import:
         def test__return_labeled_data(self):
             self.assertRaises(
                 NotImplementedError,
-                self.sk._return_labeled_data,
+                self.sk._return_training_data,
                 X=None,
                 y=None,
             )

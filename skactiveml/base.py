@@ -1676,10 +1676,10 @@ if successful_skorch_torch_import:
 
             return (X, y) if (enforce_check_X_y or has_data) else self
 
-        def _fit(self, fit_function: str, X, y, **fit_params):
+        def _fit(self, fit_function, X, y, **fit_params):
             """
-            Initialize and fit the internal ``skorch`` model on labeled
-            data only.
+            Initialize and fit the internal ``skorch`` model on training
+            data.
 
             If the model is uninitialized, or ``fit_function == 'fit'`` and
             ``self.neural_net_.warm_start`` is ``False``, the network is
@@ -1708,12 +1708,6 @@ if successful_skorch_torch_import:
             ------
             ValueError
                 Propagated from ``_validate_data`` if inputs are invalid.
-
-            Notes
-            -----
-            Only labeled samples returned by ``_return_labeled_data`` are passed
-            to ``partial_fit``. If no labeled samples are found,
-            training is skipped.
             """
             need_reinit = (not hasattr(self, "neural_net_")) or (
                 fit_function == "fit"
@@ -1725,9 +1719,9 @@ if successful_skorch_torch_import:
                 vd_kwargs = self._validate_data_kwargs() or {}
                 X, y, _ = self._validate_data(X=X, y=y, **vd_kwargs)
 
-            X_lbld, y_lbld = self._return_labeled_data(X=X, y=y)
-            if X_lbld is not None and y_lbld is not None:
-                self.neural_net_.partial_fit(X_lbld, y_lbld, **fit_params)
+            X_train, y_train = self._return_training_data(X=X, y=y)
+            if X_train is not None and y_train is not None:
+                self.neural_net_.partial_fit(X_train, y_train, **fit_params)
             return self
 
         @abstractmethod
@@ -1799,9 +1793,9 @@ if successful_skorch_torch_import:
             raise NotImplementedError
 
         @abstractmethod
-        def _return_labeled_data(self, X, y):
+        def _return_training_data(self, X, y):
             """
-            Return only labeled samples.
+            Return only samples and labels required for training.
 
             Parameters
             ----------
@@ -1813,9 +1807,9 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            X_lbld : ndarray or None
-                Labeled inputs or ``None`` if none exist.
-            y_lbld : ndarray or None
-                Corresponding labeled targets or ``None`` if none exist.
+            X_train : ndarray or None
+                Training samples or ``None`` if none exist.
+            y_train : ndarray or None
+                Training labels or ``None`` if none exist.
             """
             raise NotImplementedError

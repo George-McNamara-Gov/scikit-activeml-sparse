@@ -18,6 +18,7 @@ from sklearn.linear_model import (
 )
 from sklearn.pipeline import Pipeline
 from sklearn.naive_bayes import GaussianNB
+from sklearn.semi_supervised import SelfTrainingClassifier
 from sklearn.utils.validation import NotFittedError, check_is_fitted
 
 successful_skorch_torch_import = False
@@ -64,14 +65,22 @@ class TestSklearnClassifier(TemplateSkactivemlClassifier, unittest.TestCase):
         self.y_nan = ["nan", "nan", "nan", "nan"]
 
     def test_init_param_estimator(self):
-        test_cases = []
-        test_cases += [
+        test_cases = [
             (Perceptron(), None),
             ("Test", AttributeError),
             (GaussianNB(), None),
             (LinearRegression(), TypeError),
         ]
         self._test_param("init", "estimator", test_cases)
+
+    def test_init_param_include_unlabeled_samples(self):
+        test_cases = [
+            (GaussianNB(), TypeError),
+            (True, None),
+            (False, None),
+            ("String", TypeError),
+        ]
+        self._test_param("init", "include_unlabeled_samples", test_cases)
 
     def test_fit(self):
         clf = SklearnClassifier(
@@ -161,6 +170,30 @@ class TestSklearnClassifier(TemplateSkactivemlClassifier, unittest.TestCase):
             missing_label="nan",
         )
         self.assertFalse(hasattr(clf, "partial_fit"))
+
+        # Test semi-supervised learning.
+        X, y = make_blobs(
+            centers=10, n_samples=200, random_state=0, shuffle=True
+        )
+        y_partial = np.full_like(y, -1)
+        y_partial[:50] = y[:50]
+        clf = SklearnClassifier(
+            estimator=SelfTrainingClassifier(
+                LogisticRegression(random_state=0),
+                threshold=0,
+                max_iter=10,
+                verbose=True,
+            ),
+            include_unlabeled_samples=True,
+            missing_label=-1,
+            classes=np.unique(y),
+            random_state=0,
+        )
+        clf.fit(X, y_partial)
+        self.assertEqual((clf.labeled_iter_ > 0).sum(), 150)
+        clf.set_params(include_unlabeled_samples=False)
+        clf.fit(X, y_partial)
+        self.assertEqual((clf.labeled_iter_ > 0).sum(), 0)
 
     def test_predict_proba(self):
         clf = SklearnClassifier(
@@ -945,7 +978,7 @@ if successful_skorch_torch_import:
             self.y_ulbld = np.full_like(self.y, fill_value=MISSING_LABEL)
 
             estimator_class = SkorchClassifier
-            neural_net_param_dict = {
+            self.neural_net_param_dict = {
                 "train_split": None,
                 "verbose": False,
                 "optimizer": torch.optim.RAdam,
@@ -961,7 +994,7 @@ if successful_skorch_torch_import:
                 "classes": None,
                 "missing_label": MISSING_LABEL,
                 "random_state": 1,
-                "neural_net_param_dict": neural_net_param_dict,
+                "neural_net_param_dict": self.neural_net_param_dict,
                 "sample_dtype": np.float32,
             }
             fit_default_params = {
@@ -999,6 +1032,27 @@ if successful_skorch_torch_import:
                 (nn.CrossEntropyLoss(), None),
             ]
             self._test_param("init", "criterion", test_cases)
+
+        def test_init_param_include_unlabeled_samples(self, test_cases=None):
+            test_cases = [] if test_cases is None else test_cases
+            test_cases += [
+                (GaussianNB(), TypeError),
+                (True, IndexError),
+                (False, None),
+                ("String", TypeError),
+            ]
+            self._test_param("init", "include_unlabeled_samples", test_cases)
+            neural_net_param_dict = self.neural_net_param_dict.copy()
+            test_cases = [(True, None)]
+            neural_net_param_dict["criterion__ignore_index"] = -1
+            self._test_param(
+                "init",
+                "include_unlabeled_samples",
+                test_cases,
+                replace_init_params={
+                    "neural_net_param_dict": neural_net_param_dict
+                },
+            )
 
         def test_initialize(self):
             # Check prediction w/o initialization and w/o given classes.

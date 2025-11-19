@@ -13,6 +13,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
 from sklearn.utils.validation import check_is_fitted
 from sklearn.datasets import make_regression
+from torch.nn import HuberLoss
 
 from skactiveml.base import SkactivemlRegressor
 from skactiveml.regressor import (
@@ -57,13 +58,20 @@ class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
         self.X_cand = np.array([[2, 1], [3, 5]])
 
     def test_init_param_estimator(self):
-        test_cases = []
-        test_cases += [
+        test_cases = [
             (GaussianProcessRegressor(), None),
             (SVC(), TypeError),
             ("Test", AttributeError),
         ]
         self._test_param("init", "estimator", test_cases)
+
+    def test_init_param_include_unlabeled_samples(self):
+        test_cases = [
+            (True, None),
+            (False, None),
+            ("String", TypeError),
+        ]
+        self._test_param("init", "include_unlabeled_samples", test_cases)
 
     def test_fit_predict(self):
         estimator = LinearRegression()
@@ -86,7 +94,6 @@ class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
         y = np.array([3, 4, 1, 2, 1])
         sample_weight = np.arange(1, len(y) + 1)
 
-        reg_1 = SklearnRegressor(estimator=LinearRegression())
         reg_2 = clone(reg_1)
         reg_1.fit(X, y, sample_weight=sample_weight)
         reg_2.fit(X, y)
@@ -107,6 +114,27 @@ class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
 
         self.assertWarns(Warning, reg.fit, X=X, y=y)
         self.assertWarns(Warning, reg.predict, X=X)
+
+        # Test semi-supervised learning for regression.
+        X = np.arange(10).astype(np.float64).reshape(-1, 1)
+        y = np.arange(10).astype(np.float64)
+        y_partial = np.full_like(y, fill_value=-100)
+        y_partial[:5] = y[:5]
+        reg = SklearnRegressor(
+            GaussianProcessRegressor(random_state=0),
+            random_state=0,
+            include_unlabeled_samples=False,
+            missing_label=-100,
+        )
+        y_pred_sl = reg.fit(X, y_partial).predict(X)
+        reg = SklearnRegressor(
+            GaussianProcessRegressor(random_state=0),
+            random_state=0,
+            include_unlabeled_samples=True,
+            missing_label=-100,
+        )
+        y_pred_ssl = reg.fit(X, y_partial).predict(X)
+        self.assertTrue(y_pred_ssl.mean() < y_pred_sl.mean())
 
     def test_predict(self):
         reg = SklearnRegressor(
@@ -442,7 +470,7 @@ if successful_skorch_torch_import:
             self.y_ulbld = np.full_like(self.y, fill_value=MISSING_LABEL)
 
             estimator_class = SkorchRegressor
-            neural_net_param_dict = {
+            self.neural_net_param_dict = {
                 "train_split": None,
                 "verbose": False,
                 "optimizer": torch.optim.RAdam,
@@ -456,7 +484,7 @@ if successful_skorch_torch_import:
                 "criterion": nn.HuberLoss,
                 "missing_label": MISSING_LABEL,
                 "random_state": 1,
-                "neural_net_param_dict": neural_net_param_dict,
+                "neural_net_param_dict": self.neural_net_param_dict,
                 "sample_dtype": np.float32,
             }
             fit_default_params = {
@@ -494,6 +522,31 @@ if successful_skorch_torch_import:
                 (nn.HuberLoss(), None),
             ]
             self._test_param("init", "criterion", test_cases)
+
+        def test_init_param_include_unlabeled_samples(self, test_cases=None):
+            test_cases = [] if test_cases is None else test_cases
+            test_cases += [
+                (True, None),
+                (False, None),
+                ("String", TypeError),
+            ]
+            self._test_param("init", "include_unlabeled_samples", test_cases)
+
+            test_cases = [(True, None)]
+
+            class IgnoreIndexHuberLoss(HuberLoss):
+                def forward(self, input, target):
+                    is_lbld = ~torch.isnan(target)
+                    input = input[is_lbld]
+                    target = target[is_lbld]
+                    return super().forward(input, target)
+
+            self._test_param(
+                "init",
+                "include_unlabeled_samples",
+                test_cases,
+                replace_init_params={"criterion": IgnoreIndexHuberLoss},
+            )
 
         def test_fit(self):
             # Check standard fitting cases.
@@ -693,7 +746,6 @@ if successful_skorch_torch_import:
                 return output_values, hidden
             else:
                 return output_values
-
 
     class TestSkorchProbabilisticRegressor(TestSkorchRegressor):
         pass

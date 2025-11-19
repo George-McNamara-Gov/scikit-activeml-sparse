@@ -19,6 +19,7 @@ from ..utils import (
     match_signature,
     check_n_features,
     check_scalar,
+    check_type,
     MISSING_LABEL,
 )
 
@@ -46,6 +47,13 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
     ----------
     estimator : sklearn.base.RegressorMixin with predict method
         scikit-learn regressor.
+    include_unlabeled_samples : bool, default=False
+        - If `False`, only labeled samples are passed to the `fit` method of
+          the `estimator`.
+        - If `True`, all samples including the unlabeled ones are passed to
+          the `fit` method of the `estimator`. Ensure that your `estimator`
+          is able to handle unlabeled samples marked by `missing_label`.
+          Otherwise, `missing_label` is interpreted as a regular target value.
     missing_label : scalar or string or np.nan or None, default=np.nan
         Value to represent a missing label.
     random_state : int or RandomState instance or None, default=None
@@ -54,12 +62,17 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
     """
 
     def __init__(
-        self, estimator, missing_label=MISSING_LABEL, random_state=None
+        self,
+        estimator,
+        include_unlabeled_samples=False,
+        missing_label=MISSING_LABEL,
+        random_state=None,
     ):
         super().__init__(
             random_state=random_state, missing_label=missing_label
         )
         self.estimator = estimator
+        self.include_unlabeled_samples = include_unlabeled_samples
 
     @match_signature("estimator", "fit")
     def fit(self, X, y, sample_weight=None, **fit_kwargs):
@@ -128,6 +141,9 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
                 "'{}' must be a scikit-learn "
                 "regressor.".format(self.estimator)
             )
+        check_type(
+            self.include_unlabeled_samples, "include_unlabeled_samples", bool
+        )
 
         self.check_X_dict_ = {
             "ensure_min_samples": 0,
@@ -145,19 +161,23 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
         )
 
         is_lbld = is_labeled(y, missing_label=self.missing_label_)
-        X_labeled = X[is_lbld]
-        y_labeled = y[is_lbld]
+        if self.include_unlabeled_samples:
+            is_included = np.full_like(y, True, dtype=bool)
+        else:
+            is_included = is_lbld
+        X_train = X[is_included]
+        y_train = y[is_included]
         estimator_params = dict(fit_kwargs) if fit_kwargs is not None else {}
 
         if sample_weight is not None:
-            estimator_params["sample_weight"] = sample_weight[is_lbld]
+            estimator_params["sample_weight"] = sample_weight[is_included]
 
         self._label_mean = np.mean(y[is_lbld]) if np.sum(is_lbld) > 0 else 0
         self._label_std = np.std(y[is_lbld]) if np.sum(is_lbld) > 1 else 1
         self.estimator_ = deepcopy(self.estimator)
         try:
             attrgetter(fit_function)(self.estimator_)(
-                X_labeled, y_labeled, **estimator_params
+                X_train, y_train, **estimator_params
             )
         except Exception as e:
             warnings.warn(
@@ -424,6 +444,14 @@ if successful_skorch_torch_import:
         sample_dtype : str or type, default=None
             The type or typecode all data is casted to. If `sample_dtype` is
             None, the datatype is preserved.
+        include_unlabeled_samples : bool, default=False
+            - If `False`, only labeled samples are passed to the `fit` method
+              of the `estimator`.
+            - If `True`, all samples including the unlabeled ones are passed to
+              the `fit` method of the `estimator`. Ensure that the `criterion`
+              is able to handle unlabeled samples marked by `missing_label`.
+              Otherwise, `missing_label` is interpreted as a regular target
+              value.
         missing_label : scalar or string or np.nan or None, default=np.nan
             Value to represent a missing label.
         random_state : int or RandomState instance or None, default=None
@@ -444,6 +472,7 @@ if successful_skorch_torch_import:
             filter_criterion_input=True,
             neural_net_param_dict=None,
             sample_dtype=None,
+            include_unlabeled_samples=False,
             missing_label=MISSING_LABEL,
             random_state=None,
         ):
@@ -455,6 +484,7 @@ if successful_skorch_torch_import:
             self.criterion = criterion
             self.filter_criterion_input = filter_criterion_input
             self.neural_net_param_dict = neural_net_param_dict
+            self.include_unlabeled_samples = include_unlabeled_samples
             self.sample_dtype = sample_dtype
 
         def fit(self, X, y, **fit_params):
@@ -517,9 +547,9 @@ if successful_skorch_torch_import:
             return_embeddings : boolean, default=False
                 If `return_embeddings=True`, the forward method of the neural
                 network module is expected to return multiple outputs,
-                of which the first element corresponds to the target predictions
-                and the second element is a ensor of embeddings learned by the
-                neural network.
+                of which the first element corresponds to the target
+                predictions and the second element is a tensor of embeddings
+                learned by the neural network.
 
             Returns
             -------
@@ -601,36 +631,43 @@ if successful_skorch_torch_import:
                 "allow_nd": True,
                 "dtype": self.sample_dtype,
             }
+            check_type(
+                self.include_unlabeled_samples,
+                "include_unlabeled_samples",
+                bool,
+            )
             return {"check_X_dict": self.check_X_dict_}
 
-        def _return_labeled_data(self, X, y):
+        def _return_training_data(self, X, y):
             """
-            Return only labeled samples.
+            Return only samples and labels required for training.
 
             Parameters
             ----------
-            X : matrix-like, shape (n_samples, ...)
-                Training data set, usually complete, i.e. including the labeled
-                and unlabeled samples.
-            y : array-like of shape (n_samples, )
-                Labels of the training data set (possibly including unlabeled
-                ones indicated by self.missing_label_).
+            X : array-like of shape (n_samples, ...)
+                Input samples.
+            y : array-like of shape (n_samples, ...)
+                Targets with unlabeled entries following the subclass'
+                convention.
 
             Returns
             -------
-            X_lbld : ndarray or None
-                Labeled inputs or ``None`` if none exist.
-            y_lbld : ndarray or None
-                Corresponding labeled targets or ``None`` if none exist.
+            X_train : ndarray or None
+                Training samples or ``None`` if none exist.
+            y_train : ndarray or None
+                Training labels or ``None`` if none exist.
             """
-            X_lbld, y_lbld = None, None
-            is_lbld = is_labeled(y, missing_label=self.missing_label_)
-            if np.sum(is_lbld) > 0:
-                X_lbld = X[is_lbld]
-                y_lbld = (
-                    y[is_lbld].astype(np.float32, copy=True).reshape(-1, 1)
-                )
-            return X_lbld, y_lbld
+            X_train, y_train = None, None
+            if self.include_unlabeled_samples:
+                is_included = np.full_like(y, fill_value=True, dtype=bool)
+            else:
+                is_included = is_labeled(y, missing_label=self.missing_label_)
+            if np.sum(is_included) > 0:
+                X_train = X[is_included]
+                y_train = y[is_included]
+            if y_train is not None:
+                y_train = y_train.astype(np.float32, copy=True).reshape(-1, 1)
+            return X_train, y_train
 
     class SkorchProbabilisticRegressor(
         SkorchRegressor, ProbabilisticRegressor

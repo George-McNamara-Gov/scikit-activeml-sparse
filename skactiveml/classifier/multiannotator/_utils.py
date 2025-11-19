@@ -121,7 +121,7 @@ if successful_skorch_torch_import:
 
             return self.module, self.criterion, neural_net_param_dict
 
-        def _return_labeled_data(self, X, y):
+        def _return_training_data(self, X, y):
             """
             Return only labeled samples.
 
