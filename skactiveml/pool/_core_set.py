@@ -205,6 +205,12 @@ def k_greedy_center(
        The number of new candidates that are additionally added to `X`.
        Only used for the case, that in the query function with the shape of
        `candidates` is `(n_candidates, n_feature)`.
+    metric : str or callable, default='euclidean'
+        The metric must comply with the function
+        `sklearn.metrics.pairwise_distances_argmin_min`.
+    metric_dict : dict, default=None
+        Any further parameters are passed directly to the function
+        `sklearn.metrics.pairwise_distances_argmin_min` as `metric_kwargs`.
 
     Returns
     -------
