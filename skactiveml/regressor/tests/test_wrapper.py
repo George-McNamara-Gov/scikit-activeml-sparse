@@ -7,7 +7,6 @@ from sklearn import clone
 from sklearn.exceptions import NotFittedError
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.linear_model import LinearRegression, ARDRegression, SGDRegressor
-from sklearn.neural_network import MLPRegressor
 from sklearn.svm import SVC
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.pipeline import Pipeline
@@ -83,13 +82,7 @@ class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
         reg.fit(self.X, y)
         check_is_fitted(reg.estimator_)
 
-        reg_1 = SklearnRegressor(
-            estimator=MLPRegressor(
-                random_state=self.random_state, max_iter=1000
-            ),
-            random_state=self.random_state,
-        )
-
+        reg_1 = SklearnRegressor(estimator=LinearRegression())
         X = np.array([[0], [1], [2], [3], [4]])
         y = np.array([3, 4, 1, 2, 1])
         sample_weight = np.arange(1, len(y) + 1)
