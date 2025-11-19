@@ -102,6 +102,16 @@ Now, install the required project dependencies, which are defined in the
 After the pip installation is successful, you must install ``pandoc`` and
 ``ghostscript`` if they are not already installed.
 
+We also provide a `pre-commit <https://https://pre-commit.com/>`__
+configuration that offers automatic linting checks using
+`black <https://black.readthedocs.io/en/stable/>`__ and
+`flake8 <https://flake8.pycqa.org/en/latest/>`__. To use these pre-commit
+hooks, you need to install them:
+
+.. code:: bash
+
+  pre-commit install
+
 Example with macOS (Homebrew)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -127,6 +137,7 @@ code using the following commands:
 .. code:: bash
 
    black skactiveml
+   flake8 skactiveml/ --ignore=E203,W503
 
 Example for Code Contribution Cycle (C3) and Pull Requests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

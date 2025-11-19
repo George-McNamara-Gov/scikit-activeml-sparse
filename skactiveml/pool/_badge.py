@@ -20,9 +20,12 @@ from ..utils import (
 class Badge(SingleAnnotatorPoolQueryStrategy):
     """Batch Active Learning by Diverse Gradient Embedding (BADGE)
 
-    This class implements the BADGE algorithm [1]_, which is designed to
-    incorporate both predictive uncertainty and sample diversity into every
-    selected batch.
+    This class implements the BADGE algorithm [1]_, which selects a batch by
+    running k-means++ on per-sample gradient embeddings, which combine
+    uncertainty and diversity. For each unlabeled sample, it forms the gradient
+    of the cross-entropy loss with respect to the last linear layer using the
+    model’s pseudo-label. Large gradient norms indicate uncertainty, while
+    k-means++ spreads selections to avoid redundancy.
 
     Parameters
     ----------
