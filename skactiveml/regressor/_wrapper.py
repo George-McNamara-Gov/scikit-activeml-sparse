@@ -26,7 +26,6 @@ from ..utils import (
 successful_skorch_torch_import = False
 try:
     from torch import nn
-    from skorch import NeuralNet
     from skorch.utils import to_numpy
     from skactiveml.base import SkorchMixin
     from skactiveml.utils import make_criterion_tuple_aware
@@ -107,7 +106,8 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
 
     @match_signature("estimator", "partial_fit")
     def partial_fit(self, X, y, sample_weight=None, **fit_kwargs):
-        """Partially fitting the model using X as training data and y as labels.
+        """Partially fitting the model using X as training data and y as
+        labels.
 
         Parameters
         ----------
@@ -215,7 +215,7 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
         check_n_features(self, X, reset=False)
         try:
             return self.estimator_.predict(X, **predict_kwargs)
-        except Exception:
+        except NotFittedError:
             warnings.warn(
                 f"Since the 'estimator' could not be fitted when"
                 f" calling the `fit` method, the label "
@@ -420,7 +420,8 @@ class SklearnNormalRegressor(ProbabilisticRegressor, SklearnRegressor):
                 in str(e)
             ):
                 raise ValueError(
-                    "SklearnNormalRegressors require the Regressor from Sklearn to accept 'return_std'"
+                    "SklearnNormalRegressors require the Regressor from"
+                    "`sklearn` to accept `return_std`."
                 ) from e
 
 
@@ -445,12 +446,13 @@ if successful_skorch_torch_import:
             default, `torch.nn.NLLoss` is used as criterion.
         filter_criterion_input : bool, default=True
             - If True, this flag ensures criteria expecting tensors as input,
-            e.g., `nn.MSELoss`, work with implementations of the
-            `module.forward` methods outputting tuples, e.g., where the first
-            element corresponds to the target predictions and the second element
-            is a tensor of embeddings (cf. `return_embeddings` in `predict`).
+              e.g., `nn.MSELoss`, work with implementations of the
+              `module.forward` methods outputting tuples, e.g., where the first
+              element corresponds to the target predictions and the second
+              element is a tensor of embeddings (cf. `return_embeddings` in
+              `predict`).
             - If False, the criterion is used as is and must be able to process
-            the full output `module.forward`.
+              the full output `module.forward`.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no additional arguments are
@@ -707,12 +709,13 @@ if successful_skorch_torch_import:
             default, `torch.nn.NLLoss` is used as criterion.
         filter_criterion_input : bool, default=True
             - If True, this flag ensures criteria expecting tensors as input,
-            e.g., `nn.MSELoss`, work with implementations of the
-            `module.forward` methods outputting tuples, e.g., where the first
-            element corresponds to the target predictions and the second element
-            is a tensor of embeddings (cf. `return_embeddings` in `predict`).
+              e.g., `nn.MSELoss`, work with implementations of the
+              `module.forward` methods outputting tuples, e.g., where the first
+              element corresponds to the target predictions and the second
+              element is a tensor of embeddings (cf. `return_embeddings` in
+              `predict`).
             - If False, the criterion is used as is and must be able to process
-            the full output `module.forward`.
+              the full output `module.forward`.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no additional arguments are

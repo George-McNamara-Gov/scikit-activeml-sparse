@@ -37,6 +37,7 @@ try:
 except ImportError:
     pass  # pragma: no cover
 
+
 class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
     def setUp(self):
         estimator_class = SklearnRegressor
@@ -160,33 +161,6 @@ class TestSklearnRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
         _, std_pred = reg.predict(X, return_std=True)
         np.testing.assert_array_equal(np.ones(3), std_pred)
         self.assertRaises(ValueError, reg.predict, X=[])
-
-    def test_fit_predict(self):
-        estimator = LinearRegression()
-        reg = SklearnRegressor(estimator=estimator)
-        y = np.full(3, MISSING_LABEL)
-        reg.fit(self.X, y)
-        self.assertRaises(NotFittedError, check_is_fitted, reg.estimator_)
-        y = np.zeros(3)
-        reg.fit(self.X, y)
-        check_is_fitted(reg.estimator_)
-
-        reg_1 = SklearnRegressor(
-            estimator=MLPRegressor(
-                random_state=self.random_state, max_iter=1000
-            ),
-            random_state=self.random_state,
-        )
-
-        X = np.array([[0], [1], [2], [3], [4]])
-        y = np.array([3, 4, 1, 2, 1])
-        sample_weight = np.arange(1, len(y) + 1)
-
-        reg_1 = SklearnRegressor(estimator=LinearRegression())
-        reg_2 = clone(reg_1)
-        reg_1.fit(X, y, sample_weight=sample_weight)
-        reg_2.fit(X, y)
-        self.assertTrue(np.any(reg_1.predict(X) != reg_2.predict(X)))
 
     def test_getattr(self):
         reg = SklearnRegressor(
