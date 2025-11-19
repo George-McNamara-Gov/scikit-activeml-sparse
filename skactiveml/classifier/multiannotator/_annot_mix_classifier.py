@@ -1,6 +1,9 @@
 import math
 import numpy as np
+
 from sklearn.utils.validation import check_array
+
+from ...base import SkactivemlClassifier
 
 successful_skorch_torch_import = False
 try:
@@ -32,7 +35,7 @@ from ...utils import (
 if successful_skorch_torch_import:
 
     class AnnotMixClassifier(_MultiAnnotatorClassifier):
-        """AnnotMixClassifier
+        """Annot-Mix
 
         AnnotMix [1]_ trains a multi-annotator classifier using an extension of
         MixUp [2]_.
@@ -211,8 +214,14 @@ if successful_skorch_torch_import:
                 `A_embed[m]` refers to the learned embedding for annotator `m`.
             """
             predict_dict = {k: v for k, v in locals().items() if k != "self"}
-            return self._transform_predict_proba_output(
-                predict_dict=predict_dict
+            return SkactivemlClassifier.predict(
+                self,
+                X=X,
+                return_logits=return_logits,
+                return_embeddings=return_embeddings,
+                return_annotator_perf=return_annotator_perf,
+                return_annotator_class=return_annotator_class,
+                return_annotator_embeddings=return_annotator_class,
             )
 
         def predict_proba(
@@ -356,7 +365,7 @@ if successful_skorch_torch_import:
                     out_idx += 1
                 if return_annotator_embeddings:
                     a_embed = to_numpy(out_torch[out_idx])
-                    out_numpy.append(a_embed[:self.n_annotators_])
+                    out_numpy.append(a_embed[: self.n_annotators_])
             finally:
                 net.set_forward_return(old_forward_return)
 

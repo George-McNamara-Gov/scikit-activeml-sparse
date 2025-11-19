@@ -420,13 +420,6 @@ class SingleAnnotatorPoolQueryStrategy(PoolQueryStrategy):
 class MultiAnnotatorPoolQueryStrategy(PoolQueryStrategy):
     """Base class for all pool-based active learning query strategies with
     multiple annotators in scikit-activeml.
-
-    Parameters
-    ----------
-    missing_label : scalar or string or np.nan or None, default=np.nan
-        Value to represent a missing label.
-    random_state : int or RandomState instance, default=None
-        Controls the randomness of the estimator.
     """
 
     @abstractmethod
@@ -602,7 +595,6 @@ class MultiAnnotatorPoolQueryStrategy(PoolQueryStrategy):
         return_utilities : bool,
             Checked boolean value of `return_utilities`.
         """
-
         (
             X,
             y,
@@ -1085,7 +1077,7 @@ class SkactivemlClassifier(ClassifierMixin, BaseEstimator, ABC):
         """
         raise NotImplementedError
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, **kwargs):
         """Return probability estimates for the test data X.
 
         Parameters
@@ -1101,7 +1093,7 @@ class SkactivemlClassifier(ClassifierMixin, BaseEstimator, ABC):
         """
         raise NotImplementedError
 
-    def predict(self, X):
+    def predict(self, X, **kwargs):
         """Return class label predictions for the test samples `X`.
 
         Parameters
@@ -1114,12 +1106,16 @@ class SkactivemlClassifier(ClassifierMixin, BaseEstimator, ABC):
         y : numpy.ndarray of shape (n_samples,)
             Predicted class labels of the test samples `X`.
         """
-        P = self.predict_proba(X)
+        out = self.predict_proba(X, **kwargs)
+        P = out[0] if isinstance(out, tuple) else out
         costs = np.dot(P, self.cost_matrix_)
         y_pred = rand_argmin(costs, random_state=self.random_state_, axis=1)
         y_pred = self._le.inverse_transform(y_pred)
         y_pred = np.asarray(y_pred, dtype=self.classes_.dtype)
-        return y_pred
+        if isinstance(out, tuple):
+            return (y_pred,) + out[1:]
+        else:
+            return y_pred
 
     def score(self, X, y, sample_weight=None):
         """Return the mean accuracy on the given test data and labels.
@@ -1128,10 +1124,8 @@ class SkactivemlClassifier(ClassifierMixin, BaseEstimator, ABC):
         ----------
         X : array-like of shape (n_samples, n_features)
             Test samples.
-
         y : array-like of shape (n_samples,)
             True labels for `X`.
-
         sample_weight : array-like of shape (n_samples,), default=None
             Sample weights.
 
@@ -1290,7 +1284,7 @@ class ClassFrequencyEstimator(SkactivemlClassifier):
         self.class_prior = class_prior
 
     @abstractmethod
-    def predict_freq(self, X):
+    def predict_freq(self, X, **kwargs):
         """Return class frequency estimates for the test samples `X`.
 
         Parameters
@@ -1306,7 +1300,7 @@ class ClassFrequencyEstimator(SkactivemlClassifier):
         """
         raise NotImplementedError
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, **kwargs):
         """Return probability estimates for the test data `X`.
 
         Parameters
@@ -1376,6 +1370,7 @@ class ClassFrequencyEstimator(SkactivemlClassifier):
         check_X_dict=None,
         check_y_dict=None,
         y_ensure_1d=True,
+        reset=True,
     ):
         X, y, sample_weight = super()._validate_data(
             X=X,
@@ -1384,6 +1379,7 @@ class ClassFrequencyEstimator(SkactivemlClassifier):
             check_X_dict=check_X_dict,
             check_y_dict=check_y_dict,
             y_ensure_1d=y_ensure_1d,
+            reset=reset,
         )
 
         # Check class prior.

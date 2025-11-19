@@ -693,3 +693,7 @@ if successful_skorch_torch_import:
                 return output_values, hidden
             else:
                 return output_values
+
+
+    class TestSkorchProbabilisticRegressor(TestSkorchRegressor):
+        pass

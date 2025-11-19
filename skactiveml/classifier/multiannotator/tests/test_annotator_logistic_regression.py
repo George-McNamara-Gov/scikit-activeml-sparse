@@ -138,12 +138,22 @@ class TestAnnotatorLogisticRegression(unittest.TestCase):
         self.assertRaises(ValueError, lr.fit, X=[], y=[])
         lr.n_annotators = 5
         lr.fit(X=[], y=[])
-        y_proba = lr.predict_proba(X=self.X)
+        y_proba, y_logits, y_annot_perf, y_annot_class = lr.predict_proba(
+            X=self.X,
+            return_logits=True,
+            return_annotator_perf=True,
+            return_annotator_class=True,
+        )
         y_proba_exp = np.full((len(self.X), 2), fill_value=0.5)
         np.testing.assert_array_equal(y_proba, y_proba_exp)
-        y_perf = lr.predict_annotator_perf(X=self.X)
-        y_perf_exp = np.full((len(self.X), 5), fill_value=0.5)
-        np.testing.assert_array_equal(y_perf, y_perf_exp)
+        y_annot_perf_exp = np.full((len(self.X), 5), fill_value=0.5)
+        np.testing.assert_array_equal(y_annot_perf, y_annot_perf_exp)
+        self.assertTrue((y_annot_perf <= 1).all())
+        self.assertTrue((y_annot_perf >= 0).all())
+        y_logits_exp = np.zeros_like(y_proba_exp)
+        np.testing.assert_array_equal(y_logits, y_logits_exp)
+        y_annot_class_exp = np.full((len(self.X), 5, 2), fill_value=0.5)
+        np.testing.assert_array_equal(y_annot_class, y_annot_class_exp)
 
         # ---------------------Check advanced use cases.-----------------------
         X, y_true = make_blobs(n_samples=200, centers=5, random_state=0)
@@ -298,14 +308,3 @@ class TestAnnotatorLogisticRegression(unittest.TestCase):
         lr.fit(X=self.X, y=self.y, sample_weight=self.w)
         y_pred = lr.predict(X=self.X)
         np.testing.assert_array_equal(y_pred, ["tokyo", "tokyo"])
-
-    def test_predict_annotator_perf(self):
-        lr = AnnotatorLogisticRegression(
-            random_state=0, missing_label="nan", classes=["tokyo", "paris"]
-        )
-        lr.fit(X=self.X, y=self.y_nan)
-        P_annot = lr.predict_annotator_perf(X=self.X)
-        np.testing.assert_array_equal(P_annot, np.ones_like(P_annot) * 0.5)
-        lr.fit(X=self.X, y=self.y, sample_weight=self.w)
-        self.assertTrue((P_annot <= 1).all())
-        self.assertTrue((P_annot >= 0).all())

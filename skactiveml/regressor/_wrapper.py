@@ -18,7 +18,6 @@ from ..utils import (
     is_labeled,
     match_signature,
     check_n_features,
-    check_type,
     check_scalar,
     MISSING_LABEL,
 )
@@ -633,7 +632,9 @@ if successful_skorch_torch_import:
                 )
             return X_lbld, y_lbld
 
-    class SkorchProbabilisticRegressor(SkorchRegressor, ProbabilisticRegressor):
+    class SkorchProbabilisticRegressor(
+        SkorchRegressor, ProbabilisticRegressor
+    ):
         """SkorchProbabilisticRegressor
 
         Implement a wrapper class, to make it possible to use `torch` with
@@ -701,10 +702,13 @@ if successful_skorch_torch_import:
                 sample_dtype=sample_dtype,
             )
 
-
         def predict_target_distribution(self, X, return_embeddings=False):
-            """Returns the predicted target distribution conditioned on the test
-            samples `X`.
+            """Returns the predicted target distribution conditioned on the
+            test samples `X`. The module is expected to return at least two
+            outputs, of which the first element corresponds to the target
+            predictions and the second element to the standard deviation
+            estimates. Optionally, the third element is a tensor of
+            sample embeddings.
 
             Parameters
             ----------
@@ -736,16 +740,16 @@ if successful_skorch_torch_import:
                     "`The module is expected to return at least two outputs,"
                     "of which the first element corresponds to the target"
                     "predictions, the second element to the standard deviation"
-                    "estimates, and the third element is a tensor of"
-                    "embeddings."
+                    "estimates Optionally, the third element is a tensor of "
+                    "sample embeddings."
                 )
             if return_embeddings and len(out) != 3:
                 raise ValueError(
                     "`return_embeddings=True` only works when the module "
-                    "returns three multiple outputs, of which the "
+                    "returns three outputs, of which the "
                     "first element corresponds to the target predictions,"
                     "the second element to the standard deviation estimates, "
-                    "and the third element is a tensor of embeddings."
+                    "and the third element is a tensor of sample embeddings."
                 )
             y_pred = self.neural_net_._get_predict_nonlinearity()(out[0])
             y_pred = to_numpy(y_pred).ravel()
@@ -753,4 +757,3 @@ if successful_skorch_torch_import:
             out = (y_pred, X_embed)
 
             return out
-

@@ -16,7 +16,7 @@ from sklearn.utils.validation import (
     column_or_1d,
 )
 
-from ...base import SkactivemlClassifier, AnnotatorModelMixin
+from ...base import SkactivemlClassifier
 from ...utils import (
     MISSING_LABEL,
     compute_vote_vectors,
@@ -26,7 +26,7 @@ from ...utils import (
 )
 
 
-class AnnotatorLogisticRegression(SkactivemlClassifier, AnnotatorModelMixin):
+class AnnotatorLogisticRegression(SkactivemlClassifier):
     """Logistic Regression for Crowds
 
     Logistic Regression based on Raykar [1]_ is a classification algorithm
@@ -46,7 +46,7 @@ class AnnotatorLogisticRegression(SkactivemlClassifier, AnnotatorModelMixin):
     Parameters
     ----------
     tol : float, default=0.0001
-        Threshold for stopping the EM-Algorithm and the optimization of the
+        Threshold for stopping the EM-Algorithm and the optimization of
         the logistic regression weights. If the change of the respective value
         between two steps is smaller than `tol`, the respective algorithm
         stops.
@@ -524,19 +524,55 @@ class AnnotatorLogisticRegression(SkactivemlClassifier, AnnotatorModelMixin):
 
         return self
 
-    def predict_proba(self, X):
-        """Return probability estimates for the test data `X`.
+    def predict_proba(
+        self,
+        X,
+        return_logits=False,
+        return_annotator_perf=False,
+        return_annotator_class=False,
+    ):
+        """Returns class-membership probability estimates for the test data
+        `X`. Optionally, a tuple is returned whose elements appear in this
+        exact order if they were requested:
+
+        - (0) `P_class` – always returned,
+        - (1) `L_class` - if `return_logits`,
+        - (2) `P_annotator_perf`  – if `return_annotator_perf`,
+        - (3) `P_annotator_class` – if `return_annotator_class`.
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array-like of shape (n_samples, ...)
             Test samples.
+        return_logits : bool, default=False
+            If `return_logits=True`, additionally return the
+            class-membership logits for the samples in `X` as the second
+            element of the output tuple.
+        return_annotator_perf : bool, default=False
+            If `return_annotator_perf=True`, additionally return the
+            estimated annotator performance probabilities `P_perf` for each
+            sample–annotator pair as the next element of the output tuple.
+        return_annotator_class : bool, default=False
+            If `return_annotator_class=True`, additionally return the
+            annotator–class probability estimates `P_annot` for each sample,
+            class, and annotator as the last element of the output tuple.
 
         Returns
         -------
-        P : numpy.ndarray of shape (n_samples, classes)
-            The class probabilities of the test samples. Classes are ordered
-            according to the attribute `self.classes_`.
+        P_class : np.ndarray of shape (n_samples, classes)
+            `p_class[n, c]` is the probability, that sample `X[n]`
+            belongs to the `classes_[c]`.
+        L_class : np.ndarray of shape (n_samples, n_classes)
+            `L_class[n, c]` is the logit the class `classes_[c]` of sample
+            `X[n]`.
+        P_perf : np.ndarray of shape (n_samples, n_annotators)
+            `P_perf[n, m]` refers to the estimated correct probability
+            (performance) of annotator `m` when labeling sample `X[n]`.
+            Only returned, if `return_annotator_perf=True`.
+        P_annot : np.ndarray of shape (n_samples, n_annotators, n_classes)
+            `P_annot[n, m, c]` refers to the probability that annotator
+            `m` provides the class label `c` for instance `X[n]`.
+            Only returned, if `return_annotator_class=True`.
         """
         # Check test samples.
         check_is_fitted(self)
@@ -547,40 +583,24 @@ class AnnotatorLogisticRegression(SkactivemlClassifier, AnnotatorModelMixin):
         if self.fit_intercept:
             X = np.insert(X, 0, values=1, axis=1)
 
-        # Compute and normalize probabilities.
-        if self.W_ is not None:
-            P = softmax(X @ self.W_, axis=1)
+        # Compute logits and normalize to probabilities.
+        if self.W_ is None:
+            L_class = np.zeros((len(X), len(self.classes_)))
         else:
-            return np.full(
-                (len(X), len(self.classes_)), fill_value=1 / len(self.classes_)
-            )
-        return P
+            L_class = X @ self.W_
+        P_class = softmax(L_class, axis=1)
 
-    def predict_annotator_perf(self, X):
-        """Calculates the probability that an annotator provides the true label
-        for a given sample. The true label is hereby provided by the
-        classification model. The label provided by an annotator `l` is based
-        on their confusion matrix (i.e., attribute `self.Alpha_[l]`).
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Test samples.
-
-        Returns
-        -------
-        P_annot : numpy.ndarray of shape (n_samples, classes)
-            `P_annot[i,l]` is the probability, that annotator l provides the
-            correct class label for sample `X[i]`.
-        """
-        # Compute class probabilities.
-        P = self.predict_proba(X)
-
-        # Get correctness probabilities for each annotator per class.
-        diag_Alpha = np.array(
-            [np.diagonal(self.Alpha_[j]) for j in range(self.Alpha_.shape[0])]
-        )
-
-        # Compute correctness probabilities for each annotator per sample.
-        P_annot = P @ diag_Alpha.T
-        return P_annot
+        if return_logits or return_annotator_perf or return_logits:
+            out = [P_class]
+            if return_logits:
+                out.append(L_class)
+            if return_annotator_perf:
+                diag_alpha = np.diagonal(self.Alpha_, axis1=1, axis2=2)
+                P_perf = np.einsum("ik,lk->il", P_class, diag_alpha)
+                out.append(P_perf)
+            if return_annotator_class:
+                P_annot = np.einsum("ik,lkc->ilc", P_class, self.Alpha_)
+                out.append(P_annot)
+            return tuple(out)
+        else:
+            return P_class

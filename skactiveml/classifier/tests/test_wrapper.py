@@ -1000,6 +1000,23 @@ if successful_skorch_torch_import:
             ]
             self._test_param("init", "criterion", test_cases)
 
+        def test_initialize(self):
+            # Check prediction w/o initialization and w/o given classes.
+            clf = SkorchClassifier(**self.init_default_params)
+            self.assertRaises(NotFittedError, check_is_fitted, clf)
+            y_pred = clf.predict(self.X)
+            self.assertTrue(
+                ((y_pred == -1) | (y_pred == 0) | (y_pred == 1)).all()
+            )
+
+            # Check prediction with initialization and w/o given classes.
+            clf = SkorchClassifier(**self.init_default_params)
+            clf.initialize()
+            y_pred = clf.predict(self.X)
+            self.assertTrue(
+                ((y_pred == -1) | (y_pred == 0) | (y_pred == 1)).all()
+            )
+
         def test_fit(self):
             # Check standard fitting cases.
             clf = SkorchClassifier(**self.init_default_params)

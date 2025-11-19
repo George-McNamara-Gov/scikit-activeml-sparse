@@ -916,9 +916,10 @@ if successful_skorch_torch_import:
                 Sample embeddings, which are only returned if
                 `return_embeddings=True`.
             """
-            predict_dict = {k: v for k, v in locals().items() if k != "self"}
-            return self._transform_predict_proba_output(
-                predict_dict=predict_dict
+            return super().predict(
+                X=X,
+                return_logits=return_logits,
+                return_embeddings=return_embeddings,
             )
 
         def predict_proba(
@@ -1117,46 +1118,3 @@ if successful_skorch_torch_import:
                     if self.cost_matrix is None
                     else self.cost_matrix
                 )
-
-        def _transform_predict_proba_output(self, predict_dict):
-            """
-            Convert class probabilities into class predictions
-            (cost-sensitive argmin).
-
-            Parameters
-            ----------
-            predict_dict : dict
-                Keyword arguments forwarded to
-                ``self.predict_proba(**predict_dict)``.
-
-            Returns
-            -------
-            y_pred : ndarray of shape (n_samples,)
-                Predicted class labels (inverse-transformed to original label
-                space).
-            out : tuple
-                If ``predict_proba`` returns a tuple, the result is a tuple
-                where the first element is ``y_pred`` and the remaining elements
-                are passed through unchanged.
-
-            Notes
-            -----
-            - Expected costs are computed as ``P @ cost_matrix_``; ties are
-              broken by
-              ``rand_argmin(..., axis=1, random_state=self.random_state_)``.
-            - Requires ``self._le`` and ``self.cost_matrix_`` to be initialized,
-              e.g., via ``_initialize_fallbacks`` or a prior fit.
-            """
-            out = self.predict_proba(**predict_dict)
-            P = out[0] if isinstance(out, tuple) else out
-            costs = np.dot(P, self.cost_matrix_)
-            y_pred = rand_argmin(
-                costs, random_state=self.random_state_, axis=1
-            )
-            y_pred = self._le.inverse_transform(y_pred)
-            y_pred = np.asarray(y_pred, dtype=self.classes_.dtype)
-
-            if isinstance(out, tuple):
-                return (y_pred,) + out[1:]
-            else:
-                return y_pred

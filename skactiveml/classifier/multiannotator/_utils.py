@@ -263,7 +263,6 @@ if successful_skorch_torch_import:
                 "Expected nn.Module instance or class for a submodule."
             )
 
-
     class _MultiAnnotatorCollate:
         """
         Collate that expands a batch into all (sample, annotator) pairs and
@@ -294,9 +293,7 @@ if successful_skorch_torch_import:
         - Labels are returned as one-hot vectors of length `n_classes`.
         """
 
-        def __init__(
-            self, missing_label=-1
-        ):
+        def __init__(self, missing_label=-1):
             self.missing_label = missing_label
 
         def __call__(self, batch):
