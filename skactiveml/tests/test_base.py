@@ -17,13 +17,10 @@ from skactiveml.base import (
     ProbabilisticRegressor,
 )
 from skactiveml.exceptions import MappingError
-from skactiveml.regressor._wrapper import SkorchRegressor
 from skactiveml.utils import MISSING_LABEL, is_unlabeled
 
 successful_skorch_torch_import = False
 try:
-    from torch import nn
-    from skorch import NeuralNet
     from skactiveml.base import SkorchMixin
 
     successful_skorch_torch_import = True
