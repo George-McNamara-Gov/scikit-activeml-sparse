@@ -15,7 +15,8 @@ class ExpectedModelVarianceReduction(SingleAnnotatorPoolQueryStrategy):
 
     This class implements the active learning strategy "Expected Model Variance
     Reduction" (EMVR) [1]_, which tries to select the sample that minimizes the
-    expected model variance.
+    expected model variance. The model variance refers to the predicted variance
+    of the distribution conditioned on a point x.
 
     Parameters
     ----------

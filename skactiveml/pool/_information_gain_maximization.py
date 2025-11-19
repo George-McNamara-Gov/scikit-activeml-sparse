@@ -22,9 +22,11 @@ from skactiveml.utils import (
 class KLDivergenceMaximization(SingleAnnotatorPoolQueryStrategy):
     """Regression based Kullback-Leibler Divergence Maximization
 
-    This class implements a query  [1]_, which selects those samples
-    that maximize the expected Kullback-Leibler divergence, where it is assumed
-    that the target probabilities for different samples are independent.
+    This class implements a query strategy [1]_, which selects those samples
+    that maximize the expected Kullback-Leibler divergence from the
+    new model to the old model, where the new model is the model
+    that results from adding the samples to the training set and
+    the expectation is performed over the model parameters.
 
     Parameters
     ----------

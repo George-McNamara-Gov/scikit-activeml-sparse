@@ -49,6 +49,7 @@ noise = np.vectorize(
 y_true = true_function(X) + noise(X).flatten()
 y = np.full(shape=y_true.shape, fill_value=MISSING_LABEL)
 X_test = np.linspace(0, 2, num="$res|100").reshape(-1, 1)
+y_test = true_function(X_test)
 
 # Initialise the regressor.
 reg = "$init_reg|NICKernelRegressor(random_state=random_state, metric_dict={'gamma': 15.0})"
@@ -73,11 +74,16 @@ for c in range(n_cycles):
     coll_old = list(ax_1.collections) + list(ax_2.collections)
     title = ax_1.text(
         0.5, 1.05,
-        f"Prediction after acquiring {c} labels",
+        f"Prediction after acquiring {c} labels\n"
+        f"Test R-squared score: {reg.score(X_test, y_test):.4f}",
         size=plt.rcParams["axes.titlesize"],
         ha="center",
         transform=ax_1.transAxes,
     )
+    ax_1.set_xlabel('Sample')
+    ax_1.set_ylabel('Target Value')
+    ax_2.set_xlabel('Sample')
+    ax_2.set_ylabel('Utility')
 
     # Compute utility values for the test candidates.
     _, utilities_test = qs.query("$query_params", candidates=X_test, return_utilities=True)

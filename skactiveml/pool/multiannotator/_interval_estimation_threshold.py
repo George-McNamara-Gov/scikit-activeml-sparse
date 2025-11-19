@@ -178,6 +178,8 @@ class IntervalEstimationThreshold(MultiAnnotatorPoolQueryStrategy):
     selected based on 'Uncertainty Sampling' (US). The selected samples are
     labeled by the annotators whose estimated annotation performances are equal
     or greater than an adaptive threshold.
+    The features to be labeled are chosen by using uncertainty sampling with
+    a least confidence score.
     The strategy assumes all annotators to be available and is not defined
     otherwise. To deal with this case nonetheless value-annotator pairs are
     first ranked according to the amount of annotators available for the given
