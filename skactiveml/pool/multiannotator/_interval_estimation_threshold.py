@@ -6,7 +6,6 @@ from sklearn.utils.validation import check_array, check_is_fitted
 from ...base import (
     MultiAnnotatorPoolQueryStrategy,
     SkactivemlClassifier,
-    AnnotatorModelMixin,
 )
 from ...pool._uncertainty_sampling import uncertainty_scores
 from ...utils import (
@@ -19,7 +18,7 @@ from ...utils import (
 )
 
 
-class IntervalEstimationAnnotModel(BaseEstimator, AnnotatorModelMixin):
+class IntervalEstimationAnnotModel(BaseEstimator):
     """IELearning
 
     This annotator model relies on 'Interval Estimation Learning' (IELearning)

@@ -1101,48 +1101,6 @@ needs to adjust the test until all errors are resolved. We refer to the test
 template for more detailed information.
 
 
-Annotator Models
-----------------
-
-Annotator models implement the interface
-``skactiveml.base.AnnotatorModelMixin``. These models can estimate the
-performance of annotators for given samples. Each annotator model must implement
-the ``predict_annotator_perf`` method, which estimates the performance per
-sample for each annotator as a proxy for the quality of the provided annotations.
-
-.. _predict-annotator-perf-1:
-
-``predict_annotator_perf``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Required Parameters:
-
-+-------------+-----------------------------------------------------------+
-| Parameter   | Description                                               |
-+=============+===========================================================+
-| ``X``       | Matrix of feature values representing the samples.        |
-+-------------+-----------------------------------------------------------+
-
-Returns:
-
-+-------------+-----------------------------------------------------------+
-| Parameter   | Description                                               |
-+=============+===========================================================+
-| ``P_annot`` | The estimated performance per sample-annotator pair.      |
-+-------------+-----------------------------------------------------------+
-
-.. _general-advice-14:
-
-General advice
-^^^^^^^^^^^^^^
-
-Check parameter ``X`` regarding its shape and check that the annotator
-model has been fitted. If no samples or class labels were provided
-during the previous call of the ``fit`` method, the maximum value of
-annotator performance should be outputted for each sample-annotator
-pair.
-
-
 Examples
 --------
 

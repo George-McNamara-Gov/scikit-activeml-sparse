@@ -10,7 +10,6 @@ from skactiveml.base import (
     MultiAnnotatorPoolQueryStrategy,
     SkactivemlClassifier,
     ClassFrequencyEstimator,
-    AnnotatorModelMixin,
     BudgetManager,
     SingleAnnotatorStreamQueryStrategy,
     SkactivemlRegressor,
@@ -325,17 +324,6 @@ class ClassFrequencyEstimatorTest(unittest.TestCase):
 
     def test_predict_freq(self):
         self.assertRaises(NotImplementedError, self.clf.predict_freq, X=None)
-
-
-class AnnotatorModelMixinTest(unittest.TestCase):
-    @patch.multiple(AnnotatorModelMixin, __abstractmethods__=set())
-    def setUp(self):
-        self.clf = AnnotatorModelMixin()
-
-    def test_predict_annotator_perf(self):
-        self.assertRaises(
-            NotImplementedError, self.clf.predict_annotator_perf, X=None
-        )
 
 
 class TestBudgetManager(unittest.TestCase):

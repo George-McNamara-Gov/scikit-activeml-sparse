@@ -45,7 +45,6 @@ __all__ = [
     "SingleAnnotatorStreamQueryStrategy",
     "SkactivemlClassifier",
     "ClassFrequencyEstimator",
-    "AnnotatorModelMixin",
     "SkactivemlRegressor",
     "ProbabilisticRegressor",
     "SkorchMixin",
@@ -53,10 +52,7 @@ __all__ = [
 
 successful_skorch_torch_import = False
 try:
-    from torch import nn
     from skorch import NeuralNet
-    from skorch.utils import to_numpy
-    from skactiveml.utils import make_criterion_tuple_aware
 
     successful_skorch_torch_import = True
 except ImportError:  # pragma: no cover
@@ -1580,54 +1576,28 @@ class ProbabilisticRegressor(SkactivemlRegressor):
         return rv_samples.T
 
 
-class AnnotatorModelMixin(ABC):
-    """Annotator Model
-
-    Base class of all annotator models estimating the performances of
-    annotators for given samples.
-    """
-
-    @abstractmethod
-    def predict_annotator_perf(self, X):
-        """Calculates the performance of an annotator to provide the true label
-        for a given sample.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Test samples.
-
-        Returns
-        -------
-        P_annot : numpy.ndarray of shape (n_samples, n_annotators)
-            `P_annot[i,l]` is the performance of annotator `l` regarding the
-             annotation of sample `X[i]`.
-        """
-        raise NotImplementedError
-
-
 if successful_skorch_torch_import:
 
     __all__ += ["SkorchMixin"]
 
     class SkorchMixin(ABC):
         """
-        Minimal mixin to build and train a ``skorch.NeuralNet`` with strict
+        Minimal mixin to build and train a `skorch.NeuralNet` with strict
         hooks.
 
         Subclasses must implement the hook methods to provide the module,
         criterion, validation kwargs, and label filtering. This mixin always
-        rebuilds and initializes ``self.neural_net_`` on ``initialize`` and fits
-        only on labeled data in ``_fit``.
+        rebuilds and initializes `self.neural_net_` on `initialize` and
+        fits only on labeled data in `_fit`.
         """
 
         def initialize(self, X=None, y=None, enforce_check_X_y=False):
             """
             Initialize the wrapper and (optionally) validate inputs.
 
-            If any data is provided or ``enforce_check_X_y`` is True, inputs are
-            validated via ``_validate_data``. A new ``skorch.NeuralNet`` is then
-            created and assigned to ``self.neural_net_``.
+            If any data is provided or `enforce_check_X_y` is True, inputs
+            are validated via `_validate_data`. A new `skorch.NeuralNet`
+            is then created and assigned to `self.neural_net_`.
 
             Parameters
             ----------
@@ -1636,28 +1606,29 @@ if successful_skorch_torch_import:
             y : array-like of shape (n_samples, ...), default=None
                 Target values for optional validation.
             enforce_check_X_y : bool, default=False
-                Whether to validate even if both ``X`` and ``y`` are ``None``.
+                Whether to validate even if both `X` and `y` are `None`.
 
             Returns
             -------
             self : SkorchMixin
                 Returned when no input data was supplied
-                (both ``X`` and ``y`` are ``None``).
+                (both `X` and `y` are `None`).
             X_out, y_out : ndarray
-                Validated ``X`` and ``y`` as a tuple, returned when any input
+                Validated `X` and `y` as a tuple, returned when any input
                 data was supplied.
 
             Raises
             ------
             TypeError
-                If the object returned by ``_neural_net_param_dict()`` is
-                not a ``dict``.
+                If the object returned by `_neural_net_param_dict()` is
+                not a `dict`.
             ValueError
-                Propagated from ``_validate_data`` if inputs are invalid.
+                Propagated from `_validate_data` if inputs are invalid.
 
             Notes
             -----
-            The parameter dict is defensively copied before constructing the net.
+            The parameter dict is defensively copied before constructing the
+            net.
             """
             has_data = (X is not None) or (y is not None)
             vd_kwargs = self._validate_data_kwargs() or {}
@@ -1678,11 +1649,11 @@ if successful_skorch_torch_import:
 
         def _fit(self, fit_function, X, y, **fit_params):
             """
-            Initialize and fit the internal ``skorch`` model on training
+            Initialize and fit the internal `skorch` model on training
             data.
 
-            If the model is uninitialized, or ``fit_function == 'fit'`` and
-            ``self.neural_net_.warm_start`` is ``False``, the network is
+            If the model is uninitialized, or `fit_function == 'fit'` and
+            `self.neural_net_.warm_start` is `False`, the network is
             re-initialized.
 
             Parameters
@@ -1694,10 +1665,10 @@ if successful_skorch_torch_import:
                 Training inputs (may include unlabeled samples).
             y : array-like of shape (n_samples, ...)
                 Training targets; unlabeled entries must follow the subclass'
-                convention (e.g., ``self.missing_label``).
+                convention (e.g., `self.missing_label`).
             **fit_params : dict
                 Extra keyword arguments forwarded to
-                ``self.neural_net_.partial_fit``.
+                `self.neural_net_.partial_fit`.
 
             Returns
             -------
@@ -1707,7 +1678,7 @@ if successful_skorch_torch_import:
             Raises
             ------
             ValueError
-                Propagated from ``_validate_data`` if inputs are invalid.
+                Propagated from `_validate_data` if inputs are invalid.
             """
             need_reinit = (not hasattr(self, "neural_net_")) or (
                 fit_function == "fit"
@@ -1732,7 +1703,7 @@ if successful_skorch_torch_import:
             Implementations should perform any optional checks or normalization
             of constructor/init parameters (e.g., shape consistency, dtype
             checks, wrapping criteria), then return the ready-to-use pieces for
-            ``skorch.NeuralNet``.
+            `skorch.NeuralNet`.
 
             Parameters
             ----------
@@ -1749,20 +1720,20 @@ if successful_skorch_torch_import:
                 The loss used by the internal network. May be pre-wrapped to
                 handle tuple targets or other conventions.
             params : dict
-                Keyword arguments for ``skorch.NeuralNet`` construction. Must be
-                a mapping and may be empty.
+                Keyword arguments for `skorch.NeuralNet` construction. Must
+                be a mapping and may be empty.
             """
             raise NotImplementedError
 
         @abstractmethod
         def _validate_data_kwargs(self):
             """
-            Return kwargs forwarded to ``_validate_data``.
+            Return kwargs forwarded to `_validate_data`.
 
             Returns
             -------
             kwargs : dict or None
-                Keyword arguments consumed by ``_validate_data``.
+                Keyword arguments consumed by `_validate_data`.
             """
             raise NotImplementedError
 
@@ -1783,9 +1754,9 @@ if successful_skorch_torch_import:
             Returns
             -------
             X_out : ndarray
-                Validated ``X``.
+                Validated `X`.
             y_out : ndarray
-                Validated ``y``.
+                Validated `y`.
             sample_weight_or_dummy : Any
                 Third return to maintain compatibility with callers expecting
                 sample weights.
@@ -1808,8 +1779,8 @@ if successful_skorch_torch_import:
             Returns
             -------
             X_train : ndarray or None
-                Training samples or ``None`` if none exist.
+                Training samples or `None` if none exist.
             y_train : ndarray or None
-                Training labels or ``None`` if none exist.
+                Training labels or `None` if none exist.
             """
             raise NotImplementedError
