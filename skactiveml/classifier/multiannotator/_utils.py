@@ -12,12 +12,7 @@ successful_skorch_torch_import = False
 try:
     import torch
 
-    from skorch import NeuralNet
-    from skorch.utils import to_numpy
-
     from torch import nn
-    from torch.nn import CrossEntropyLoss
-    from torch.nn import functional as F
     from torch.utils.data import default_collate
 
     from ...classifier import SkorchClassifier
@@ -28,7 +23,98 @@ except ImportError:
 
 if successful_skorch_torch_import:
 
-    class _MultiAnnotatorClassifier(SkorchClassifier, ABC):
+    class _SkorchMultiAnnotatorClassifier(SkorchClassifier, ABC):
+        """
+        Abstract base class for neural multi-annotator classifiers built on top
+        of :class:`SkorchClassifier`.
+
+        This estimator wraps a *multi-annotator* module that operates on
+        annotation matrices `y` of shape `(n_samples, n_annotators)` and
+        internally uses a classifier module `clf_module`. The class takes care
+        of
+
+        - validating and storing the class labels `classes_`,
+        - validating and storing the number of annotators `n_annotators_`,
+        - splitting and normalizing `neural_net_param_dict` into parameters
+          for the multi-annotator module and the underlying classifier, and
+        - enforcing skorch parameter overrides provided by subclasses via
+          :meth:`_build_neural_net_param_overrides`.
+
+        Subclasses are expected to implement
+        `_build_neural_net_param_overrides` to inject architecture-specific
+        parameters (e.g. embedding dimensions, number of annotators, number of
+        classes) into the skorch network configuration.
+
+        Parameters
+        ----------
+        multi_annotator_module : nn.Module or type
+            PyTorch module (or module class) implementing the multi-annotator
+            model. It is passed as the `module` argument to
+            :class:`SkorchClassifier`. If a class is given, it is instantiated
+            by skorch using `neural_net_param_dict`.
+        criterion : nn.Module, type, or callable
+            Loss function used by skorch. Passed through to
+            :class:`SkorchClassifier` as `criterion`.
+        clf_module : nn.Module or type
+            Backbone / head used by the multi-annotator module to map inputs
+            `x` to class logits (and optionally embeddings). This is exposed
+            to the module via the enforced skorch parameters
+            `"module__clf_module"` and `"module__clf_module_param_dict"`.
+        n_annotators : int or None, default=None
+            Number of annotators (i.e., columns in `y`). If not given, it is
+            inferred from the shape of `y` on the first call to
+            :meth:`_net_parts`. If given and inconsistent with `y.shape[1]`,
+            a `ValueError` is raised.
+        neural_net_param_dict : dict or None, default=None
+            Dictionary of keyword arguments that configure the underlying
+            skorch :class:`NeuralNet`. Keys starting with `"module__"` are
+            treated as arguments for the multi-annotator module and are split
+            off into `clf_module_param_dict` when building the network.
+            Subclasses may add further enforced parameters via
+            :meth:`_build_neural_net_param_overrides`.
+        sample_dtype : numpy.dtype or None, default=None
+            Optional dtype to which input samples are converted before training
+            and prediction. Passed through to :class:`SkorchClassifier`.
+        classes : array-like of shape (n_classes,), default=None
+            List or array of class labels. If provided, it is validated and
+            stored as `classes_` before network initialization. If omitted,
+            subclasses must ensure that class information is available before
+            fitting; otherwise a `RuntimeError` is raised.
+        cost_matrix : array-like of shape (n_classes, n_classes), default=None
+            Misclassification cost matrix used by :class:`SkorchClassifier`.
+        missing_label : int or float, default=MISSING_LABEL
+            Value in `y` indicating an unlabeled entry. The exact convention
+            is respected by downstream utilities such as :func:`is_labeled`.
+        random_state : int, numpy.random.RandomState, or None, default=None
+            Random seed or random state used for reproducible initialization
+            and training, forwarded to :class:`SkorchClassifier`.
+
+        Attributes
+        ----------
+        classes_ : ndarray of shape (n_classes,)
+            Validated array of unique class labels, set during the first call
+            to :meth:`_net_parts` if `classes` was provided.
+        n_annotators_ : int
+            Validated number of annotators inferred from `n_annotators` or
+            from the second axis of `y`.
+        neural_net_param_dict : dict
+            Effective skorch parameter dictionary after merging user-provided
+            parameters with the enforced invariants
+            (`"module__clf_module"`, `"module__clf_module_param_dict"`)
+            and the overrides returned by
+            :meth:`_build_neural_net_param_overrides`.
+
+        Notes
+        -----
+        This class is intended as an internal base class. Concrete
+        multi-annotator estimators should:
+
+        - implement :meth:`_build_neural_net_param_overrides` to supply
+          model-specific skorch parameters, and
+        - rely on :meth:`_net_parts` to construct the final module, criterion,
+          and parameter dictionary that are passed to the skorch
+          :class:`NeuralNet` backend.
+        """
 
         def __init__(
             self,
@@ -43,7 +129,7 @@ if successful_skorch_torch_import:
             missing_label=MISSING_LABEL,
             random_state=None,
         ):
-            super(_MultiAnnotatorClassifier, self).__init__(
+            super(_SkorchMultiAnnotatorClassifier, self).__init__(
                 module=multi_annotator_module,
                 criterion=criterion,
                 classes=classes,
@@ -123,7 +209,7 @@ if successful_skorch_torch_import:
 
         def _return_training_data(self, X, y):
             """
-            Return only labeled samples.
+            Return samples and labels required for training.
 
             Parameters
             ----------
@@ -135,28 +221,28 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            X_lbld : ndarray or None
-                Labeled inputs or ``None`` if none exist.
-            y_lbld : ndarray or None
-                Corresponding labeled targets or ``None`` if none exist.
+            X_train : ndarray or None
+                Training samples or `None` if none exist.
+            y_train : ndarray or None
+                Training labels or `None` if none exist.
             """
-            X_lbld, y_lbld = None, None
-            is_lbld = is_labeled(y, missing_label=-1).any(axis=1)
-            if np.sum(is_lbld) > 0:
+            X_train, y_train = None, None
+            is_train = is_labeled(y, missing_label=-1).any(axis=1)
+            if np.sum(is_train) > 0:
                 net = self.neural_net_.module_
                 net.set_forward_return()
-                X_lbld = X[is_lbld]
-                y_lbld = y[is_lbld].astype(np.int64)
-            return X_lbld, y_lbld
+                X_train = X[is_train]
+                y_train = y[is_train].astype(np.int64)
+            return X_train, y_train
 
         def _validate_data_kwargs(self):
             """
-            Return kwargs forwarded to ``_validate_data``.
+            Return kwargs forwarded to `_validate_data`.
 
             Returns
             -------
             kwargs : dict or None
-                Keyword arguments consumed by ``_validate_data``.
+                Keyword arguments consumed by `_validate_data`.
             """
             vd_kwargs = super()._validate_data_kwargs()
             vd_kwargs["y_ensure_1d"] = False
@@ -168,8 +254,8 @@ if successful_skorch_torch_import:
 
     class _MultiAnnotatorClassificationModule(nn.Module):
         """
-        Auxiliary module for Annot-Mix [1]_ that produces class logits and
-        annotator-conditioned outputs, while training with MixUp [2]_.
+        Auxiliary module that wraps a classifier backbone and standardizes
+        its output to `(logits_class, x_embed)`.
 
         Parameters
         ----------
@@ -179,6 +265,10 @@ if successful_skorch_torch_import:
             set to the input `x` (or to `None` if `x` is not an embedding).
         clf_module_param_dict : dict
             Keyword args for constructing `clf_module` if a class is passed.
+        default_forward_outputs : sequence of str
+            Default names to be used by `set_forward_return`.
+        full_forward_outputs : sequence of str
+            All possible names that `set_forward_return` can accept.
         """
 
         def __init__(
@@ -198,17 +288,18 @@ if successful_skorch_torch_import:
 
         def set_forward_return(self, values=None):
             """
-            Select tensors to return.
+            Select logical outputs to return.
 
             Parameters
             ----------
-            values : str or sequence of str
-                Any subset of {"logits_class", "x_embed", "a_embed",
-                "log_p_annotator_class", "p_perf"}.
+            values : str or sequence of str, optional
+                Any subset of `full_forward_outputs`. Currently stored in
+                `self.forward_return` and may be used by code that wraps this
+                module.
 
             Returns
             -------
-            self : _AnnotMixModule
+            self : _MultiAnnotatorClassificationModule
                 The module itself for chaining.
 
             Raises
@@ -228,6 +319,8 @@ if successful_skorch_torch_import:
 
         def clf_module_forward(self, x):
             """
+            Run the classifier backbone and standardize its output.
+
             Parameters
             ----------
             x : torch.Tensor of shape (batch_size, ...)
@@ -235,16 +328,11 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            out : torch.Tensor or tuple
-                Given `set_forward_return`, tensors are appended in the order:
-                `"logits_class"`, `"x_embed"`, `"a_embed"`,
-                `"log_p_annotator_class"`, `"p_perf"`.
-
-            Raises
-            ------
-            ValueError
-                If AP outputs are requested but `a`/`combs` are missing or
-                shapes mismatch.
+            logits_class : torch.Tensor
+                Class logits tensor.
+            x_embed : torch.Tensor or None
+                Embedding tensor if provided by `clf_module`, otherwise `x`
+                (or `None` if `x` is not an embedding).
             """
             cls_out = self.clf_module(x)
             if isinstance(cls_out, tuple):
@@ -266,31 +354,24 @@ if successful_skorch_torch_import:
     class _MultiAnnotatorCollate:
         """
         Collate that expands a batch into all (sample, annotator) pairs and
-        optionally applies MixUp jointly to samples, annotators, and labels.
+        returns labels for labeled pairs only.
 
         Parameters
         ----------
-        n_classes : int
-            Number of classes (for one-hot encoding).
-        a : torch.Tensor or array-like of shape (n_annotators, ...)\
-                or (n_annotators,)
-            Annotator representations/features. Will be converted to a CPU tensor
-            once and reused across batches.
-        alpha : float, default=1.0
-            MixUp Beta(alpha, alpha) parameter. If <= 0, no MixUp is applied.
         missing_label : int or float, default=-1
-            Value in `y` indicating an unlabeled sample. Rows whose sample label
-            equals `missing_label` are excluded from the (sample, annotator)
-            pairs. If set to `float('nan')` or `numpy.nan`, NaN labels are
-            treated as missing.
+            Value in `y` indicating an unlabeled sample. Rows whose sample
+            label equals `missing_label` are excluded from the
+            (sample, annotator) pairs. If set to `float('nan')` or `numpy.nan`,
+            NaN labels are treated as missing.
 
         Notes
         -----
-        - This collate runs on CPU (inside DataLoader workers). For maximum
-          speed, keep heavy augmentations inside the model on GPU and use this
-          collate only if you truly need CPU-side MixUp across
-          `(sample, annotator)` pairs.
-        - Labels are returned as one-hot vectors of length `n_classes`.
+        - This collate runs on CPU (inside DataLoader workers).
+        - The returned batch has:
+            * `x_out["x"]`: original sample batch
+            * `x_out["input_ids"]`: tensor of shape (n_pairs, 2) with
+              `(sample_index, annotator_index)` for each labeled pair
+            * `y`: a 1D tensor of class indices for these pairs.
         """
 
         def __init__(self, missing_label=-1):

@@ -810,8 +810,8 @@ if successful_skorch_torch_import:
             `neural_net_param_dict` is `None`, no additional arguments are
             added.
         sample_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `sample_dtype` is
-            None, the datatype is preserved.
+            The type or typecode all samples are casted to. If `sample_dtype`
+            is None, the datatype is preserved.
         include_unlabeled_samples : bool, default=False
             - If `False`, only labeled samples are passed to the `fit` method
               of the `estimator`.

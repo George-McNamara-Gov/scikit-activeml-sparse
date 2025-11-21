@@ -389,7 +389,7 @@ uncertainty), representativeness (data‐distribution coverage), and hybrid
 (combining both). The following mind map illustrates these different
 attributes of a query strategy.
 
-.. image:: https://raw.githubusercontent.com/scikit-activeml/scikit-activeml/refs/heads/518-strategy-documentation/docs/logos/scikit-activeml-query-strategy-overview.svg
+.. image:: https://raw.githubusercontent.com/scikit-activeml/scikit-activeml/refs/heads/development/docs/logos/scikit-activeml-query-strategy-overview.svg
    :class: dark-light
    :align: center
    :width: 100%
@@ -456,7 +456,8 @@ modality, and model family used in the tutorial.
 
 🧾 Citing
 ---------
-If you use ``skactiveml`` in your research projects and find it helpful, please cite the following:
+If you use ``skactiveml`` in your research or projects, please cite the
+following work and consider starring the repository to help others discover it:
 
 .. code-block:: tex
 
