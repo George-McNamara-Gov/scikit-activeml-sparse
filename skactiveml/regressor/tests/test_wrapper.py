@@ -699,14 +699,11 @@ if successful_skorch_torch_import:
             ]
             self._test_param("init", "neural_net_param_dict", test_cases)
 
-        def test_init_param_filter_criterion_input(self):
+        def test_init_param_criterion_input_index(self):
+            test_cases = [(0, None), (False, TypeError), ([0], None)]
+            self._test_param("init", "criterion_input_index", test_cases)
             test_cases = [
-                (True, None),
-                (False, AttributeError),
-            ]
-            self._test_param("init", "filter_criterion_input", test_cases)
-            test_cases = [
-                (False, None),
+                (None, None),
             ]
             default_dict = deepcopy(
                 self.init_default_params["neural_net_param_dict"]
@@ -714,7 +711,7 @@ if successful_skorch_torch_import:
             default_dict["module__return_embeddings"] = False
             self._test_param(
                 "init",
-                "filter_criterion_input",
+                "criterion_input_index",
                 test_cases,
                 replace_init_params={"neural_net_param_dict": default_dict},
             )

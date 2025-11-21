@@ -37,7 +37,6 @@ from ..utils import (
 successful_skorch_torch_import = False
 try:
     from torch import nn
-    from skorch import NeuralNet
     from skorch.utils import to_numpy
     from skactiveml.base import SkorchMixin
     from skactiveml.utils import make_criterion_tuple_aware
@@ -792,15 +791,20 @@ if successful_skorch_torch_import:
         criterion : torch.nn.Module.__class__, default=torch.nn.NLLoss
             The uninitialized criterion (loss) used to optimize the module. By
             default, `torch.nn.NLLoss` is used as criterion.
-        filter_criterion_input : bool, default=True
-            - If `True`, this flag ensures criteria expecting tensors as input,
-              e.g., `nn.CrossEntropyLoss`, work with implementations of the
-              `module.forward` methods outputting tuples, e.g., where the first
-              element corresponds to the class predictions (probabilities,
-              logits, etc.) and the second element is a tensor of embeddings
-              (cf. `return_embeddings` in `predict_proba`).
-            - If `False`, the criterion is used as is and must be able to
-              process the full output `module.forward`.
+        criterion_input_index : int or array-like of int, default=0
+            Index or indices of the output of `module.forward` that are
+            passed to the loss / criterion. Use this when `module.forward`
+            returns a tuple, e.g. `(logits, embeddings, ...)`, but the
+            criterion expects a single tensor input such as class scores
+            (e.g. `nn.CrossEntropyLoss`).
+
+            - If an `int`, the corresponding element of the `module.forward`
+              output is passed to the criterion (e.g. `0` to use only the
+              logits).
+            - If an array-like of `int`, the selected elements are packed
+              into a tuple and passed to the criterion in that order.
+            - If `None`, the full output of `module.forward` is passed
+              unchanged.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no additional arguments are
@@ -840,7 +844,7 @@ if successful_skorch_torch_import:
             self,
             module,
             criterion=nn.NLLLoss,
-            filter_criterion_input=True,
+            criterion_input_index=0,
             neural_net_param_dict=None,
             sample_dtype=None,
             include_unlabeled_samples=False,
@@ -857,7 +861,7 @@ if successful_skorch_torch_import:
             )
             self.module = module
             self.criterion = criterion
-            self.filter_criterion_input = filter_criterion_input
+            self.criterion_input_index = criterion_input_index
             self.neural_net_param_dict = neural_net_param_dict
             self.sample_dtype = sample_dtype
             self.include_unlabeled_samples = include_unlabeled_samples
@@ -866,7 +870,7 @@ if successful_skorch_torch_import:
             """Initialize and fit the module.
 
             If the module was already initialized, by calling fit, the module
-            will be re-initialized (unless ``warm_start`` is True).
+            will be re-initialized (unless `warm_start` is True).
 
             Parameters
             ----------
@@ -940,8 +944,8 @@ if successful_skorch_torch_import:
             y : numpy.ndarray of shape (n_samples,)
                 Predicted class labels of the test samples `X`.
             L : numpy.ndarray of shape (n_samples, n_classes)
-                The class logits of the test samples, which are only returned if
-                `return_logits=True`. Classes are ordered according to
+                The class logits of the test samples, which are only returned
+                if `return_logits=True`. Classes are ordered according to
                 `self.classes_`.
             X_embed : numpy.ndarray of shape (n_samples, ...)
                 Sample embeddings, which are only returned if
@@ -984,8 +988,8 @@ if successful_skorch_torch_import:
                 The class probabilities of the test samples. Classes are
                 ordered according to `self.classes_`.
             L : numpy.ndarray of shape (n_samples, n_classes)
-                The class logits of the test samples, which are only returned if
-                `return_logits=True`. Classes are ordered according to
+                The class logits of the test samples, which are only returned
+                if `return_logits=True`. Classes are ordered according to
                 `self.classes_`.
             X_embed : numpy.ndarray of shape (n_samples, ...)
                 Sample embeddings, which are only returned if
@@ -1026,7 +1030,8 @@ if successful_skorch_torch_import:
                         "is a tensor of embeddings."
                     )
 
-            # Convert logits to probabilities via the net's configured nonlinearity.
+            # Convert logits to probabilities via the net's configured
+            # nonlinearity.
             P_t = self.neural_net_._get_predict_nonlinearity()(L)
             P = to_numpy(P_t)
 
@@ -1047,7 +1052,7 @@ if successful_skorch_torch_import:
             Implementations should perform any optional checks or normalization
             of constructor/init parameters (e.g., shape consistency, dtype
             checks, wrapping criteria), then return the ready-to-use pieces for
-            ``skorch.NeuralNet``.
+            `skorch.NeuralNet`.
 
             Returns
             -------
@@ -1057,23 +1062,25 @@ if successful_skorch_torch_import:
                 The loss used by the internal network. May be pre-wrapped to
                 handle tuple targets or other conventions.
             net_params : dict
-                Additional keyword arguments for ``skorch.NeuralNet``
-                construction (e.g., ``optimizer``, ``callbacks``, ``device``).
+                Additional keyword arguments for `skorch.NeuralNet`
+                construction (e.g., `optimizer`, `callbacks`, `device`).
                 Empty if none.
             """
             criterion = self.criterion
-            if self.filter_criterion_input:
-                criterion = make_criterion_tuple_aware(criterion)
+            if self.criterion_input_index is not None:
+                criterion = make_criterion_tuple_aware(
+                    criterion, criterion_input_index=self.criterion_input_index
+                )
             return self.module, criterion, self.neural_net_param_dict or {}
 
         def _validate_data_kwargs(self):
             """
-            Return kwargs forwarded to ``_validate_data``.
+            Return kwargs forwarded to `_validate_data`.
 
             Returns
             -------
             kwargs : dict or None
-                Keyword arguments consumed by ``_validate_data``.
+                Keyword arguments consumed by `_validate_data`.
             """
             self.check_X_dict_ = {
                 "ensure_min_samples": 0,
@@ -1103,9 +1110,9 @@ if successful_skorch_torch_import:
             Returns
             -------
             X_train : ndarray or None
-                Training samples or ``None`` if none exist.
+                Training samples or `None` if none exist.
             y_train : ndarray or None
-                Training labels or ``None`` if none exist.
+                Training labels or `None` if none exist.
             """
             X_train, y_train = None, None
             if self.include_unlabeled_samples:
@@ -1125,19 +1132,19 @@ if successful_skorch_torch_import:
             Parameters
             ----------
             P : array-like of shape (n_samples, n_classes)
-                Class-probability array used only to infer ``n_classes`` when
-                ``self.classes`` is ``None``.
+                Class-probability array used only to infer `n_classes` when
+                `self.classes` is `None`.
 
             Notes
             -----
             Side effects:
-                - Sets ``self._le`` to an ``ExtLabelEncoder`` and fits it on
-                  ``self.classes`` if available, otherwise on
-                  ``arange(P.shape[-1])``.
-                - Sets ``self.classes_`` from the fitted encoder.
-                - Sets ``self.cost_matrix_`` to a 0/1 loss
-                  ``(1 - I_n)`` if ``self.cost_matrix`` is ``None``, otherwise
-                  uses ``self.cost_matrix``.
+                - Sets `self._le` to an `ExtLabelEncoder` and fits it on
+                  `self.classes` if available, otherwise on
+                  `arange(P.shape[-1])`.
+                - Sets `self.classes_` from the fitted encoder.
+                - Sets `self.cost_matrix_` to a 0/1 loss
+                  `(1 - I_n)` if `self.cost_matrix` is `None`, otherwise
+                  uses `self.cost_matrix`.
             """
             self.random_state_ = check_random_state(self.random_state)
             if not hasattr(self, "_le"):

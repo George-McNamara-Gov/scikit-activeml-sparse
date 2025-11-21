@@ -21,6 +21,15 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.semi_supervised import SelfTrainingClassifier
 from sklearn.utils.validation import NotFittedError, check_is_fitted
 
+from skactiveml.classifier import (
+    SklearnClassifier,
+    SlidingWindowClassifier,
+    ParzenWindowClassifier,
+    MixtureModelClassifier,
+)
+from skactiveml.tests.template_estimator import TemplateSkactivemlClassifier
+from skactiveml.utils import MISSING_LABEL
+
 successful_skorch_torch_import = False
 try:
     import torch
@@ -31,15 +40,6 @@ try:
     successful_skorch_torch_import = True
 except ImportError:
     pass  # pragma: no cover
-
-from skactiveml.classifier import (
-    SklearnClassifier,
-    SlidingWindowClassifier,
-    ParzenWindowClassifier,
-    MixtureModelClassifier,
-)
-from skactiveml.tests.template_estimator import TemplateSkactivemlClassifier
-from skactiveml.utils import MISSING_LABEL
 
 
 class TestSklearnClassifier(TemplateSkactivemlClassifier, unittest.TestCase):
@@ -1224,14 +1224,15 @@ if successful_skorch_torch_import:
             ]
             self._test_param("init", "neural_net_param_dict", test_cases)
 
-        def test_init_param_filter_criterion_input(self):
+        def test_init_param_criterion_input_index(self):
             test_cases = [
-                (True, None),
+                (0, None),
+                ([0], None),
                 (False, TypeError),
             ]
-            self._test_param("init", "filter_criterion_input", test_cases)
+            self._test_param("init", "criterion_input_index", test_cases)
             test_cases = [
-                (False, None),
+                (None, None),
             ]
             default_dict = deepcopy(
                 self.init_default_params["neural_net_param_dict"]
@@ -1239,7 +1240,7 @@ if successful_skorch_torch_import:
             default_dict["module__return_embeddings"] = False
             self._test_param(
                 "init",
-                "filter_criterion_input",
+                "criterion_input_index",
                 test_cases,
                 replace_init_params={"neural_net_param_dict": default_dict},
             )

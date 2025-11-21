@@ -1,5 +1,4 @@
 import inspect
-import functools
 import sys
 
 from copy import deepcopy
@@ -9,9 +8,6 @@ from makefun import with_signature
 successful_skorch_torch_import = False
 try:
     from torch import nn
-    from typing import Type
-    from skorch import NeuralNet
-    from skorch.utils import to_numpy
 
     successful_skorch_torch_import = True
 except ImportError:  # pragma: no cover
@@ -172,36 +168,46 @@ def match_signature(wrapped_obj_name, func_name):
 
 if successful_skorch_torch_import:
 
-    def make_criterion_tuple_aware(criterion):
+    def make_criterion_tuple_aware(criterion, criterion_input_index=0):
         """
-        Create a tuple-aware loss *class* (or wrap an existing instance) that
-        ignores extra elements in a model's tuple output.
-
-        This utility generates (and caches) a dynamic subclass named
-        ``TupleAware<LossName>`` of the given base loss class. The subclass
-        overrides ``forward`` to accept an input that may be a tuple
-        (e.g., ``(logits, embeddings)``) and uses only the first element.
-        The subclass is registered in this module's namespace so that
-        pickling can resolve it reliably. If a loss *instance* is provided,
-        a deep-copied instance is returned with its ``__class__`` switched
-        to the generated subclass.
+        Create a loss *class* (or wrap an existing instance) that selects part
+        of a model's (possibly tuple-valued) output before passing it to the
+        criterion. This utility generates (and caches) a dynamic subclass named
+        `TupleAware<LossName>Idx<...>` of the given base loss class. The
+        subclass overrides `forward` so that, if the `input` argument is a
+        tuple (e.g., `(logits, embeddings, ...)`), only the element(s)
+        specified by `criterion_input_index` are passed to the base class's
+        `forward`. If `input` is not a tuple, it is forwarded unchanged.
 
         Parameters
         ----------
         criterion : type or nn.Module
             - Either a loss **class** (subclass of :class:`torch.nn.Module`),
-              e.g., ``nn.CrossEntropyLoss``, or
-            - a loss **instance**, e.g. ``nn.CrossEntropyLoss()``.
+              e.g., `nn.CrossEntropyLoss`, or
+            - a loss **instance**, e.g. `nn.CrossEntropyLoss()`.
+
+        criterion_input_index : int or array-like of int or None, default=0
+            Index or indices of the output of `module.forward` to pass as the
+            `input` argument of the criterion:
+
+            - If an `int`, `input[criterion_input_index]` is used.
+            - If an array-like of int, the selected elements are packed into a
+              tuple `(input[i_1], ..., input[i_k])`.
+            - If `None`, the full `input` is passed unchanged (wrapping is
+              effectively a no-op for tuples).
 
         Returns
         -------
         type or nn.Module
             - If `criterion` is a **class**, returns the generated subclass
-              ``TupleAware<LossName>``.
+              `TupleAware<LossName>Idx<...>`.
             - If `criterion` is an **instance**, returns a **new** instance
-              (deep copy) whose class is ``TupleAware<LossName>``. The original
-              instance is not modified.
+              (deep copy) whose class is that subclass. The original instance
+              is not modified.
         """
+        import numbers
+        from collections.abc import Sequence
+
         if isinstance(criterion, nn.Module):
             base_cls = criterion.__class__
         elif issubclass(criterion, nn.Module):
@@ -211,26 +217,70 @@ if successful_skorch_torch_import:
                 "criterion must be an nn.Module subclass or instance."
             )
 
-        cls_name = f"TupleAware{base_cls.__name__}"
+        # Normalize the selector to something predictable for both logic
+        # & naming.
+        def _normalize_index(sel):
+            msg = (
+                "criterion_input_index must be an int, "
+                "array-like of int, or None."
+            )
+            if sel is None:
+                return None
+
+            def _is_int_like(x):
+                return isinstance(x, numbers.Integral) and not isinstance(
+                    x, bool
+                )
+
+            if _is_int_like(sel):
+                return int(sel)
+            if isinstance(sel, Sequence) and not isinstance(sel, (str, bytes)):
+                if not all(_is_int_like(i) for i in sel):
+                    raise TypeError(msg)
+                return tuple(int(i) for i in sel)
+            raise TypeError(msg)
+
+        selector = _normalize_index(criterion_input_index)
+
+        if selector is None:
+            idx_key = "All"
+        elif isinstance(selector, int):
+            idx_key = str(selector)
+        else:  # tuple of ints
+            idx_key = "_".join(str(i) for i in selector)
+
+        cls_name = f"TupleAware{base_cls.__name__}Idx{idx_key}"
 
         # Build the wrapper `forward`.
         def forward(self, input, target, *args, **kwargs):
-            if isinstance(input, tuple):
-                input = input[0]
-            return base_cls.forward(self, input, target, *args, **kwargs)
+            x = input
+            if isinstance(x, tuple):
+                if selector is None:
+                    # pass full tuple unchanged
+                    x = x
+                elif isinstance(selector, int):
+                    x = x[selector]
+                else:
+                    # selector is a tuple of indices
+                    x = tuple(x[i] for i in selector)
+            return base_cls.forward(self, x, target, *args, **kwargs)
 
-        # Keep signature/tool‑tips identical.
+        # Keep signature/tool-tips identical.
         forward.__signature__ = inspect.signature(base_cls.forward)
         forward.__doc__ = base_cls.forward.__doc__
 
-        # Create/reuse subclass and expose it under *this* module
+        # Create/reuse subclass and expose it under *this* module.
         mod = sys.modules[__name__]
         TupleAwareCls = getattr(mod, cls_name, None)
         if TupleAwareCls is None:
             TupleAwareCls = type(
                 cls_name,
                 (base_cls,),
-                {"forward": forward, "__module__": mod.__name__},
+                {
+                    "forward": forward,
+                    "__module__": mod.__name__,
+                    "__criterion_input_index__": selector,
+                },
             )
             setattr(mod, cls_name, TupleAwareCls)  # makes pickle happy
 
