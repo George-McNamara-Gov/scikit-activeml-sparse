@@ -79,7 +79,6 @@ clf = SkorchClassifier(
         "device": device,
         "train_split": False,
         "iterator_train__shuffle": True,
-        "torch_load_kwargs": {"weights_only": True},
     },
     classes=classes,
     missing_label=missing_label,

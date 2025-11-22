@@ -8,7 +8,7 @@
 |
 
 ==========================================================================
-scikit-activeml: A Comprehensive and User-friendly Active Learning Library
+A Comprehensive and User-friendly Active Learning Library
 ==========================================================================
 |Doc| |Codecov| |PythonVersion| |PyPi| |Black| |Downloads| |Paper|
 
@@ -143,7 +143,6 @@ default :code:`skactiveml` installation and must be installed separately.
            "device": device,
            "train_split": False,
            "iterator_train__shuffle": True,
-           "torch_load_kwargs": {"weights_only": True},
        },
        classes=classes,
        missing_label=missing_label,
@@ -274,7 +273,6 @@ default :code:`skactiveml` installation and must be installed separately.
            "device": device,
            "train_split": False,
            "iterator_train__shuffle": True,
-           "torch_load_kwargs": {"weights_only": True},
        },
        classes=classes,
        missing_label=missing_label,
