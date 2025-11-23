@@ -4,12 +4,16 @@ import numpy as np
 from sklearn.utils.validation import check_array
 
 from ...base import SkactivemlClassifier
+from ...utils import (
+    MISSING_LABEL,
+    check_n_features,
+    check_scalar,
+)
 
 successful_skorch_torch_import = False
 try:
     import torch
 
-    from skorch import NeuralNet
     from skorch.utils import to_numpy
 
     from torch import nn
@@ -19,22 +23,17 @@ try:
 
     from ._utils import (
         _MultiAnnotatorClassificationModule,
-        _MultiAnnotatorClassifier,
+        _SkorchMultiAnnotatorClassifier,
     )
 
     successful_skorch_torch_import = True
 except ImportError:
     pass  # pragma: no cover
 
-from ...utils import (
-    MISSING_LABEL,
-    check_n_features,
-    check_scalar,
-)
 
 if successful_skorch_torch_import:
 
-    class AnnotMixClassifier(_MultiAnnotatorClassifier):
+    class AnnotMixClassifier(_SkorchMultiAnnotatorClassifier):
         """Annot-Mix
 
         AnnotMix [1]_ trains a multi-annotator classifier using an extension of
@@ -80,12 +79,12 @@ if successful_skorch_torch_import:
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no extra arguments are added.
-        sample_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `sample_dtype` is
-            `None`, the datatype is preserved.
+        sample_dtype : str or type, default=np.float32
+            Dtype to which input samples are cast inside the estimator. If set
+            to `None`, the input dtype is preserved.
         classes : array-like of shape (n_classes,), default=None
-            Holds the label for each class. If `None`, the classes are determined
-            during the fit.
+            Holds the label for each class. If `None`, the classes are
+            determined during the fit.
         missing_label : scalar or string or np.nan or None, default=np.nan
             Value to represent a missing label.
         cost_matrix : array-like of shape (n_classes, n_classes), default=None
@@ -98,9 +97,9 @@ if successful_skorch_torch_import:
 
         References
         ----------
-        .. [1] Herde, M., Lührs, L., Huseljic, D., & Sick, B. (2024). Annot-Mix:
-           Learning with Noisy Class Labels from Multiple Annotators via a
-           Mixup Extension. Eur. Conf. Artif. Intell.
+        .. [1] Herde, M., Lührs, L., Huseljic, D., & Sick, B. (2024).
+           Annot-Mix: Learning with Noisy Class Labels from Multiple Annotators
+           via a Mixup Extension. Eur. Conf. Artif. Intell.
         .. [2] Zhang, H., Cisse, M., Dauphin, Y. N., & Lopez-Paz, D. (2018).
            mixup: Beyond Empirical Risk Minimization. Int. Conf. Learn.
            Represent.
@@ -119,7 +118,7 @@ if successful_skorch_torch_import:
             eta=0.9,
             n_annotators=None,
             neural_net_param_dict=None,
-            sample_dtype=None,
+            sample_dtype=np.float32,
             classes=None,
             cost_matrix=None,
             missing_label=MISSING_LABEL,
@@ -185,8 +184,9 @@ if successful_skorch_torch_import:
                 sample–annotator pair as the next element of the output tuple.
             return_annotator_class : bool, default=False
                 If `return_annotator_class=True`, additionally return the
-                annotator–class probability estimates `P_annot` for each sample,
-                class, and annotator as the last element of the output tuple.
+                annotator–class probability estimates `P_annot` for each
+                sample, class, and annotator as the last element of the output
+                tuple.
             return_annotator_embeddings : bool, default=False
                 If `return_annotator_embeddings=True`, additionally return the
                 learned embeddings `A_embed` for the annotators as the next
@@ -213,7 +213,6 @@ if successful_skorch_torch_import:
             A_embed : np.ndarray of shape (n_annotators, annotator_embed_dim)
                 `A_embed[m]` refers to the learned embedding for annotator `m`.
             """
-            predict_dict = {k: v for k, v in locals().items() if k != "self"}
             return SkactivemlClassifier.predict(
                 self,
                 X=X,
@@ -262,8 +261,9 @@ if successful_skorch_torch_import:
                 sample–annotator pair as the next element of the output tuple.
             return_annotator_class : bool, default=False
                 If `return_annotator_class=True`, additionally return the
-                annotator–class probability estimates `P_annot` for each sample,
-                class, and annotator as the last element of the output tuple.
+                annotator–class probability estimates `P_annot` for each
+                sample, class, and annotator as the last element of the output
+                tuple.
             return_annotator_embeddings : bool, default=False
                 If `return_annotator_embeddings=True`, additionally return the
                 learned embeddings `A_embed` for the annotators as the next
@@ -520,9 +520,9 @@ if successful_skorch_torch_import:
 
         References
         ----------
-        .. [1] Herde, M., Lührs, L., Huseljic, D., & Sick, B. (2024). Annot-Mix:
-           Learning with Noisy Class Labels from Multiple Annotators via a
-           Mixup Extension. Eur. Conf. Artif. Intell.
+        .. [1] Herde, M., Lührs, L., Huseljic, D., & Sick, B. (2024).
+           Annot-Mix: Learning with Noisy Class Labels from Multiple Annotators
+           via a Mixup Extension. Eur. Conf. Artif. Intell.
         .. [2] Zhang, H., Cisse, M., Dauphin, Y. N., & Lopez-Paz, D. (2018).
            mixup: Beyond Empirical Risk Minimization. Int. Conf. Learn.
            Represent.
@@ -711,15 +711,15 @@ if successful_skorch_torch_import:
             Number of classes (for one-hot encoding).
         a : torch.Tensor or array-like of shape (n_annotators, ...)\
                 or (n_annotators,)
-            Annotator representations/features. Will be converted to a CPU tensor
-            once and reused across batches.
+            Annotator representations/features. Will be converted to a CPU
+            tensor once and reused across batches.
         alpha : float, default=1.0
             MixUp Beta(alpha, alpha) parameter. If <= 0, no MixUp is applied.
         missing_label : int or float, default=-1
-            Value in `y` indicating an unlabeled sample. Rows whose sample label
-            equals `missing_label` are excluded from the (sample, annotator)
-            pairs. If set to `float('nan')` or `numpy.nan`, NaN labels are
-            treated as missing.
+            Value in `y` indicating an unlabeled sample. Rows whose sample
+            label equals `missing_label` are excluded from the
+            (sample, annotator) pairs. If set to `float('nan')` or `numpy.nan`,
+            NaN labels are treated as missing.
 
         Notes
         -----
@@ -739,7 +739,8 @@ if successful_skorch_torch_import:
             self.missing_label = missing_label
 
         def __call__(self, batch):
-            # 1) Basic collation (supports tensors/ndarrays/nested dicts of X, y)
+            # 1) Basic collation (supports tensors/ndarrays/nested dicts of
+            # X, y)
             x = default_collate([b[0] for b in batch])
             y = default_collate([b[1] for b in batch])
 
@@ -791,22 +792,25 @@ if successful_skorch_torch_import:
 
     def _mix_up(*arrays, alpha=1.0, lmbda=None, permute_indices=None):
         """
-        MixUp multiple arrays in lockstep using the same permutation and lambdas.
+        MixUp multiple arrays in lockstep using the same permutation and
+        lambdas.
 
         Parameters
         ----------
         arrays : sequence of torch.Tensor
-            Tensors with the same length `N` along the first dimension. Each will
-            be mixed with the same permutation and mixing coefficients.
+            Tensors with the same length `N` along the first dimension.
+            Each will be mixed with the same permutation and mixing
+            coefficients.
         alpha : float, default=1.0
-            Beta(alpha, alpha) parameter. Used only if `lmbda is None`. If `alpha <= 0`,
-            returns inputs unchanged along with generated permutation and lambda (1s).
+            Beta(alpha, alpha) parameter. Used only if `lmbda is None`.
+            If `alpha <= 0`, returns inputs unchanged along with generated
+            permutation and lambda (1s).
         lmbda : torch.Tensor of shape (N,), optional
             Precomputed mixing coefficients in [0, 1]. If not provided, sampled
             from `Beta(alpha, alpha)` on the same device as the first array.
         permute_indices : torch.Tensor of shape (N,), optional
-            Precomputed permutation indices. If not provided, a random permutation
-            is generated on the same device as the first array.
+            Precomputed permutation indices. If not provided, a random
+            permutation is generated on the same device as the first array.
 
         Returns
         -------

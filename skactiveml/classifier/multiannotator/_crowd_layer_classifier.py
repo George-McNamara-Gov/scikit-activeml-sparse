@@ -1,5 +1,7 @@
 import numpy as np
 from sklearn.utils.validation import check_array
+
+from ...base import SkactivemlClassifier
 from ...utils import (
     MISSING_LABEL,
     check_n_features,
@@ -9,14 +11,12 @@ from ...utils import (
 successful_skorch_torch_import = False
 try:
     import torch
-    from skorch import NeuralNet
     from skorch.utils import to_numpy
     from torch import nn
     from torch.nn import CrossEntropyLoss
     from torch.nn import functional as F
-    from torch.utils.data import default_collate
     from ._utils import (
-        _MultiAnnotatorClassifier,
+        _SkorchMultiAnnotatorClassifier,
         _MultiAnnotatorClassificationModule,
         _MultiAnnotatorCollate,
     )
@@ -27,7 +27,7 @@ except ImportError:
 
 if successful_skorch_torch_import:
 
-    class CrowdLayerClassifier(_MultiAnnotatorClassifier):
+    class CrowdLayerClassifier(_SkorchMultiAnnotatorClassifier):
         """Crowd Layer
 
         Crowd Layer [1]_ is a layer added at the end of a classifying neural
@@ -48,9 +48,9 @@ if successful_skorch_torch_import:
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is None, no additional arguments
              are added.
-        sample_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `sample_dtype` is
-            `None`, the datatype is preserved.
+        sample_dtype : str or type, default=np.float32
+            Dtype to which input samples are cast inside the estimator. If set
+            to `None`, the input dtype is preserved.
         classes : array-like of shape (n_classes,), default=None
             Holds the label for each class. If `None`, the classes are
             determined during the fit.
@@ -75,7 +75,7 @@ if successful_skorch_torch_import:
             clf_module,
             n_annotators=None,
             neural_net_param_dict=None,
-            sample_dtype=None,
+            sample_dtype=np.float32,
             classes=None,
             cost_matrix=None,
             missing_label=MISSING_LABEL,
@@ -84,16 +84,15 @@ if successful_skorch_torch_import:
             super(CrowdLayerClassifier, self).__init__(
                 multi_annotator_module=_CrowdLayerModule,
                 clf_module=clf_module,
+                n_annotators=n_annotators,
                 criterion=CrossEntropyLoss,
+                sample_dtype=sample_dtype,
                 classes=classes,
                 missing_label=missing_label,
                 cost_matrix=cost_matrix,
                 random_state=random_state,
                 neural_net_param_dict=neural_net_param_dict,
-                sample_dtype=sample_dtype,
             )
-            self.clf_module = clf_module
-            self.n_annotators = n_annotators
 
         def predict(
             self,
@@ -131,8 +130,9 @@ if successful_skorch_torch_import:
                 sample–annotator pair as the next element of the output tuple.
             return_annotator_class : bool, default=False
                 If `return_annotator_class=True`, additionally return the
-                annotator–class probability estimates `P_annot` for each sample,
-                class, and annotator as the last element of the output tuple.
+                annotator–class probability estimates `P_annot` for each
+                sample, class, and annotator as the last element of the output
+                tuple.
 
             Returns
             -------
@@ -153,9 +153,13 @@ if successful_skorch_torch_import:
                 `m` provides the class label `c` for instance `X[n]`.
                 Only returned, if `return_annotator_class=True`.
             """
-            predict_dict = {k: v for k, v in locals().items() if k != "self"}
-            return self._transform_predict_proba_output(
-                predict_dict=predict_dict
+            return SkactivemlClassifier.predict(
+                self,
+                X=X,
+                return_logits=return_logits,
+                return_embeddings=return_embeddings,
+                return_annotator_perf=return_annotator_perf,
+                return_annotator_class=return_annotator_class,
             )
 
         def predict_proba(
@@ -194,12 +198,13 @@ if successful_skorch_torch_import:
                 sample–annotator pair as the next element of the output tuple.
             return_annotator_class : bool, default=False
                 If `return_annotator_class=True`, additionally return the
-                annotator–class probability estimates `P_annot` for each sample,
-                class, and annotator as the last element of the output tuple.
+                annotator–class probability estimates `P_annot` for each
+                sample, class, and annotator as the last element of the output
+                tuple.
 
             Returns
             -------
-            P_class : np.ndarray of shape (n_samples, classes)
+            P_class : np.ndarray of shape (n_samples, n_classes)
                 `p_class[n, c]` is the probability, that sample `X[n]`
                 belongs to the `classes_[c]`.
             L_class : np.ndarray of shape (n_samples, n_classes)
@@ -223,9 +228,7 @@ if successful_skorch_torch_import:
             check_n_features(
                 self, X, reset=not hasattr(self, "n_features_in_")
             )
-            check_scalar(
-                return_embeddings, name="return_logits", target_type=bool
-            )
+            check_scalar(return_logits, name="return_logits", target_type=bool)
             check_scalar(
                 return_embeddings, name="return_embeddings", target_type=bool
             )
@@ -266,7 +269,12 @@ if successful_skorch_torch_import:
                     P_class = to_numpy(out_torch.softmax(dim=-1))
                     out_numpy = P_class
                 if return_logits:
-                    L_class = to_numpy(out_torch[0])
+                    if isinstance(out_torch, tuple):
+                        L_class = to_numpy(out_torch[0])
+                    else:
+                        L_class = to_numpy(out_torch)
+                    if not isinstance(out_numpy, list):
+                        out_numpy = [P_class]
                     out_numpy.append(L_class)
                 if return_embeddings:
                     X_embed = to_numpy(out_torch[1])
@@ -356,10 +364,9 @@ if successful_skorch_torch_import:
             x : torch.Tensor of shape (batch_size, ...)
                 Input samples.
             input_ids : torch.Tensor of shape (batch_size, 2), default=None
-                - If `isinstance(input_ids, torch.Tensor)=True`, the column
-                  `input_ids[:, 0]` refers to the sample indices and the column
-                  `input_ids[:, 1]` to the annotator indices to be propagated
-                  through the crowd-layer.
+                - If a tensor is given, `input_ids[:, 0]` are sample indices
+                  and `input_ids[:, 1]` are annotator indices. One output row
+                  is produced per (sample, annotator) pair.
                 - If `input_ids=None`, all combinations of samples and
                   annotators are propagated through the crowd-layer.
 
@@ -371,7 +378,7 @@ if successful_skorch_torch_import:
                 Learned embeddings of samples. Only returned if "x_embed" in
                 `self.forward_return`.
             logits_annot : torch.Tensor of shape (batch_size, n_annotators,\
-                    n_classes) or (len(input_ids), n_annotators, n_classes)
+                    n_classes) or (len(input_ids), n_classes)
                 Annotation logits for sample-annotator pairs. Only returned
                 if "logits_annot" in self.forward_return. Shape depends on
                 whether `input_ids` is given or `None`.
@@ -390,9 +397,9 @@ if successful_skorch_torch_import:
             if "logits_annot" in self.forward_return:
                 p_class = F.softmax(logits_class, dim=-1)
                 if isinstance(input_ids, torch.Tensor):
-                    x = p_class.index_select(0, input_ids[:, 0])
+                    p_sel = p_class.index_select(0, input_ids[:, 0])
                     W_sel = self.W_annot.index_select(0, input_ids[:, 1])
-                    logits_annot = torch.einsum("mi,moi->mo", x, W_sel)
+                    logits_annot = torch.einsum("mi,moi->mo", p_sel, W_sel)
                 else:
                     logits_annot = torch.einsum(
                         "ni,aoi->nao", p_class, self.W_annot

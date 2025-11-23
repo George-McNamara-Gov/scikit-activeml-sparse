@@ -1,152 +1,498 @@
-import unittest
-
-import numpy as np
-from sklearn.datasets import make_blobs
-from sklearn.utils.validation import NotFittedError, check_is_fitted
-
-successful_skorch_torch_import = False
 try:
+    import unittest
+    from copy import deepcopy
+
+    import numpy as np
+    from scipy.special import softmax
+    from sklearn.datasets import make_blobs
+    from sklearn.utils.validation import check_is_fitted, NotFittedError
+
     import torch
     from torch import nn
+
+    from skorch.utils import to_numpy
+
+    from skactiveml.tests.template_estimator import TemplateEstimator
     from skactiveml.classifier.multiannotator import CrowdLayerClassifier
 
-    successful_skorch_torch_import = True
-except ImportError:
-    pass  # pragma: no cover
+    class TestCrowdLayerClassifier(TemplateEstimator, unittest.TestCase):
 
-# TODO: check test
-if False:
-
-    class TestCrowdLayerClassifier(unittest.TestCase):
         def setUp(self):
+            # Synthetic multi-class data.
             self.X, self.y_true = make_blobs(
-                n_samples=300, n_features=2, centers=3, random_state=0
+                n_samples=300, n_features=2, centers=3, random_state=1
             )
-            self.X = self.X.astype(np.float32)
-            self.y = np.array([self.y_true, self.y_true], dtype=float).T
-            self.y[:100, 0] = -1
-            self.neural_net_param_dict = {
+            self.classes = np.unique(self.y_true)
+            self.n_classes = len(self.classes)
+            self.n_annotators = 10
+            self.missing_label = -1
+
+            # Build multi-annotator labels (10 annotators).
+            rng = np.random.RandomState(1)
+            self.y_annot = np.empty((self.X.shape[0], self.n_annotators))
+            for m in range(self.n_annotators):
+                self.y_annot[:, m] = self.y_true
+
+            # annotator 0: always wrong, annotator 1: random
+            self.y_annot[:, 0] = (self.y_true + 1) % self.n_classes
+            self.y_annot[:, 1] = rng.choice(
+                self.classes, size=len(self.y_true)
+            )
+
+            # sprinkle missing labels
+            mask = rng.rand(*self.y_annot.shape) < 0.1
+            self.y_annot[mask] = self.missing_label
+            self.y_annot_unlbld = np.full_like(
+                self.y_annot, self.missing_label
+            )
+
+            # Skorch config kept tiny so tests run fast.
+            neural_net_param_dict = {
                 "train_split": None,
-                "verbose": False,
+                "verbose": 0,
                 "optimizer": torch.optim.RAdam,
                 "device": "cpu",
-                "max_epochs": 10,
-                "batch_size": 1,
-                "lr": 0.001,
+                "max_epochs": 5,
+                "batch_size": 8,
+                "lr": 0.01,
             }
-            self.clf_init_params = {
-                "n_annotators": 2,
-                "classes": [0, 1, 2],
-                "missing_label": -1,
+
+            init_default_params = {
+                "clf_module": TestNeuralNet,
+                "n_annotators": self.n_annotators,
+                "neural_net_param_dict": neural_net_param_dict,
+                "sample_dtype": np.float32,
+                "classes": self.classes,
                 "cost_matrix": None,
-                "random_state": 1,
-                "neural_net_param_dict": self.neural_net_param_dict,
+                "missing_label": self.missing_label,
+                "random_state": 0,
             }
 
-        def test_init_param_module_gt_net(self):
-            clf = CrowdLayerClassifier(gt_net="Test", **self.clf_init_params)
-            self.assertEqual(clf.gt_net, "Test")
-            self.assertRaises(TypeError, clf.fit, X=self.X, y=self.y)
+            # Define default parameters for fitting.
+            fit_default_params = {
+                "X": self.X,
+                "y": self.y_annot,
+            }
 
-            clf = CrowdLayerClassifier(gt_net=None, **self.clf_init_params)
-            self.assertRaises(TypeError, clf.fit, X=self.X, y=self.y)
+            # Define default parameters for predicting.
+            predict_default_params = {"X": self.X}
 
-            clf = CrowdLayerClassifier(
-                gt_net=[("nn.Module", TestNeuralNet)], **self.clf_init_params
-            )
-            self.assertRaises(TypeError, clf.fit, X=self.X, y=self.y)
-
-            clf_init_params = self.clf_init_params.copy()
-            clf_init_params["classes"] = [0, 1, 2]
-            clf = CrowdLayerClassifier(
-                gt_net=TestNeuralNet, **self.clf_init_params
-            )
-            self.assertRaises(TypeError, clf.fit, X=self.X, y=self.y)
-
-        def test_fit(self):
-            gt_net = TestNeuralNet()
-            clf = CrowdLayerClassifier(
-                gt_net=gt_net,
-                **self.clf_init_params,
+            super().setUp(
+                estimator_class=CrowdLayerClassifier,
+                init_default_params=init_default_params,
+                fit_default_params=fit_default_params,
+                predict_default_params=predict_default_params,
             )
 
-            np.testing.assert_array_equal([0, 1, 2], clf.classes)
-            self.assertRaises(NotFittedError, check_is_fitted, clf)
-            clf.fit(self.X, self.y)
-            check_is_fitted(clf)
+        # ------------------------------------------------------------------
+        # Helpers
+        # ------------------------------------------------------------------
 
-        def test_predict(self):
-            gt_net = TestNeuralNet()
-            clf = CrowdLayerClassifier(
-                gt_net=gt_net,
-                **self.clf_init_params,
-            )
-            clf.predict(X=self.X)
-            clf = CrowdLayerClassifier(
-                gt_net=gt_net,
-                **self.clf_init_params,
-            )
-            clf.fit(self.X, self.y)
-            y_pred = clf.predict(self.X)
-            self.assertEqual(len(y_pred), len(self.X))
+        def _make_init_params(self, **overrides):
+            params = deepcopy(self.init_default_params)
+            params.update(overrides)
+            return params
 
-        def test_predict_annotator_pref(self):
-            gt_net = TestNeuralNet()
-            clf = CrowdLayerClassifier(
-                gt_net=gt_net,
-                **self.clf_init_params,
+        def _make_clf(self, **overrides):
+            params = self._make_init_params(**overrides)
+            return CrowdLayerClassifier(**params)
+
+        def _test_bool_param(self, method_name, param_name):
+            test_cases = [
+                (True, None),
+                (False, None),
+                (None, TypeError),
+                (0, TypeError),
+                ("abc", TypeError),
+            ]
+            self._test_param(
+                method_name,
+                param_name,
+                test_cases,
+                extras_params={"X": self.X},
             )
-            clf.predict(X=self.X)
-            clf.fit(self.X, self.y)
-            annot_pref = clf.predict_annotator_perf(self.X[:2])
-            self.assertEqual(annot_pref.shape[0], 2)
-            self.assertEqual(annot_pref.shape[1], 2)
-            confusion_matrix = clf.predict_annotator_perf(self.X[:2], True)
-            self.assertEqual(confusion_matrix.shape[0], 2)
-            self.assertEqual(confusion_matrix.shape[1], 2)
-            self.assertEqual(confusion_matrix.shape[2], 3)
-            self.assertEqual(confusion_matrix.shape[3], 3)
+
+        def _train_for_output_tests(self, max_epochs=50):
+            """
+            Train a classifier with stronger training
+            for output-shape tests.
+            """
+            init_params = self._make_init_params()
+            init_params["neural_net_param_dict"]["max_epochs"] = max_epochs
+            clf = CrowdLayerClassifier(**init_params)
+            clf.fit(self.X, self.y_annot)
+            return clf
+
+        def _check_predict_outputs(self, out, mode):
+            """
+            Common checks for outputs of `predict` / `predict_proba` with all
+            return_* flags enabled.
+
+            Parameters
+            ----------
+            out : tuple
+                Output of clf.predict(...) or clf.predict_proba(...).
+            mode : {"proba", "label"}
+                - "proba": first element is P_class (predict_proba)
+                - "label": first element is y_class (predict)
+            """
+            self.assertIsInstance(out, tuple)
+            self.assertEqual(len(out), 5)
+
+            first, L_class, X_embed, P_perf, P_annot = out
+
+            # Mode-specific checks on the first element.
+            if mode == "proba":
+                P_class = first
+                # P_class: (n_samples, n_classes), rows sum to 1
+                self.assertEqual(
+                    P_class.shape, (self.X.shape[0], self.n_classes)
+                )
+                np.testing.assert_array_almost_equal(
+                    P_class.sum(axis=-1), np.ones((self.X.shape[0],))
+                )
+                # L_class should softmax to P_class
+                self.assertEqual(
+                    L_class.shape, (self.X.shape[0], self.n_classes)
+                )
+                np.testing.assert_array_almost_equal(
+                    softmax(L_class, axis=-1), P_class
+                )
+            elif mode == "label":
+                y_class = first
+                # y_class: (n_samples,) and consistent with argmax of logits
+                self.assertEqual(y_class.shape, (self.X.shape[0],))
+                self.assertTrue(np.isin(y_class, self.classes).all())
+                self.assertEqual(
+                    L_class.shape, (self.X.shape[0], self.n_classes)
+                )
+                np.testing.assert_array_almost_equal(
+                    np.argmax(L_class, axis=-1), y_class
+                )
+            else:
+                self.fail(f"Unknown mode {mode!r} in _check_predict_outputs")
+
+            # Shared checks for the remaining outputs.
+
+            # X_embed: (n_samples, n_learned_features)
+            self.assertEqual(X_embed.shape, (self.X.shape[0], 4))
+
+            # P_perf: (n_samples, n_annotators), values in [0, 1]
+            self.assertEqual(
+                P_perf.shape, (self.X.shape[0], self.n_annotators)
+            )
+            self.assertGreaterEqual(P_perf.min(), 0)
+            self.assertLessEqual(P_perf.max(), 1)
+
+            # Good annotators (2..9) should outperform the always-wrong +
+            # random (0,1).
+            mean_perf = P_perf.mean(axis=0)
+            good_mean = mean_perf[2:].mean()
+            bad_mean = mean_perf[:2].mean()
+            self.assertGreater(
+                good_mean,
+                bad_mean,
+                msg=(
+                    "Good annotators not clearly better:"
+                    f" good={good_mean:.3f}, bad={bad_mean:.3f}"
+                ),
+            )
+
+        # ------------------------------------------------------------------
+        # __init__ parameter tests
+        # ------------------------------------------------------------------
+
+        def test_init_param_clf_module(self):
+            test_cases = [
+                (TestNeuralNet, None),
+                (TestNeuralNet(), None),
+                ("Test", TypeError),
+            ]
+            self._test_param("init", "clf_module", test_cases)
+
+        def test_init_param_n_annotators(self):
+            # None: allowed, can be inferred from y
+            test_cases = [
+                (None, None),
+                (10, None),
+                ("test", ValueError),
+                (0, ValueError),
+            ]
+            self._test_param("init", "n_annotators", test_cases)
+
+        def test_init_param_neural_net_param_dict(self):
+            # Must be dict-like or None; conflicting keys should error
+            good_dict = {
+                "max_epochs": 1,
+                "batch_size": 4,
+            }
+            bad_type = "not_a_dict"
+            bad_conflict = {
+                "module__clf_module": "not_a_module",
+            }
+            bad_value = {"train_split": True}
+
+            test_cases = [
+                (None, None),
+                (good_dict, None),
+                (bad_type, TypeError),
+                (bad_conflict, TypeError),
+                (bad_value, ValueError),
+            ]
+            self._test_param("init", "neural_net_param_dict", test_cases)
+
+        def test_init_param_sample_dtype(self):
+            test_cases = [
+                (None, RuntimeError),
+                (np.float32, None),
+                (np.int32, RuntimeError),
+            ]
+            self._test_param("init", "sample_dtype", test_cases)
+
+        def test_init_param_cost_matrix(self):
+            test_cases = [
+                (1 - np.eye(self.n_classes), None),
+                (1 - np.eye(self.n_classes + 1), ValueError),
+                ("test", ValueError),
+                (None, None),
+            ]
+            self._test_param("init", "cost_matrix", test_cases)
+
+        def test_init_param_classes(self):
+            test_cases = [
+                (None, None),
+                (np.arange(self.n_classes), None),
+                (np.arange(1, self.n_classes + 1), ValueError),
+                ("abc", TypeError),
+            ]
+            self._test_param("init", "classes", test_cases)
+
+        # ------------------------------------------------------------------
+        # predict / predict_proba parameter tests
+        # ------------------------------------------------------------------
+
+        def test_predict_proba_param_return_logits(self):
+            self._test_bool_param("predict_proba", "return_logits")
+
+        def test_predict_param_return_logits(self):
+            self._test_bool_param("predict", "return_logits")
+
+        def test_predict_proba_param_return_embeddings(self):
+            self._test_bool_param("predict_proba", "return_embeddings")
+
+        def test_predict_param_return_embeddings(self):
+            self._test_bool_param("predict", "return_embeddings")
+
+        def test_predict_proba_param_return_annotator_perf(self):
+            self._test_bool_param("predict_proba", "return_annotator_perf")
+
+        def test_predict_param_return_annotator_perf(self):
+            self._test_bool_param("predict", "return_annotator_perf")
+
+        def test_predict_proba_param_return_annotator_class(self):
+            self._test_bool_param("predict_proba", "return_annotator_class")
+
+        def test_predict_param_return_annotator_class(self):
+            self._test_bool_param("predict", "return_annotator_class")
+
+        # ------------------------------------------------------------------
+        # Output logic tests for predict_proba / predict
+        # ------------------------------------------------------------------
 
         def test_predict_proba(self):
-            gt_net = TestNeuralNet()
-            clf = CrowdLayerClassifier(
-                gt_net=gt_net,
-                **self.clf_init_params,
+            clf = self._train_for_output_tests()
+            out = clf.predict_proba(
+                self.X,
+                return_logits=True,
+                return_embeddings=True,
+                return_annotator_perf=True,
+                return_annotator_class=True,
             )
-            clf.predict_proba(X=self.X)
-            clf.fit(self.X, self.y)
-            proba = clf.predict_proba(self.X)
-            self.assertEqual(len(self.X), proba.shape[0])
-            self.assertEqual(3, proba.shape[1])
+            self._check_predict_outputs(out, mode="proba")
 
-        def test_predict_proba_annot(self):
-            gt_net = TestNeuralNet()
-            clf = CrowdLayerClassifier(
-                gt_net=gt_net,
-                **self.clf_init_params,
+        def test_predict(self):
+            clf = self._train_for_output_tests()
+            out = clf.predict(
+                self.X,
+                return_logits=True,
+                return_embeddings=True,
+                return_annotator_perf=True,
+                return_annotator_class=True,
             )
-            clf.predict_proba_annot(self.X)
-            clf.fit(self.X, self.y)
-            annot = clf.predict_proba_annot(self.X)
-            print(annot.shape)
-            n_classes = len(np.unique(self.y_true))
-            n_annotators = self.clf_init_params["n_annotators"]
-            self.assertEqual(annot.shape[0], len(self.X))
-            self.assertEqual(annot.shape[1], n_classes)
-            self.assertEqual(annot.shape[2], n_annotators)
+            self._check_predict_outputs(out, mode="label")
+
+        # ------------------------------------------------------------------
+        # partial_fit / initialize / fit behavior
+        # ------------------------------------------------------------------
+
+        def test_partial_fit(self):
+            # Case 1: classes=None and only unlabeled data → error
+            init_params = self._make_init_params(classes=None)
+            clf = CrowdLayerClassifier(**init_params)
+            self.assertRaises(NotFittedError, check_is_fitted, clf)
+            self.assertRaises(
+                ValueError, clf.partial_fit, self.X, self.y_annot_unlbld
+            )
+
+            # Case 2: unlabeled first, then labeled
+            init_params = self._make_init_params()
+            clf = CrowdLayerClassifier(**init_params)
+            self.assertRaises(NotFittedError, check_is_fitted, clf)
+            clf.partial_fit(self.X, self.y_annot_unlbld)
+            clf.partial_fit(self.X, self.y_annot)
+            check_is_fitted(clf)
+
+            predict_proba_0 = clf.predict_proba(self.X)
+            clf.partial_fit(self.X, self.y_annot_unlbld)
+            predict_proba_1 = clf.predict_proba(self.X)
+            np.testing.assert_almost_equal(predict_proba_0, predict_proba_1)
+
+        def test_initialize(self):
+            # Prediction w/o initialization but with default params.
+            init_params = self._make_init_params()
+            init_params["neural_net_param_dict"]["max_epochs"] = 50
+            clf = CrowdLayerClassifier(**init_params)
+            self.assertRaises(NotFittedError, check_is_fitted, clf)
+            y_pred = clf.predict(self.X)
+            self.assertTrue(np.isin(y_pred, self.classes).all())
+
+            # Prediction with explicit initialization.
+            init_params = self._make_init_params()
+            init_params["neural_net_param_dict"]["max_epochs"] = 50
+            clf = CrowdLayerClassifier(**init_params)
+            clf.initialize()
+            y_pred = clf.predict(self.X)
+            self.assertTrue(np.isin(y_pred, self.classes).all())
+
+        def test_fit(self):
+            # Check standard fitting cases.
+            init_params = self._make_init_params(classes=None)
+            clf = CrowdLayerClassifier(**init_params)
+            self.assertRaises(NotFittedError, check_is_fitted, clf)
+            self.assertRaises(ValueError, clf.fit, self.X, self.y_annot_unlbld)
+
+            init_params = self._make_init_params()
+            clf = CrowdLayerClassifier(**init_params)
+            clf.fit(self.X, self.y_annot)
+            check_is_fitted(clf)
+
+            # Check fitting without warm_start (weights should change).
+            init_params = self._make_init_params()
+            init_params["neural_net_param_dict"]["warm_start"] = False
+            clf = CrowdLayerClassifier(**init_params)
+            clf.fit(self.X, self.y_annot_unlbld)
+            init_weights = to_numpy(
+                deepcopy(
+                    clf.neural_net_.module_.clf_module.input_to_hidden.weight
+                )
+            )
+            clf.fit(self.X, self.y_annot_unlbld)
+            new_weights = to_numpy(
+                deepcopy(
+                    clf.neural_net_.module_.clf_module.input_to_hidden.weight
+                )
+            )
+            self.assertRaises(
+                AssertionError,
+                np.testing.assert_array_equal,
+                init_weights,
+                new_weights,
+            )
+
+            # Check fitting with warm_start (weights unchanged on unlabeled).
+            init_params = self._make_init_params()
+            init_params["neural_net_param_dict"]["warm_start"] = True
+            clf = CrowdLayerClassifier(**init_params)
+            self.assertRaises(NotFittedError, check_is_fitted, clf)
+            clf.fit(self.X, self.y_annot_unlbld)
+            check_is_fitted(clf)
+            init_weights = to_numpy(
+                deepcopy(
+                    clf.neural_net_.module_.clf_module.input_to_hidden.weight
+                )
+            )
+            clf.fit(self.X, self.y_annot_unlbld)
+            new_weights = to_numpy(
+                deepcopy(
+                    clf.neural_net_.module_.clf_module.input_to_hidden.weight
+                )
+            )
+            np.testing.assert_array_equal(init_weights, new_weights)
+            clf.fit(self.X, self.y_annot)
+            new_weights = to_numpy(
+                deepcopy(
+                    clf.neural_net_.module_.clf_module.input_to_hidden.weight
+                )
+            )
+            self.assertRaises(
+                AssertionError,
+                np.testing.assert_array_equal,
+                init_weights,
+                new_weights,
+            )
+
+            # Setup for initialized PyTorch module as input.
+            init_params = self._make_init_params()
+            clf_module = TestNeuralNet()
+            init_weights = to_numpy(
+                deepcopy(clf_module.input_to_hidden.weight)
+            )
+            init_params["clf_module"] = clf_module
+            clf = CrowdLayerClassifier(**init_params)
+
+            # Fitting with only unlabeled data must preserve weights.
+            clf.fit(self.X, self.y_annot_unlbld)
+            new_weights = to_numpy(
+                deepcopy(
+                    clf.neural_net_.module_.clf_module.input_to_hidden.weight
+                )
+            )
+            np.testing.assert_array_equal(init_weights, new_weights)
+
+            # Fitting with partially labeled data must change weights.
+            clf.fit(self.X, self.y_annot)
+            new_weights = to_numpy(
+                deepcopy(
+                    clf.neural_net_.module_.clf_module.input_to_hidden.weight
+                )
+            )
+            self.assertRaises(
+                AssertionError,
+                np.testing.assert_array_equal,
+                init_weights,
+                new_weights,
+            )
+
+            # Check minimum accuracy requirement.
+            init_params = self._make_init_params()
+            init_params["neural_net_param_dict"]["max_epochs"] = 50
+            clf = CrowdLayerClassifier(**init_params)
+            clf.fit(self.X, self.y_annot)
+            acc = clf.score(X=self.X, y=self.y_true)
+            self.assertGreater(
+                acc,
+                0.9,
+                msg=f"Accuracy {acc:.3f} must be > 0.9",
+            )
 
     class TestNeuralNet(nn.Module):
-        def __init__(self):
+        """Simple 2D → 3-class MLP used as clf_module in tests."""
+
+        def __init__(self, dropout_rate=0.1, return_embeddings=True):
             super().__init__()
-            self.input_to_hidden = nn.Linear(
-                in_features=2, out_features=2, bias=True
-            )
-            self.hidden_to_output = nn.Linear(
-                in_features=2, out_features=3, bias=True
-            )
+            self.input_to_hidden = nn.Linear(2, 4, bias=True)
+            self.hidden_to_output = nn.Linear(4, 3, bias=True)
+            self.dropout = nn.Dropout(dropout_rate)
+            self.return_embeddings = return_embeddings
 
         def forward(self, X):
-            hidden = self.input_to_hidden(X)
-            hidden = torch.relu(hidden)
-            output_values = self.hidden_to_output(hidden)
-            return output_values
+            hidden = torch.relu(self.input_to_hidden(X))
+            logits = self.hidden_to_output(self.dropout(hidden))
+            if self.return_embeddings:
+                return logits, hidden
+            else:
+                return logits
+
+except ImportError:
+    # torch/skorch not available -> silently skip tests
+    pass  # pragma: no cover

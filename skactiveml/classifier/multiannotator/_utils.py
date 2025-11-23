@@ -72,9 +72,9 @@ if successful_skorch_torch_import:
             off into `clf_module_param_dict` when building the network.
             Subclasses may add further enforced parameters via
             :meth:`_build_neural_net_param_overrides`.
-        sample_dtype : numpy.dtype or None, default=None
-            Optional dtype to which input samples are converted before training
-            and prediction. Passed through to :class:`SkorchClassifier`.
+        sample_dtype : str or type, default=np.float32
+            Dtype to which input samples are cast inside the estimator. If set
+            to `None`, the input dtype is preserved.
         classes : array-like of shape (n_classes,), default=None
             List or array of class labels. If provided, it is validated and
             stored as `classes_` before network initialization. If omitted,
@@ -123,7 +123,7 @@ if successful_skorch_torch_import:
             clf_module,
             n_annotators=None,
             neural_net_param_dict=None,
-            sample_dtype=None,
+            sample_dtype=np.float32,
             classes=None,
             cost_matrix=None,
             missing_label=MISSING_LABEL,
@@ -145,9 +145,9 @@ if successful_skorch_torch_import:
         def _net_parts(self, X, y):
             # Check module parameters.
             if self.neural_net_param_dict is None:
-                neural_net_param_dict = {}
-                clf_module_param_dict = {}
-            else:
+                neural_net_param_dict = {"train_split": None}
+                clf_module_param_dict = None
+            elif isinstance(self.neural_net_param_dict, dict):
                 neural_net_param_dict = self.neural_net_param_dict.copy()
                 prefix = "module__"
                 clf_module_param_dict = {
@@ -155,10 +155,19 @@ if successful_skorch_torch_import:
                     for k in list(neural_net_param_dict)
                     if k.startswith(prefix)
                 }
+            else:
+                raise TypeError(
+                    "`neural_net_param_dict` must be a `dict` or `None`."
+                )
+            if "train_split" not in neural_net_param_dict:
+                neural_net_param_dict["train_split"] = None
+            if neural_net_param_dict.get("train_split") is not None:
+                raise ValueError("`train_split` must be `None`.")
 
             # Check `classes` parameter.
             if not hasattr(self, "classes_") and self.classes is not None:
-                self.classes_ = check_classes(self.classes)
+                check_classes(self.classes)
+                self.classes_ = self.classes
             if not hasattr(self, "classes_") and self.classes is None:
                 raise RuntimeError(
                     "Number of classes must be known before init."
@@ -245,6 +254,8 @@ if successful_skorch_torch_import:
                 Keyword arguments consumed by `_validate_data`.
             """
             vd_kwargs = super()._validate_data_kwargs()
+            if vd_kwargs is None:
+                vd_kwargs = {}
             vd_kwargs["y_ensure_1d"] = False
             return vd_kwargs
 
