@@ -809,9 +809,9 @@ if successful_skorch_torch_import:
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no additional arguments are
             added.
-        sample_dtype : str or type, default=None
-            The type or typecode all samples are casted to. If `sample_dtype`
-            is None, the datatype is preserved.
+        sample_dtype : str or type, default=np.float32
+            Dtype to which input samples are cast inside the estimator. If
+            set to `None`, the input dtype is preserved.
         include_unlabeled_samples : bool, default=False
             - If `False`, only labeled samples are passed to the `fit` method
               of the `estimator`.
@@ -846,7 +846,7 @@ if successful_skorch_torch_import:
             criterion=nn.NLLLoss,
             criterion_input_index=0,
             neural_net_param_dict=None,
-            sample_dtype=None,
+            sample_dtype=np.float32,
             include_unlabeled_samples=False,
             classes=None,
             cost_matrix=None,

@@ -506,7 +506,6 @@ if successful_skorch_torch_import:
                 "missing_label": MISSING_LABEL,
                 "random_state": 1,
                 "neural_net_param_dict": self.neural_net_param_dict,
-                "sample_dtype": np.float32,
             }
             fit_default_params = {
                 "X": self.X,

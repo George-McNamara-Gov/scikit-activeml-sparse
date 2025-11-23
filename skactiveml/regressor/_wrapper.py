@@ -462,9 +462,9 @@ if successful_skorch_torch_import:
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no additional arguments are
             added.
-        sample_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `sample_dtype` is
-            None, the datatype is preserved.
+        sample_dtype : str or type, default=np.float32
+            Dtype to which input samples are cast inside the estimator. If set
+            to `None`, the input dtype is preserved.
         include_unlabeled_samples : bool, default=False
             - If `False`, only labeled samples are passed to the `fit` method
               of the `estimator`.
@@ -492,7 +492,7 @@ if successful_skorch_torch_import:
             criterion=nn.NLLLoss,
             criterion_input_index=0,
             neural_net_param_dict=None,
-            sample_dtype=None,
+            sample_dtype=np.float32,
             include_unlabeled_samples=False,
             missing_label=MISSING_LABEL,
             random_state=None,
@@ -692,10 +692,8 @@ if successful_skorch_torch_import:
                 y_train = y_train.astype(np.float32, copy=True).reshape(-1, 1)
             return X_train, y_train
 
-    class SkorchProbabilisticRegressor(
-        SkorchRegressor, ProbabilisticRegressor
-    ):
-        """SkorchProbabilisticRegressor
+    class SkorchNormalRegressor(SkorchRegressor, ProbabilisticRegressor):
+        """SkorchNormalRegressor
 
         Implement a wrapper class, to make it possible to use `torch` with
         `skactiveml`. This is achieved by providing a wrapper around `torch`
@@ -732,9 +730,9 @@ if successful_skorch_torch_import:
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no additional arguments are
             added.
-        sample_dtype : str or type, default=None
-            The type or typecode all data is casted to. If `sample_dtype` is
-            None, the datatype is preserved.
+        sample_dtype : str or type, default=np.float32
+            Dtype to which input samples are cast inside the estimator. If set
+            to `None`, the input dtype is preserved.
         missing_label : scalar or string or np.nan or None, default=np.nan
             Value to represent a missing label.
         random_state : int or RandomState instance or None, default=None
@@ -754,11 +752,11 @@ if successful_skorch_torch_import:
             criterion=nn.NLLLoss,
             criterion_input_index=0,
             neural_net_param_dict=None,
-            sample_dtype=None,
+            sample_dtype=np.float32,
             missing_label=MISSING_LABEL,
             random_state=None,
         ):
-            super(SkorchProbabilisticRegressor, self).__init__(
+            super(SkorchNormalRegressor, self).__init__(
                 missing_label=missing_label,
                 random_state=random_state,
                 module=module,

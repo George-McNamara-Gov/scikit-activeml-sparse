@@ -976,6 +976,7 @@ if successful_skorch_torch_import:
             self.y = np.copy(self.y_true).astype(np.float32)
             self.y[:100] = MISSING_LABEL
             self.y_ulbld = np.full_like(self.y, fill_value=MISSING_LABEL)
+            self.classes = np.unique(self.y_true)
 
             estimator_class = SkorchClassifier
             self.neural_net_param_dict = {
@@ -995,7 +996,6 @@ if successful_skorch_torch_import:
                 "missing_label": MISSING_LABEL,
                 "random_state": 1,
                 "neural_net_param_dict": self.neural_net_param_dict,
-                "sample_dtype": np.float32,
             }
             fit_default_params = {
                 "X": self.X,
@@ -1059,17 +1059,13 @@ if successful_skorch_torch_import:
             clf = SkorchClassifier(**self.init_default_params)
             self.assertRaises(NotFittedError, check_is_fitted, clf)
             y_pred = clf.predict(self.X)
-            self.assertTrue(
-                ((y_pred == -1) | (y_pred == 0) | (y_pred == 1)).all()
-            )
+            self.assertTrue((np.isin(y_pred, self.classes)).all())
 
             # Check prediction with initialization and w/o given classes.
             clf = SkorchClassifier(**self.init_default_params)
             clf.initialize()
             y_pred = clf.predict(self.X)
-            self.assertTrue(
-                ((y_pred == -1) | (y_pred == 0) | (y_pred == 1)).all()
-            )
+            self.assertTrue((np.isin(y_pred, self.classes)).all())
 
         def test_fit(self):
             # Check standard fitting cases.
