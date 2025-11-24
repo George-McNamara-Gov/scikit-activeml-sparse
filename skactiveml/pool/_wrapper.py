@@ -46,8 +46,8 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
           removed from `X` and `y`.
         - If `False`, `X` and `y` stay the same.
     embed_samples_func : Callable, default=None
-        - If `embed_samples_func` is a `Callable`, it must accept the samples `X`
-        as input and return the sample-wise embeddings.
+        - If `embed_samples_func` is a `Callable`, it must accept the samples
+        `X` as input and return the sample-wise embeddings.
         - If `embed_samples_func` is None, no action is performed.
     missing_label : scalar or string or np.nan or None, default=np.nan
         Value to represent a missing label.

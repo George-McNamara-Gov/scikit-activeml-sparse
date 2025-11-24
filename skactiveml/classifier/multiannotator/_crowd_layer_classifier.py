@@ -1,31 +1,24 @@
-import numpy as np
-from sklearn.utils.validation import check_array
-
-from ...base import SkactivemlClassifier
-from ...utils import (
-    MISSING_LABEL,
-    check_n_features,
-    check_scalar,
-)
-
-successful_skorch_torch_import = False
 try:
+    import numpy as np
     import torch
+
+    from sklearn.utils.validation import check_array
     from skorch.utils import to_numpy
     from torch import nn
     from torch.nn import CrossEntropyLoss
     from torch.nn import functional as F
+
+    from ...base import SkactivemlClassifier
+    from ...utils import (
+        MISSING_LABEL,
+        check_n_features,
+        check_scalar,
+    )
     from ._utils import (
         _SkorchMultiAnnotatorClassifier,
         _MultiAnnotatorClassificationModule,
         _MultiAnnotatorCollate,
     )
-
-    successful_skorch_torch_import = True
-except ImportError:
-    pass  # pragma: no cover
-
-if successful_skorch_torch_import:
 
     class CrowdLayerClassifier(_SkorchMultiAnnotatorClassifier):
         """Crowd Layer
@@ -40,7 +33,10 @@ if successful_skorch_torch_import:
         clf_module : nn.Module or nn.Module.__class__
             A PyTorch module as classification model outputting logits for
             samples as input. In general, the uninstantiated class should
-            be passed, although instantiated modules will also work.
+            be passed, although instantiated modules will also work. The
+            `forward` module must return logits as first element and optional
+            sample embeddings as second element. If no sample embeddings are
+            returned, the implement uses the original samples.
         n_annotators : int, default=None
             Number of annotators. If `n_annotators=None`, the number of
             annotators is inferred from `y` when calling `fit`.
@@ -407,3 +403,6 @@ if successful_skorch_torch_import:
                 out.append(logits_annot)
 
             return out[0] if len(out) == 1 else tuple(out)
+
+except ImportError:  # pragma: no cover
+    pass

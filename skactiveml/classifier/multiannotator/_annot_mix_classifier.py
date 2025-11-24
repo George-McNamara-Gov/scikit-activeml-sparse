@@ -1,81 +1,80 @@
-import math
-import numpy as np
-
-from sklearn.utils.validation import check_array
-
-from ...base import SkactivemlClassifier
-from ...utils import (
-    MISSING_LABEL,
-    check_n_features,
-    check_scalar,
-)
-
-successful_skorch_torch_import = False
 try:
+    import math
+    import numpy as np
     import torch
 
+    from sklearn.utils.validation import check_array
     from skorch.utils import to_numpy
-
     from torch import nn
     from torch.nn import KLDivLoss
     from torch.nn import functional as F
     from torch.utils.data import default_collate
 
+    from ...base import SkactivemlClassifier
+    from ...utils import (
+        MISSING_LABEL,
+        check_n_features,
+        check_scalar,
+    )
     from ._utils import (
         _MultiAnnotatorClassificationModule,
         _SkorchMultiAnnotatorClassifier,
     )
 
-    successful_skorch_torch_import = True
-except ImportError:
-    pass  # pragma: no cover
-
-
-if successful_skorch_torch_import:
-
     class AnnotMixClassifier(_SkorchMultiAnnotatorClassifier):
         """Annot-Mix
 
-        AnnotMix [1]_ trains a multi-annotator classifier using an extension of
-        MixUp [2]_.
+        Annot-Mix [1]_ trains a multi-annotator classifier using an extension
+        of MixUp [2]_.
 
         Parameters
         ----------
         clf_module : nn.Module or nn.Module.__class__
             A PyTorch module as classification model outputting logits for
             samples as input. In general, the uninstantiated class should
-            be passed, although instantiated modules will also work.
-        clf_sample_embed_dim : int or None, default=0
-            - If `clf_sample_embed_dim=0`, samples are ignored in subsequent
-              inference stages.
+            be passed, although instantiated modules will also work. The
+            `forward` module must return logits as first element and optional
+            sample embeddings as second element. If no sample embeddings are
+            returned, the implement uses the original samples.
+        clf_sample_embed_dim : int or None, default=None
             - If `clf_sample_embed_dim>0`, the `clf_module` is expected to
               output a per-sample embedding with the given dimensionality.
             - If `clf_sample_embed_dim` is `None`, the dimensionality of the
               raw samples is assumed.
-        alpha : float, default=1.0
+
+            Note this parameter is only relevant, if `sample_embed_dim > 0`
+            because in this case the `clf_sample_embed_dim` defines the input
+            dimension and `sample_embed_dim` the output dimension of an
+            embedding layer modeling instance-dependent annotator performances.
+        alpha : float, default=0.5
             MixUp concentration parameter. The mix coefficient `lambda` is
             drawn from `Beta(alpha, alpha)`. Use `alpha=0` to disable MixUp.
-        annotator_embed_dim : int, default=128
+        annotator_embed_dim : int, default=16
             Dimensionality of the annotator embedding used to model annotator-
             specific behavior.
-        sample_embed_dim : int or None, default=0
+        sample_embed_dim : int, default=0
             Dimensionality of an optional learnable sample-embedding used to
             model instance-specific behavior of each annotator. If
-            ``sample_embed_dim=0``, no additional sample embedding is learned.
+            ``sample_embed_dim=0``, the annotator performances are only
+            modeled as class-specific. Note to set the `clf_sample_embed_dim`
+            in accordance with your implemented `clf_module`.
         hidden_dim : int or None, default=None
             Hidden size of the fusion multi-layer perceptron that propagates
             sample and annotator representations. If ``None``, a sensible
             default is used, which depends on the other input parameters.
+            Note that this parameter has no effect for `n_hidden_layers=0`.
         n_hidden_layers : int, default=0
             Number of hidden layers in the fusion multi-layer perceptron.
-        hidden_dropout : float, default=0.0
+        hidden_dropout : float, default=0.1
             Dropout probability applied in the fusion multi-layer perceptron.
+            Note that this parameter has no effect for `n_hidden_layers=0`.
         eta : float in (0, 1), default=0.9
             Prior annotator performance, i.e., the probability of obtaining a
             correct annotation from an arbitrary annotator for an arbitrary
             sample of an arbitrary class.
-        n_annotators : int
-            Number of annotators.
+        n_annotators : int, default=None
+            Number of annotators. If `n_annotators=None`, the number of
+            annotators is inferred by the shape of `y` during training.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no extra arguments are added.
@@ -108,13 +107,13 @@ if successful_skorch_torch_import:
         def __init__(
             self,
             clf_module,
-            clf_sample_embed_dim=0,
-            alpha=1.0,
+            clf_sample_embed_dim=None,
+            alpha=0.5,
             sample_embed_dim=0,
-            annotator_embed_dim=128,
+            annotator_embed_dim=16,
             hidden_dim=None,
             n_hidden_layers=0,
-            hidden_dropout=0.0,
+            hidden_dropout=0.1,
             eta=0.9,
             n_annotators=None,
             neural_net_param_dict=None,
@@ -311,6 +310,11 @@ if successful_skorch_torch_import:
                 name="return_annotator_class",
                 target_type=bool,
             )
+            check_scalar(
+                return_annotator_embeddings,
+                name="return_annotator_embeddings",
+                target_type=bool,
+            )
 
             # Initialize module, if not done yet.
             if not hasattr(self, "neural_net_"):
@@ -393,21 +397,18 @@ if successful_skorch_torch_import:
                 min_inclusive=True,
             )
             if self.clf_sample_embed_dim is None and (X is None or X.ndim > 2):
-                raise ValueError(
-                    "`clf_sample_embed_dim` must be specified, "
-                    "if no `X` is given or `X.ndim > 2`."
-                )
-            if self.clf_sample_embed_dim is None:
+                clf_sample_embed_dim = 0
+            elif self.clf_sample_embed_dim is None:
                 clf_sample_embed_dim = X.shape[-1]
             else:
+                check_scalar(
+                    self.clf_sample_embed_dim,
+                    name="clf_sample_embed_dim",
+                    target_type=int,
+                    min_val=1,
+                    min_inclusive=True,
+                )
                 clf_sample_embed_dim = self.clf_sample_embed_dim
-            check_scalar(
-                clf_sample_embed_dim,
-                name="clf_sample_embed_dim",
-                target_type=int,
-                min_val=0,
-                min_inclusive=True,
-            )
             check_scalar(
                 self.sample_embed_dim,
                 name="sample_embed_dim",
@@ -422,13 +423,15 @@ if successful_skorch_torch_import:
                 min_val=1,
                 min_inclusive=True,
             )
-            hidden_dim = self.hidden_dim or min(
-                4 * len(self.classes_),
-                max(
-                    128,
-                    2 * (self.annotator_embed_dim + self.sample_embed_dim),
-                ),
-            )
+            hidden_dim = self.hidden_dim
+            if hidden_dim is None:
+                hidden_dim = min(
+                    4 * len(self.classes_),
+                    max(
+                        128,
+                        2 * (self.annotator_embed_dim + self.sample_embed_dim),
+                    ),
+                )
             check_scalar(
                 hidden_dim,
                 name="hidden_dim",
@@ -712,16 +715,15 @@ if successful_skorch_torch_import:
     class _MixUpCollate:
         """
         Collate that expands a batch into all (sample, annotator) pairs and
-        optionally applies MixUp jointly to samples, annotators, and labels.
+        optionally applies MixUp [1]_  jointly to samples, annotators, and
+        labels [2]_.
 
         Parameters
         ----------
         n_classes : int
             Number of classes (for one-hot encoding).
-        a : torch.Tensor or array-like of shape (n_annotators, ...)\
-                or (n_annotators,)
-            Annotator representations/features. Will be converted to a CPU
-            tensor once and reused across batches.
+        n_annotators : int
+            Number of annotators (for one-hot encoding)
         alpha : float, default=1.0
             MixUp Beta(alpha, alpha) parameter. If <= 0, no MixUp is applied.
         missing_label : int or float, default=-1
@@ -732,43 +734,64 @@ if successful_skorch_torch_import:
 
         Notes
         -----
-        - This collate runs on CPU (inside DataLoader workers). For maximum
-          speed, keep heavy augmentations inside the model on GPU and use this
-          collate only if you truly need CPU-side MixUp across
-          `(sample, annotator)` pairs.
-        - Labels are returned as one-hot vectors of length `n_classes`.
+        Labels are returned as one-hot vectors of length `n_classes`.
+
+        References
+        ----------
+        .. [1] Zhang, H., Cisse, M., Dauphin, Y. N., & Lopez-Paz, D. (2018).
+           mixup: Beyond Empirical Risk Minimization. Int. Conf. Learn.
+           Represent.
+        .. [2] Herde, M., Lührs, L., Huseljic, D., & Sick, B. (2024).
+           Annot-Mix: Learning with Noisy Class Labels from Multiple Annotators
+           via a Mixup Extension. Eur. Conf. Artif. Intell.
         """
 
         def __init__(
             self, n_classes, n_annotators, alpha=1.0, missing_label=-1
         ):
-            self.n_classes = n_classes
-            self.a = torch.eye(n_annotators, dtype=torch.float32)
-            self.alpha = float(alpha)
+            if n_classes <= 0:
+                raise ValueError("`n_classes` must be a positive integer.")
+            if n_annotators <= 0:
+                raise ValueError("`n_annotators` must be a positive integer.")
+            alpha = float(alpha)
+            if alpha < 0:
+                raise ValueError("`alpha` must be >= 0 for MixUp.")
+
+            self.n_classes = int(n_classes)
+            self.n_annotators = int(n_annotators)
+            self.a = torch.eye(self.n_annotators, dtype=torch.float32)
+            self.alpha = alpha
             self.missing_label = missing_label
 
         def __call__(self, batch):
-            # 1) Basic collation (supports tensors/ndarrays/nested dicts of
-            # X, y)
+            # 1) Basic collation (supports tensors/ndarrays/nested dicts) of
+            # samples X, labels y, and annotators a.
             x = default_collate([b[0] for b in batch])
             y = default_collate([b[1] for b in batch])
 
-            # Flatten labels to (n_samples * n_annotators,)
+            # Expect labels of shape (n_samples, n_annotators)
+            if y.dim() != 2 or y.shape[1] != self.n_annotators:
+                raise ValueError(
+                    f"y must have shape (n_samples, {self.n_annotators}), "
+                    f"got {tuple(y.shape)}."
+                )
+
+            n_samples, _ = y.shape
+
+            # Flatten labels to (n_samples * n_annotators,).
             y = y.view(-1)
 
             # 2) Build all (sample, annotator) combinations
-            n_samples = x.shape[0]
-            n_annotators = self.a.shape[0]
-
-            # sample indices: 0..B-1 repeated for each annotator
+            # sample indices: 0..B-1 repeated for each annotator.
             idx_s = torch.arange(
                 n_samples, dtype=torch.long
-            ).repeat_interleave(n_annotators)
-            # annotator indices: 0..A-1 tiled B times
-            idx_a = torch.arange(n_annotators, dtype=torch.long).repeat(
+            ).repeat_interleave(self.n_annotators)
+            # Annotator indices: 0..A-1 tiled B times.
+            idx_a = torch.arange(self.n_annotators, dtype=torch.long).repeat(
                 n_samples
             )
-            # mask out pairs whose sample is unlabeled
+
+            # Mask out pairs whose sample is unlabeled.
             if isinstance(self.missing_label, float) and (
                 self.missing_label != self.missing_label
             ):  # NaN
@@ -778,19 +801,19 @@ if successful_skorch_torch_import:
 
             idx_s = idx_s[mask]
             idx_a = idx_a[mask]
+            y_pairs = y[mask]
 
-            # 3) Select data per pair
-            # x_pairs: (N_pairs, ...)  a_pairs: (N_pairs, ...)
+            # 3) Select data per pair.
             x_pairs = x.index_select(0, idx_s)
             a_pairs = self.a.index_select(0, idx_a)
-            y_pairs = y[mask]  # integer class ids
 
-            # One-hot labels
+            # One-hot labels (ensure integer dtype for F.one_hot).
+            y_pairs = y_pairs.to(torch.long)
             y_oh = F.one_hot(y_pairs, num_classes=self.n_classes).to(
                 dtype=torch.float32
             )
 
-            # 4) Optional MixUp across pairs (jointly mixing x, a, and y)
+            # 4) Optional MixUp across pairs (jointly mixing x, a, and y).
             if self.alpha > 0:
                 x_pairs, a_pairs, y_oh, _, _ = _mix_up(
                     x_pairs, a_pairs, y_oh, alpha=self.alpha
@@ -801,7 +824,7 @@ if successful_skorch_torch_import:
 
     def _mix_up(*arrays, alpha=1.0, lmbda=None, permute_indices=None):
         """
-        MixUp multiple arrays in lockstep using the same permutation and
+        MixUp [1]_ multiple arrays in lockstep using the same permutation and
         lambdas.
 
         Parameters
@@ -812,12 +835,13 @@ if successful_skorch_torch_import:
             coefficients.
         alpha : float, default=1.0
             Beta(alpha, alpha) parameter. Used only if `lmbda is None`.
-            If `alpha <= 0`, returns inputs unchanged along with generated
-            permutation and lambda (1s).
-        lmbda : torch.Tensor of shape (N,), optional
+            If `alpha == 0`, returns inputs unchanged (with `lmbda` all ones).
+            If `alpha < 0`, a ValueError is raised.
+        lmbda : torch.Tensor of shape (N,), default=None
             Precomputed mixing coefficients in [0, 1]. If not provided, sampled
-            from `Beta(alpha, alpha)` on the same device as the first array.
-        permute_indices : torch.Tensor of shape (N,), optional
+            from `Beta(alpha, alpha)` on the same device as the first array
+            when `alpha > 0`, or set to ones if `alpha == 0`.
+        permute_indices : torch.Tensor of shape (N,), default=None
             Precomputed permutation indices. If not provided, a random
             permutation is generated on the same device as the first array.
 
@@ -829,13 +853,14 @@ if successful_skorch_torch_import:
 
         References
         ----------
-        Zhang, H., Cissé, M., Dauphin, Y. N., & Lopez-Paz, D. (2018).
-        mixup: Beyond Empirical Risk Minimization. ICLR.
+        .. [1] Zhang, H., Cisse, M., Dauphin, Y. N., & Lopez-Paz, D. (2018).
+           mixup: Beyond Empirical Risk Minimization. Int. Conf. Learn.
+           Represent.
         """
         if len(arrays) == 0:
-            raise ValueError("At least one array must be provided to _mixup.")
+            raise ValueError("At least one array must be provided to _mix_up.")
 
-        # All arrays must share the same leading dimension
+        # All arrays must share the same leading dimension.
         N = arrays[0].shape[0]
         for arr in arrays[1:]:
             if arr.shape[0] != N:
@@ -845,36 +870,53 @@ if successful_skorch_torch_import:
 
         first = arrays[0]
         device = first.device
+        alpha = float(alpha)
+        if alpha < 0:
+            raise ValueError("alpha must be >= 0 for MixUp.")
 
+        # Handle lambda.
         if lmbda is None:
-            if alpha > 0:
+            if alpha == 0:
+                lmbda = torch.ones(N, device=device, dtype=torch.float32)
+            else:
                 lmbda = (
                     torch.distributions.Beta(alpha, alpha)
                     .sample((N,))
-                    .to(device)
+                    .to(device=device, dtype=torch.float32)
                 )
-            else:
-                lmbda = torch.ones(N, device=device)
         else:
-            lmbda = torch.as_tensor(lmbda, device=device, dtype=first.dtype)
+            lmbda = torch.as_tensor(lmbda, device=device, dtype=torch.float32)
+            if lmbda.dim() != 1 or lmbda.shape[0] != N:
+                raise ValueError(
+                    f"`lmbda` must have shape ({N},), "
+                    f"got {tuple(lmbda.shape)}."
+                )
 
+        # Handle permutation.
         if permute_indices is None:
             permute_indices = torch.randperm(N, device=device)
         else:
             permute_indices = torch.as_tensor(
                 permute_indices, device=device, dtype=torch.long
             )
+            if permute_indices.dim() != 1 or permute_indices.shape[0] != N:
+                raise ValueError(
+                    f"`permute_indices` must have shape ({N},), "
+                    f"got {tuple(permute_indices.shape)}."
+                )
 
-        # Broadcast lmbda to array shapes and mix
+        # Broadcast lmbda to array shapes and mix.
         outputs = []
         for arr in arrays:
-            # shape: (N, 1, 1, ...) to broadcast to arr
             view_shape = (N,) + (1,) * (arr.dim() - 1)
             lam_view = lmbda.view(view_shape)
-            mix = lam_view * arr + (1.0 - lam_view) * arr.index_select(
+            mixed = lam_view * arr + (1.0 - lam_view) * arr.index_select(
                 0, permute_indices
             )
-            mix = mix.to(arr.dtype)
-            outputs.append(mix)
+            outputs.append(mixed.to(arr.dtype))
+
         outputs.extend([lmbda, permute_indices])
         return tuple(outputs)
+
+except ImportError:  # pragma: no cover
+    pass

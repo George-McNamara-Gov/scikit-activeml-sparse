@@ -415,6 +415,11 @@ if successful_skorch_torch_import:
                 NotImplementedError, self.sk._validate_data_kwargs
             )
 
+        def test__validate_data(self):
+            self.assertRaises(
+                NotImplementedError, self.sk._validate_data, X=None, y=None
+            )
+
         def test__return_training_data(self):
             self.assertRaises(
                 NotImplementedError,

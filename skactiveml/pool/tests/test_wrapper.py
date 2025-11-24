@@ -119,8 +119,13 @@ class TestSubSamplingWrapper(
 
     def test_init_param_embed_samples_func(self, test_cases=None):
         test_cases = [] if test_cases is None else test_cases
-        func_valid = lambda x: x
-        func_invalid = lambda x, y: x
+
+        def func_valid(x):
+            return x
+
+        def func_invalid(x, y):
+            return x
+
         test_cases += [
             (None, None),
             (False, TypeError),

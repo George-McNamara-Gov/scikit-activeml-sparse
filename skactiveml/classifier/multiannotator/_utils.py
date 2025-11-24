@@ -1,27 +1,17 @@
-import numpy as np
-
-from abc import ABC, abstractmethod
-
-from ...utils import (
-    MISSING_LABEL,
-    is_labeled,
-    check_classes,
-)
-
-successful_skorch_torch_import = False
 try:
+    import numpy as np
     import torch
 
+    from abc import ABC, abstractmethod
     from torch import nn
     from torch.utils.data import default_collate
 
     from ...classifier import SkorchClassifier
-
-    successful_skorch_torch_import = True
-except ImportError:
-    pass  # pragma: no cover
-
-if successful_skorch_torch_import:
+    from ...utils import (
+        MISSING_LABEL,
+        is_labeled,
+        check_classes,
+    )
 
     class _SkorchMultiAnnotatorClassifier(SkorchClassifier, ABC):
         """
@@ -419,3 +409,6 @@ if successful_skorch_torch_import:
             # Return batches including sample and annotator indices.
             x_out = {"x": x, "input_ids": torch.column_stack((idx_s, idx_a))}
             return x_out, y
+
+except ImportError:  # pragma: no cover
+    pass
