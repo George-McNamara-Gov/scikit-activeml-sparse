@@ -1631,7 +1631,7 @@ if successful_skorch_torch_import:
             net.
             """
             has_data = (X is not None) or (y is not None)
-            vd_kwargs = self._validate_data_kwargs() or {}
+            vd_kwargs = self._validate_data_kwargs()
             if enforce_check_X_y or has_data:
                 X, y, _ = self._validate_data(X=X, y=y, **vd_kwargs)
 

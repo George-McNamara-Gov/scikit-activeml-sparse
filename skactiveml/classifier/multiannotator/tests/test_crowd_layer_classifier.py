@@ -25,7 +25,7 @@ try:
             self.classes = np.unique(self.y_true)
             self.n_classes = len(self.classes)
             self.n_annotators = 10
-            self.missing_label = -1
+            self.missing_label = np.nan
 
             # Build multi-annotator labels (10 annotators).
             rng = np.random.RandomState(1)
@@ -112,18 +112,23 @@ try:
                 extras_params={"X": self.X},
             )
 
-        def _train_for_output_tests(self, max_epochs=50):
+        def _train_for_output_tests(
+            self, max_epochs=50, module__return_embeddings=True
+        ):
             """
             Train a classifier with stronger training
             for output-shape tests.
             """
             init_params = self._make_init_params()
             init_params["neural_net_param_dict"]["max_epochs"] = max_epochs
+            init_params["neural_net_param_dict"][
+                "module__return_embeddings"
+            ] = module__return_embeddings
             clf = CrowdLayerClassifier(**init_params)
             clf.fit(self.X, self.y_annot)
             return clf
 
-        def _check_predict_outputs(self, out, mode):
+        def _check_predict_outputs(self, out, mode, n_features):
             """
             Common checks for outputs of `predict` / `predict_proba` with all
             return_* flags enabled.
@@ -175,7 +180,7 @@ try:
             # Shared checks for the remaining outputs.
 
             # X_embed: (n_samples, n_learned_features)
-            self.assertEqual(X_embed.shape, (self.X.shape[0], 4))
+            self.assertEqual(X_embed.shape, (self.X.shape[0], n_features))
 
             # P_perf: (n_samples, n_annotators), values in [0, 1]
             self.assertEqual(
@@ -308,10 +313,10 @@ try:
                 return_annotator_perf=True,
                 return_annotator_class=True,
             )
-            self._check_predict_outputs(out, mode="proba")
+            self._check_predict_outputs(out, mode="proba", n_features=128)
 
         def test_predict(self):
-            clf = self._train_for_output_tests()
+            clf = self._train_for_output_tests(module__return_embeddings=False)
             out = clf.predict(
                 self.X,
                 return_logits=True,
@@ -319,7 +324,7 @@ try:
                 return_annotator_perf=True,
                 return_annotator_class=True,
             )
-            self._check_predict_outputs(out, mode="label")
+            self._check_predict_outputs(out, mode="label", n_features=2)
 
         # ------------------------------------------------------------------
         # partial_fit / initialize / fit behavior
@@ -350,7 +355,6 @@ try:
         def test_initialize(self):
             # Prediction w/o initialization but with default params.
             init_params = self._make_init_params()
-            init_params["neural_net_param_dict"]["max_epochs"] = 50
             clf = CrowdLayerClassifier(**init_params)
             self.assertRaises(NotFittedError, check_is_fitted, clf)
             y_pred = clf.predict(self.X)
@@ -358,11 +362,22 @@ try:
 
             # Prediction with explicit initialization.
             init_params = self._make_init_params()
-            init_params["neural_net_param_dict"]["max_epochs"] = 50
             clf = CrowdLayerClassifier(**init_params)
             clf.initialize()
             y_pred = clf.predict(self.X)
             self.assertTrue(np.isin(y_pred, self.classes).all())
+
+            # Check that initialization fails without set classes.
+            init_params = self._make_init_params()
+            init_params["classes"] = None
+            clf = CrowdLayerClassifier(**init_params)
+            self.assertRaises(ValueError, clf.initialize)
+
+            # Check that initialization fails without set n_annotators.
+            init_params = self._make_init_params()
+            init_params["n_annotators"] = None
+            clf = CrowdLayerClassifier(**init_params)
+            self.assertRaises(ValueError, clf.initialize)
 
         def test_fit(self):
             # Check standard fitting cases.
@@ -480,8 +495,8 @@ try:
 
         def __init__(self, dropout_rate=0.1, return_embeddings=True):
             super().__init__()
-            self.input_to_hidden = nn.Linear(2, 4, bias=True)
-            self.hidden_to_output = nn.Linear(4, 3, bias=True)
+            self.input_to_hidden = nn.Linear(2, 128, bias=True)
+            self.hidden_to_output = nn.Linear(128, 3, bias=True)
             self.dropout = nn.Dropout(dropout_rate)
             self.return_embeddings = return_embeddings
 

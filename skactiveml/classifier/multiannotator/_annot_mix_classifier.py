@@ -66,7 +66,7 @@ if successful_skorch_torch_import:
             Hidden size of the fusion multi-layer perceptron that propagates
             sample and annotator representations. If ``None``, a sensible
             default is used, which depends on the other input parameters.
-        n_hidden_layers : int, default=1
+        n_hidden_layers : int, default=0
             Number of hidden layers in the fusion multi-layer perceptron.
         hidden_dropout : float, default=0.0
             Dropout probability applied in the fusion multi-layer perceptron.
@@ -113,7 +113,7 @@ if successful_skorch_torch_import:
             sample_embed_dim=0,
             annotator_embed_dim=128,
             hidden_dim=None,
-            n_hidden_layers=1,
+            n_hidden_layers=0,
             hidden_dropout=0.0,
             eta=0.9,
             n_annotators=None,
@@ -220,7 +220,7 @@ if successful_skorch_torch_import:
                 return_embeddings=return_embeddings,
                 return_annotator_perf=return_annotator_perf,
                 return_annotator_class=return_annotator_class,
-                return_annotator_embeddings=return_annotator_class,
+                return_annotator_embeddings=return_annotator_embeddings,
             )
 
         def predict_proba(
@@ -297,6 +297,7 @@ if successful_skorch_torch_import:
             check_n_features(
                 self, X, reset=not hasattr(self, "n_features_in_")
             )
+            check_scalar(return_logits, name="return_logits", target_type=bool)
             check_scalar(
                 return_embeddings, name="return_embeddings", target_type=bool
             )
@@ -343,7 +344,12 @@ if successful_skorch_torch_import:
                     P_class = to_numpy(out_torch.softmax(dim=-1))
                     out_numpy = P_class
                 if return_logits:
-                    L_class = to_numpy(out_torch[0])
+                    if isinstance(out_torch, tuple):
+                        L_class = to_numpy(out_torch[0])
+                    else:
+                        L_class = to_numpy(out_torch)
+                    if not isinstance(out_numpy, list):
+                        out_numpy = [P_class]
                     out_numpy.append(L_class)
                 if return_embeddings:
                     X_embed = to_numpy(out_torch[out_idx])
@@ -386,12 +392,15 @@ if successful_skorch_torch_import:
                 min_val=0.0,
                 min_inclusive=True,
             )
-            if self.sample_embed_dim is None and (X is None or X.ndim > 2):
+            if self.clf_sample_embed_dim is None and (X is None or X.ndim > 2):
                 raise ValueError(
-                    "`sample_embed_dim` must be specified, "
+                    "`clf_sample_embed_dim` must be specified, "
                     "if no `X` is given or `X.ndim > 2`."
                 )
-            clf_sample_embed_dim = self.clf_sample_embed_dim or X.shape[-1]
+            if self.clf_sample_embed_dim is None:
+                clf_sample_embed_dim = X.shape[-1]
+            else:
+                clf_sample_embed_dim = self.clf_sample_embed_dim
             check_scalar(
                 clf_sample_embed_dim,
                 name="clf_sample_embed_dim",
@@ -862,9 +871,10 @@ if successful_skorch_torch_import:
             # shape: (N, 1, 1, ...) to broadcast to arr
             view_shape = (N,) + (1,) * (arr.dim() - 1)
             lam_view = lmbda.view(view_shape)
-            outputs.append(
-                lam_view * arr
-                + (1.0 - lam_view) * arr.index_select(0, permute_indices)
+            mix = lam_view * arr + (1.0 - lam_view) * arr.index_select(
+                0, permute_indices
             )
+            mix = mix.to(arr.dtype)
+            outputs.append(mix)
         outputs.extend([lmbda, permute_indices])
         return tuple(outputs)

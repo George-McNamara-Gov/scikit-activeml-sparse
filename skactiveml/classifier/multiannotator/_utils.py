@@ -146,7 +146,7 @@ if successful_skorch_torch_import:
             # Check module parameters.
             if self.neural_net_param_dict is None:
                 neural_net_param_dict = {"train_split": None}
-                clf_module_param_dict = None
+                clf_module_param_dict = {}
             elif isinstance(self.neural_net_param_dict, dict):
                 neural_net_param_dict = self.neural_net_param_dict.copy()
                 prefix = "module__"
@@ -169,7 +169,7 @@ if successful_skorch_torch_import:
                 check_classes(self.classes)
                 self.classes_ = self.classes
             if not hasattr(self, "classes_") and self.classes is None:
-                raise RuntimeError(
+                raise ValueError(
                     "Number of classes must be known before init."
                 )
 
@@ -250,12 +250,10 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            kwargs : dict or None
+            kwargs : dict
                 Keyword arguments consumed by `_validate_data`.
             """
             vd_kwargs = super()._validate_data_kwargs()
-            if vd_kwargs is None:
-                vd_kwargs = {}
             vd_kwargs["y_ensure_1d"] = False
             return vd_kwargs
 
