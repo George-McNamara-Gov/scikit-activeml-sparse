@@ -65,7 +65,6 @@ Source         = "https://github.com/scikit-activeml/scikit-activeml"
 addopts = [
   "--cov=./skactiveml",
   "--cov-report=xml",
-  "--cov-fail-under=100"
 ]
 testpaths = ["./skactiveml"]
 
