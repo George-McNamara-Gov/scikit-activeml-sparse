@@ -1,4 +1,5 @@
 try:
+    import random
     import unittest
     from copy import deepcopy
 
@@ -23,6 +24,11 @@ try:
     class TestAnnotMixClassifier(TemplateEstimator, unittest.TestCase):
 
         def setUp(self):
+            # Set global seeds.
+            torch.manual_seed(0)
+            np.random.seed(0)
+            random.seed(0)
+
             # Synthetic multi-class data.
             self.X, self.y_true = make_blobs(
                 n_samples=300, n_features=2, centers=3, random_state=1

@@ -139,7 +139,7 @@ jobs:
         sudo apt-get install ghostscript
         sudo apt-get install ffmpeg
         python -m pip install --upgrade pip
-        pip install --upgrade -r requirements.txt -r requirements_max.txt
+        pip install --upgrade -r requirements.txt
         pip install -r requirements_extra.txt
     - name: Black
       uses: psf/black@stable
@@ -171,7 +171,7 @@ jobs:
         sudo apt-get install ghostscript
         sudo apt-get install ffmpeg
         python -m pip install --upgrade pip
-        pip install --upgrade -r requirements.txt -r requirements_max.txt
+        pip install --upgrade -r requirements.txt
         pip install --upgrade -r requirements_opt.txt -r requirements_opt_max.txt
         pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
         pip install -r requirements_extra.txt

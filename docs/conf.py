@@ -29,7 +29,7 @@ from docs.generate import (
 # -- Project information -----------------------------------------------------
 
 project = "scikit-activeml"
-copyright = "2020"
+copyright = "2025"
 author = "Daniel Kottke, " \
          "Marek Herde, " \
          "Pham Minh Tuan, " \
@@ -249,10 +249,7 @@ intersphinx_mapping = {
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     "matplotlib": ("https://matplotlib.org/stable/", None),
     "joblib": ("https://joblib.readthedocs.io/en/latest/", None),
-    "iteration-utilities": (
-        "https://iteration-utilities.readthedocs.io/en/latest/",
-        None,
-    ),
+    "skorch": ("https://skorch.readthedocs.io/en/stable/", None),
 }
 
 # -- Options for todo extension ----------------------------------------------

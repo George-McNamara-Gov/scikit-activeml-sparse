@@ -18,7 +18,7 @@ A Comprehensive and User-friendly Active Learning Library
 .. |Codecov| image:: https://codecov.io/gh/scikit-activeml/scikit-activeml/branch/master/graph/badge.svg
    :target: https://app.codecov.io/gh/scikit-activeml/scikit-activeml
 
-.. |PythonVersion| image:: https://img.shields.io/badge/python-03.10%20%7C%203.11%20%7C%203.12%20%7C3.13-blue.svg
+.. |PythonVersion| image:: https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C3.13-blue.svg
    :target: https://pypi.org/project/scikit-activeml/
 
 .. |PyPi| image:: https://badge.fury.io/py/scikit-activeml.svg
@@ -79,16 +79,14 @@ default :code:`skactiveml` installation and must be installed separately.
 
    import numpy as np
    import torch
-
-   from datasets import load_dataset
-   from matplotlib import pyplot as plt, animation
-   from sentence_transformers import SentenceTransformer
-   from skactiveml.classifier import SkorchClassifier
-   from skactiveml.pool import Badge
-   from sklearn.manifold import TSNE
-   from skorch.callbacks import LRScheduler
    from torch import nn
    from torch.optim.lr_scheduler import CosineAnnealingLR
+   from datasets import load_dataset
+   from sentence_transformers import SentenceTransformer
+   from skorch.callbacks import LRScheduler
+
+   from skactiveml.classifier import SkorchClassifier
+   from skactiveml.pool import Badge
 
    # Define the device depending on its availability.
    device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -201,17 +199,16 @@ default :code:`skactiveml` installation and must be installed separately.
 
    import numpy as np
    import torch
-
-   from matplotlib import pyplot as plt, animation
    from torch import nn
    from torch.optim.lr_scheduler import CosineAnnealingLR
    from datasets import load_dataset
-   from skactiveml.classifier import SkorchClassifier
-   from skactiveml.stream import Split
-   from skactiveml.utils import is_labeled
    from sklearn.manifold import TSNE
    from skorch.callbacks import LRScheduler
    from transformers import AutoImageProcessor, Dinov2Model
+
+   from skactiveml.classifier import SkorchClassifier
+   from skactiveml.stream import Split
+   from skactiveml.utils import is_labeled
 
    # Define the device depending on its availability.
    device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -229,8 +226,8 @@ default :code:`skactiveml` installation and must be installed separately.
        batch["emb"] = out.cpu().numpy()
        return batch
    ds = ds.map(embed, batched=True, batch_size=128)
-   X_stream = np.stack(ds["train"]["emb"], dtype=np.float32)[:1000]
-   y_stream = np.array(ds["train"]["label"], dtype=np.int64)[:1000]
+   X_stream = np.stack(ds["train"]["emb"], dtype=np.float32)[:300]
+   y_stream = np.array(ds["train"]["label"], dtype=np.int64)[:300]
    X_test = np.stack(ds["test"]["emb"], dtype=np.float32)
    y_test = np.array(ds["test"]["label"], dtype=np.int64)
    n_features, classes = X_stream.shape[1], np.unique(y_stream)
@@ -283,7 +280,7 @@ default :code:`skactiveml` installation and must be installed separately.
 
    # Execute active learning cycle.
    qs = Split(random_state=0, budget=0.1)
-   n_cycles = 300
+   n_cycles = len(X_stream)
    query_idx = []
    for t in range(n_cycles):
        query_idx = qs.query(
@@ -313,8 +310,8 @@ optional dependencies for better support of **deep active learning**:
 
    pip install -U scikit-activeml[opt]
 
-The ``opt`` extra installs additional packages such as ``skorch`` to enable
-more sophisticated deep learning support and other extended functionality.
+The ``opt`` installs additional packages such as ``skorch`` to enable
+more sophisticated deep learning support.
 Version constraints are chosen to be reasonably flexible so that scikit-activeml
 can integrate well into an existing environment. The optional deep learning functionality
 (via ``skorch``) assumes that ``torch`` (PyTorch) is already installed in
@@ -378,14 +375,8 @@ tested core dependencies via:
 For better orientation, we provide an `overview <https://scikit-activeml
 .github.io/latest/generated/strategy_overview.html>`_
 (including paper references and `visual examples <https://scikit-activeml.github.io/latest/generated/sphinx_gallery_examples/index.html>`_)
-of the over **60 query strategies** implemented by ``skactiveml``. We indicate
-each strategy’s target learning tasks (regression and/or classification),
-flag multi-annotator scenarios, and mark strategies that consider diversity
-between samples within a selected batch. Furthermore, we categorize query
-strategies by their selection principles, i.e., informativeness (model
-uncertainty), representativeness (data‐distribution coverage), and hybrid
-(combining both). The following mind map illustrates these different
-attributes of a query strategy.
+of the over **60 query strategies** implemented by ``skactiveml``. The
+following mind map illustrates different attributes of a query strategy.
 
 .. image:: https://raw.githubusercontent.com/scikit-activeml/scikit-activeml/refs/heads/development/docs/logos/scikit-activeml-query-strategy-overview.svg
    :class: dark-light
@@ -400,28 +391,26 @@ attributes of a query strategy.
 ---------------------
 
 The table below summarizes a subset of our many in-depth `tutorials <https://scikit-activeml
-.github.io/latest/generated/tutorials.html>`_
+.github.io/latest/generated/tutorials.html>`_.
 Each entry lists the active learning scenario, prediction task, data
 modality, and models used in the tutorial.
 
 .. list-table::
    :header-rows: 1
+   :class: no-tag-filter
 
    * - Tutorial
      - Scenario
-     -
      - Task
      - Data
      - Model
    * - `Deep Active Learning for Fine-tuning Vision Transformers <https://scikit-activeml.github.io/latest/generated/tutorials/01_deep_pool_al_with_skorch>`_
      - Pool
-     -
      - Classification
      - Image
      - - Vision Transformer with Full Fine-tuning
    * - `Advanced Active Learning for Regression Tasks <https://scikit-activeml.github.io/latest/generated/tutorials/07_pool_advanced_regression>`_
      - Pool
-     -
      - Regression
      - Tabular
      - - Extreme Gradient Boosted Tree
@@ -429,7 +418,6 @@ modality, and models used in the tutorial.
        - Random Forest
    * - `Stream-based Active Learning: Getting Started <https://scikit-activeml.github.io/latest/generated/tutorials/20_stream_getting_started>`_
      - Stream
-     -
      - Classification
      - Text
      - - Sentence Transformer with Parzen Window Classifier
