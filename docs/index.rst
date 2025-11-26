@@ -5,8 +5,8 @@
    Home <self>
    Tutorials <tutorials>
    Strategy Overview <generated/strategy_overview>
-   generated/api/skactiveml
    generated/sphinx_gallery_examples/index
+   generated/api/skactiveml
    contributing
    Changelog <https://github.com/scikit-activeml/scikit-activeml/releases>
 

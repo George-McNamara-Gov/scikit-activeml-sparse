@@ -1,5 +1,5 @@
-Contributing Guide
-==================
+Contributing
+============
 
 **scikit-activeml** is a library that implements the most important query
 strategies for active learning. It is built upon the well-known machine

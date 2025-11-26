@@ -26,7 +26,14 @@ try:
         Crowd Layer [1]_ is a layer added at the end of a classifying neural
         network and allows us to train deep neural networks end-to-end,
         directly from the noisy labels of multiple annotators, using only
-        backpropagation.
+        backpropagation. The main idea is to insert an annotator-specific
+        transformation on top of a shared latent prediction: for each
+        annotator, the layer models how their noisy labels are generated from
+        the underlying class probabilities (e.g., via a confusion-matrix-like
+        mapping). By learning these annotator-specific mappings jointly with
+        the base network, Crowd Layer can separate systematic annotator biases
+        from the true label signal and thus leverage multiple noisy labels per
+        sample during training.
 
         Parameters
         ----------
@@ -42,8 +49,7 @@ try:
             annotators is inferred from `y` when calling `fit`.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
-            `neural_net_param_dict` is None, no additional arguments
-             are added.
+            `neural_net_param_dict` is None, no additional arguments are added.
         sample_dtype : str or type, default=np.float32
             Dtype to which input samples are cast inside the estimator. If set
             to `None`, the input dtype is preserved.
@@ -56,7 +62,7 @@ try:
             Cost matrix with `cost_matrix[i,j]` indicating cost of predicting
             class `classes[j]` for a sample of class `classes[i]`. Can be only
             set, if `classes` is not `None`.
-        random_state : int or RandomState instance or None, default=None
+        random_state : int or RandomState sample or None, default=None
             Determines random number for 'predict' method. Pass an int for
             reproducible results across multiple method calls.
 
@@ -146,7 +152,7 @@ try:
                 Only returned, if `return_annotator_perf=True`.
             P_annot : np.ndarray of shape (n_samples, n_annotators, n_classes)
                 `P_annot[n, m, c]` refers to the probability that annotator
-                `m` provides the class label `c` for instance `X[n]`.
+                `m` provides the class label `c` for sample `X[n]`.
                 Only returned, if `return_annotator_class=True`.
             """
             return SkactivemlClassifier.predict(
@@ -215,7 +221,7 @@ try:
                 Only returned, if `return_annotator_perf=True`.
             P_annot : np.ndarray of shape (n_samples, n_annotators, n_classes)
                 `P_annot[n, m, c]` refers to the probability that annotator
-                `m` provides the class label `c` for instance `X[n]`.
+                `m` provides the class label `c` for sample `X[n]`.
                 Only returned, if `return_annotator_class=True`.
             """
             # Check input parameters.

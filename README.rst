@@ -61,7 +61,7 @@ snippets are given below:
 
    <details>
    <summary style="font-size: 100%; font-weight: bold;">
-      <b>Pool-based Active Learning: Code Snippet 🏊</b>
+      <b>🏊 Pool-based Active Learning: Code Snippet</b>
    </summary>
 
 The following snippet implements an active learning cycle with 15
@@ -183,7 +183,7 @@ default :code:`skactiveml` installation and must be installed separately.
 
    <details>
    <summary style="font-size: 100%; font-weight: bold;">
-     <b>Stream-based Active Learning: Code Snippet 🌊</b>
+     <b>🌊 Stream-based Active Learning: Code Snippet</b>
    </summary>
 
 The following snippet implements a stream-based active learning cycle over
@@ -399,54 +399,40 @@ attributes of a query strategy.
 📚 In-depth Tutorials
 ---------------------
 
-The table below summarizes a selection of our in-depth tutorials.
+The table below summarizes a subset of our many in-depth `tutorials <https://scikit-activeml
+.github.io/latest/generated/tutorials.html>`_
 Each entry lists the active learning scenario, prediction task, data
-modality, and model family used in the tutorial.
+modality, and models used in the tutorial.
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 12 12 12 12
 
    * - Tutorial
      - Scenario
+     -
      - Task
      - Data
      - Model
-   * - Pool-based Active Learning: Getting Started
+   * - :doc:`Deep Active Learning for Fine-tuning Vision Transformers </generated/tutorials/01_deep_pool_al_with_skorch>`
      - Pool
-     - Classification
-     - Toy
-     - Logistic Regression
-   * - Stream-based Active Learning: Getting Started
-     - Stream
-     - Classification
-     - Toy
-     - Parzen Window Classifier
-   * - Pool-based Active Learning for Regression: Getting Started
-     - Pool
-     - Regression
-     - Toy
-     - Kernel Regressor
-   * - Deep Active Learning for Fine-tuning Vision Transformers
-     - Pool
+     -
      - Classification
      - Image
-     - Vision Transformer + Full Fine-tuning
-   * - Stream-based Acitve Learning in Batches
-     - Stream
-     - Classification
-     - Toy
-     - Parzen Window Classifier
-   * - Deep Active Learning for Regression Tasks
+     - - Vision Transformer with Full Fine-tuning
+   * - :doc:`Advanced Active Learning for Regression Tasks </generated/tutorials/07_pool_advanced_regression>`
      - Pool
+     -
      - Regression
      - Tabular
-     - Extreme Gradient Boosted Tree
-   * - Paper Annotation Tool
-     - Pool
+     - - Extreme Gradient Boosted Tree
+       - Multi-layer Perceptron
+       - Random Forest
+   * - :doc:`Stream-based Active Learning: Getting Started </generated/tutorials/20_stream_getting_started>`
+     - Stream
+     -
      - Classification
      - Text
-     - Text Transformer + Linear Probing
+     - - Sentence Transformer with Parzen Window Classifier
 
 .. examples_end
 

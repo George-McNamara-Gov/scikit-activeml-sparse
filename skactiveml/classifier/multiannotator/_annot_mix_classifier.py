@@ -25,7 +25,13 @@ try:
         """Annot-Mix
 
         Annot-Mix [1]_ trains a multi-annotator classifier using an extension
-        of MixUp [2]_.
+        of MixUp [2]_. The main idea is to apply MixUp not only to samples
+        and class labels, but to sample–annotator pairs: it convexly combines
+        inputs and their annotator-specific noisy labels and trains a one-stage
+        model that jointly estimates the true label distribution and each
+        annotator’s reliability. In this way, Annot-Mix can handle multiple,
+        potentially conflicting labels per sample while using MixUp-style
+        regularization to become more robust to label noise.
 
         Parameters
         ----------
@@ -45,7 +51,7 @@ try:
             Note this parameter is only relevant, if `sample_embed_dim > 0`
             because in this case the `clf_sample_embed_dim` defines the input
             dimension and `sample_embed_dim` the output dimension of an
-            embedding layer modeling instance-dependent annotator performances.
+            embedding layer modeling sample-dependent annotator performances.
         alpha : float, default=0.5
             MixUp concentration parameter. The mix coefficient `lambda` is
             drawn from `Beta(alpha, alpha)`. Use `alpha=0` to disable MixUp.
@@ -54,7 +60,7 @@ try:
             specific behavior.
         sample_embed_dim : int, default=0
             Dimensionality of an optional learnable sample-embedding used to
-            model instance-specific behavior of each annotator. If
+            model sample-specific behavior of each annotator. If
             ``sample_embed_dim=0``, the annotator performances are only
             modeled as class-specific. Note to set the `clf_sample_embed_dim`
             in accordance with your implemented `clf_module`.
@@ -90,7 +96,7 @@ try:
             Cost matrix with `cost_matrix[i,j]` indicating cost of predicting
             class `classes[j]` for a sample of class `classes[i]`. Can be only
             set, if `classes` is not `None`.
-        random_state : int or RandomState instance or None, default=None
+        random_state : int or RandomState sample or None, default=None
             Determines random number for 'predict' method. Pass an int for
             reproducible results across multiple method calls.
 
@@ -207,7 +213,7 @@ try:
                 Only returned, if `return_annotator_perf=True`.
             P_annot : np.ndarray of shape (n_samples, n_annotators, n_classes)
                 `P_annot[n, m, c]` refers to the probability that annotator
-                `m` provides the class label `c` for instance `X[n]`.
+                `m` provides the class label `c` for sample `X[n]`.
                 Only returned, if `return_annotator_class=True`.
             A_embed : np.ndarray of shape (n_annotators, annotator_embed_dim)
                 `A_embed[m]` refers to the learned embedding for annotator `m`.
@@ -285,7 +291,7 @@ try:
                 Only returned, if `return_annotator_perf=True`.
             P_annot : np.ndarray of shape (n_samples, n_annotators, n_classes)
                 `P_annot[n, m, c]` refers to the probability that annotator
-                `m` provides the class label `c` for instance `X[n]`.
+                `m` provides the class label `c` for sample `X[n]`.
                 Only returned, if `return_annotator_class=True`.
             A_embed : np.ndarray of shape (n_annotators, annotator_embed_dim)
                 `A_embed[m]` refers to the learned embedding for annotator `m`.
@@ -516,7 +522,7 @@ try:
             specific behavior.
         sample_embed_dim : int or None
             Dimensionality of an optional learnable sample-embedding used to
-            model instance-specific behavior of each annotator. If
+            model sample-specific behavior of each annotator. If
             ``sample_embed_dim=0``, no additional sample embedding is learned.
         hidden_dim : int or None
             Hidden size of the fusion multi-layer perceptron that propagates

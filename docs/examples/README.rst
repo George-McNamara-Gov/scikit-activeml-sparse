@@ -1,4 +1,4 @@
 :orphan:
 
-Examples
-========
+Visualizations
+==============
