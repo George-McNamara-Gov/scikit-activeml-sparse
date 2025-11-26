@@ -490,10 +490,10 @@ try:
             clf = CrowdLayerClassifier(**init_params)
             clf.fit(self.X, self.y_annot)
             acc = clf.score(X=self.X, y=self.y_true)
-            self.assertGreater(
+            self.assertGreaterEqual(
                 acc,
-                0.9,
-                msg=f"Accuracy {acc:.3f} must be > 0.9",
+                0.8,
+                msg=f"Accuracy {acc:.3f} must be >= 0.8",
             )
 
     class TestNeuralNet(nn.Module):

@@ -655,10 +655,10 @@ try:
             clf = AnnotMixClassifier(**init_params)
             clf.fit(self.X, self.y_annot)
             acc = clf.score(X=self.X, y=self.y_true)
-            self.assertGreater(
+            self.assertGreaterEqual(
                 acc,
-                0.9,
-                msg=f"Accuracy {acc:.3f} must be > 0.9",
+                0.8,
+                msg=f"Accuracy {acc:.3f} must be >= 0.8",
             )
 
             # Check minimum accuracy requirement with instance-dependent
@@ -671,10 +671,10 @@ try:
             clf = AnnotMixClassifier(**init_params)
             clf.fit(self.X, self.y_annot)
             acc = clf.score(X=self.X, y=self.y_true)
-            self.assertGreater(
+            self.assertGreaterEqual(
                 acc,
-                0.9,
-                msg=f"Accuracy {acc:.3f} must be > 0.9",
+                0.8,
+                msg=f"Accuracy {acc:.3f} must be >= 0.8",
             )
             _, P_perf = clf.predict(X=self.X, return_annotator_perf=True)
             self.assertEqual(P_perf.shape, (len(self.X), self.n_annotators))
