@@ -413,13 +413,13 @@ modality, and models used in the tutorial.
      - Task
      - Data
      - Model
-   * - :doc:`Deep Active Learning for Fine-tuning Vision Transformers </generated/tutorials/01_deep_pool_al_with_skorch>`
+   * - `Deep Active Learning for Fine-tuning Vision Transformers <https://scikit-activeml.github.io/latest/generated/tutorials/01_deep_pool_al_with_skorch>`_
      - Pool
      -
      - Classification
      - Image
      - - Vision Transformer with Full Fine-tuning
-   * - :doc:`Advanced Active Learning for Regression Tasks </generated/tutorials/07_pool_advanced_regression>`
+   * - `Advanced Active Learning for Regression Tasks <https://scikit-activeml.github.io/latest/generated/tutorials/07_pool_advanced_regression>`_
      - Pool
      -
      - Regression
@@ -427,7 +427,7 @@ modality, and models used in the tutorial.
      - - Extreme Gradient Boosted Tree
        - Multi-layer Perceptron
        - Random Forest
-   * - :doc:`Stream-based Active Learning: Getting Started </generated/tutorials/20_stream_getting_started>`
+   * - `Stream-based Active Learning: Getting Started <https://scikit-activeml.github.io/latest/generated/tutorials/20_stream_getting_started>`_
      - Stream
      -
      - Classification
