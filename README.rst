@@ -122,12 +122,12 @@ default :code:`skactiveml` installation and must be installed separately.
    clf = SkorchClassifier(
        module=ClassificationModule,
        criterion=nn.CrossEntropyLoss,
+       predict_nonlinearity=nn.Softmax(dim=-1),
        neural_net_param_dict={
            # Module-related parameters.
            "module__n_features": n_features,
            "module__n_hidden_units": 128,
            "module__n_classes": len(classes),
-           "predict_nonlinearity": nn.Softmax(dim=-1),
            # Optimizer-related parameters.
            "max_epochs": 100,
            "batch_size": 16,
@@ -251,12 +251,12 @@ default :code:`skactiveml` installation and must be installed separately.
    clf = SkorchClassifier(
        module=ClassificationModule,
        criterion=nn.CrossEntropyLoss,
+       predict_nonlinearity=nn.Softmax(dim=-1),
        neural_net_param_dict={
            # Module-related parameters.
            "module__n_features": n_features,
            "module__n_hidden_units": 128,
            "module__n_classes": len(classes),
-           "predict_nonlinearity": nn.Softmax(dim=-1),
            # Optimizer-related parameters.
            "max_epochs": 100,
            "batch_size": 16,
@@ -426,7 +426,7 @@ modality, and models used in the tutorial.
 
 .. citing_start
 
-🧾 Citing
+📝 Citing
 ---------
 If you use ``skactiveml`` in your research or projects, please cite the
 following work and consider starring the repository to help others discover it:
