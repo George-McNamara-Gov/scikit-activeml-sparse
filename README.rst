@@ -431,7 +431,7 @@ modality, and models used in the tutorial.
 If you use ``skactiveml`` in your research or projects, please cite the
 following work and consider starring the repository to help others discover it:
 
-.. code-block:: tex
+.. code-block:: bibtex
 
     @article{skactiveml2025,
         title={{scikit-activeml: A Comprehensive and User-friendly Active Learning Library}},
