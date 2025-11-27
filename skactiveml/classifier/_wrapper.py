@@ -774,23 +774,34 @@ if successful_skorch_torch_import:
         Notes
         -----
         Adjust your `criterion` with the outputs of your `nn.Module`.
-        For example, if you use `criterion=nn.NLLLoss`, then your module is
-        expected to output log-probabilities, which can be implemented through
-        `nn.LogSoftmax(dim=1)`. To ensure that the `predict_proba` method can
-        handle these log-probabilities, you need to set
-        `"predict_nonlinearity": torch.exp` as part of the
-        `neural_net_param_dict`, which then transforms the log-probabilities to
-        actual probabilities.
+        For example:
+        - If you use `criterion=nn.CrossEntropyLoss`, then your
+          module is expected to output logits. To ensure that the
+          `predict_proba` method can handle these logits, you need to set
+          `predict_nonlinearity=None` as default case or
+          `predict_nonlinearity=torch.nn.Softmax(dim=-1)`, which then
+          transforms the logits to actual probabilities.
+        - For example, if you use `criterion=nn.NLLLoss`, then your module is
+          expected to output log-probabilities. To ensure that the
+          `predict_proba` method can handle these log-probabilities,
+          you need to set `predict_nonlinearity=torch.exp`, which then
+          transforms the log-probabilities to actual probabilities.
 
         Parameters
         ----------
-        module : torch module (class or instance)
+        module : torch.nn.Module.__class__ or torch.nn.Module
             A PyTorch `torch.nn.Module`. In general, the uninstantiated
             class should be passed, although instantiated modules will also
             work.
-        criterion : torch.nn.Module.__class__, default=torch.nn.NLLoss
+        criterion : torch.nn.Module.__class__, \
+                default=torch.nn.CrossEntropyLoss
             The uninitialized criterion (loss) used to optimize the module. By
-            default, `torch.nn.NLLoss` is used as criterion.
+            default, `torch.nn.CrossEntropyLoss` is used as criterion.
+        predict_nonlinearity : Callable, default=None
+            When calling `predict` or `predict_proba`, this is the nonlinearity
+            to be applied to the output of your module's forward method or its
+            first element, if the output is a tuple. In the default case,
+            we set `predict_nonlinearity=torch.nn.Softmax(dim=-1)`.
         criterion_input_index : int or array-like of int, default=0
             Index or indices of the output of `module.forward` that are
             passed to the loss / criterion. Use this when `module.forward`
@@ -808,7 +819,8 @@ if successful_skorch_torch_import:
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no additional arguments are
-            added.
+            added. `module`, `criterion`, `predict_nonlinearity` are not
+            allowed in this dictionary.
         sample_dtype : str or type, default=np.float32
             Dtype to which input samples are cast inside the estimator. If
             set to `None`, the input dtype is preserved.
@@ -843,7 +855,8 @@ if successful_skorch_torch_import:
         def __init__(
             self,
             module,
-            criterion=nn.NLLLoss,
+            criterion=nn.CrossEntropyLoss,
+            predict_nonlinearity=None,
             criterion_input_index=0,
             neural_net_param_dict=None,
             sample_dtype=np.float32,
@@ -861,6 +874,7 @@ if successful_skorch_torch_import:
             )
             self.module = module
             self.criterion = criterion
+            self.predict_nonlinearity = predict_nonlinearity
             self.criterion_input_index = criterion_input_index
             self.neural_net_param_dict = neural_net_param_dict
             self.sample_dtype = sample_dtype
@@ -1032,7 +1046,7 @@ if successful_skorch_torch_import:
 
             # Convert logits to probabilities via the net's configured
             # nonlinearity.
-            P_t = self.neural_net_._get_predict_nonlinearity()(L)
+            P_t = self._predict_nonlinearity(L)
             P = to_numpy(P_t)
 
             out = [P]
@@ -1054,24 +1068,51 @@ if successful_skorch_torch_import:
             checks, wrapping criteria), then return the ready-to-use pieces for
             `skorch.NeuralNet`.
 
+            Parameters
+            ----------
+            X : array-like of shape (n_samples, ...), default=None
+                Input samples for optional validation.
+            y : array-like of shape (n_samples, ...), default=None
+                Target values for optional validation.
+
             Returns
             -------
-            module : torch.nn.Module or Callable[..., torch.nn.Module]
-                The classification/regression module or a factory returning it.
-            criterion : Callable or torch.nn.Module
-                The loss used by the internal network. May be pre-wrapped to
-                handle tuple targets or other conventions.
-            net_params : dict
-                Additional keyword arguments for `skorch.NeuralNet`
-                construction (e.g., `optimizer`, `callbacks`, `device`).
-                Empty if none.
+            module : torch.nn.Module.__class__ or torch.nn.Module
+                A PyTorch `torch.nn.Module`. In general, the uninstantiated
+                class should be passed, although instantiated modules will also
+                work.
+            criterion : torch.nn.Module.__class__
+                The uninitialized criterion (loss) used to optimize the module.
+            predict_nonlinearity : Callable
+                The nonlinearity to be applied to the prediction.
+            params : dict
+                Keyword arguments (excluding `predict_non_linearity`) for
+                `skorch.NeuralNet` construction. Must be a mapping and may be
+                empty.
             """
             criterion = self.criterion
+            if (
+                self.criterion is not nn.CrossEntropyLoss
+                and not isinstance(self.criterion, nn.CrossEntropyLoss)
+            ) and self.predict_nonlinearity is None:
+                raise ValueError(
+                    "`predict_nonlinearity` must not be None, "
+                    "if `criterion` is not torch.nn.CrossEntropyLoss."
+                )
             if self.criterion_input_index is not None:
                 criterion = make_criterion_tuple_aware(
                     criterion, criterion_input_index=self.criterion_input_index
                 )
-            return self.module, criterion, self.neural_net_param_dict or {}
+            if self.predict_nonlinearity is None:
+                self._predict_nonlinearity = nn.Softmax(dim=-1)
+            else:
+                self._predict_nonlinearity = self.predict_nonlinearity
+            return (
+                self.module,
+                criterion,
+                self._predict_nonlinearity,
+                self.neural_net_param_dict or {},
+            )
 
         def _validate_data_kwargs(self):
             """

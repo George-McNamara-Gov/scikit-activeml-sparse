@@ -307,7 +307,6 @@ try:
                 "module__n_classes": len(self.classes_),
                 "module__n_annotators": self.n_annotators_,
                 "iterator_train__collate_fn": collate_fn,
-                "predict_nonlinearity": None,
             }
 
     class _CrowdLayerModule(_MultiAnnotatorClassificationModule):

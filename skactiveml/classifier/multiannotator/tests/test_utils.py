@@ -118,7 +118,9 @@ try:
             # `neural_net_param_dict=None` -> should create dict with
             # `¨train_split¨=None`
             clf = _DummySkorchMultiAnnotator(**self.base_init_params)
-            module, criterion, nn_params = clf._net_parts(self.X, self.y)
+            module, criterion, nonlin, nn_params = clf._net_parts(
+                self.X, self.y
+            )
 
             # module and criterion are just passed through
             self.assertIs(clf.module, module)
@@ -156,7 +158,7 @@ try:
             )
             clf = _DummySkorchMultiAnnotator(**params)
 
-            _, _, nn_params = clf._net_parts(self.X, self.y)
+            _, _, _, nn_params = clf._net_parts(self.X, self.y)
 
             # "train_split" must have been injected and set to `None`
             self.assertIn("train_split", nn_params)

@@ -122,6 +122,7 @@ try:
             super(_SkorchMultiAnnotatorClassifier, self).__init__(
                 module=multi_annotator_module,
                 criterion=criterion,
+                predict_nonlinearity=nn.Identity(),
                 classes=classes,
                 missing_label=missing_label,
                 cost_matrix=cost_matrix,
@@ -204,7 +205,12 @@ try:
                     )
                 neural_net_param_dict[k] = v
 
-            return self.module, self.criterion, neural_net_param_dict
+            return (
+                self.module,
+                self.criterion,
+                self.predict_nonlinearity,
+                neural_net_param_dict,
+            )
 
         def _return_training_data(self, X, y):
             """

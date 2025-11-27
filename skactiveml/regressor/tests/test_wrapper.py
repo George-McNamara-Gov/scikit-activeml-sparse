@@ -503,6 +503,7 @@ if successful_skorch_torch_import:
             init_default_params = {
                 "module": TestNeuralNet,
                 "criterion": nn.HuberLoss,
+                "predict_nonlinearity": nn.Identity(),
                 "missing_label": MISSING_LABEL,
                 "random_state": 1,
                 "neural_net_param_dict": self.neural_net_param_dict,
@@ -542,6 +543,29 @@ if successful_skorch_torch_import:
                 (nn.HuberLoss(), None),
             ]
             self._test_param("init", "criterion", test_cases)
+
+        def test_init_param_predict_nonlinearity(self, test_cases=None):
+            test_cases = [] if test_cases is None else test_cases
+            test_cases += [
+                ("Test", TypeError),
+                (None, ValueError),
+                (nn.Identity(), None),
+                (np.exp, None),
+                (nn.Identity, TypeError),
+                (nn.Softmax(-1), None),
+            ]
+            self._test_param("init", "predict_nonlinearity", test_cases)
+            test_cases = [
+                (None, None),
+                (nn.LogSoftmax(-1), None),
+                ("Test", TypeError),
+            ]
+            self._test_param(
+                "init",
+                "predict_nonlinearity",
+                test_cases,
+                replace_init_params={"criterion": nn.MSELoss},
+            )
 
         def test_init_param_include_unlabeled_samples(self, test_cases=None):
             test_cases = [] if test_cases is None else test_cases

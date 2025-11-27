@@ -8,6 +8,7 @@ import warnings
 
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from inspect import isclass
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.metrics import accuracy_score
 from sklearn.utils.multiclass import check_classification_targets
@@ -1635,13 +1636,23 @@ if successful_skorch_torch_import:
             if enforce_check_X_y or has_data:
                 X, y, _ = self._validate_data(X=X, y=y, **vd_kwargs)
 
-            module, criterion, nn_params = self._net_parts(X=X, y=y)
+            module, criterion, predict_nonlin, nn_params = self._net_parts(
+                X=X, y=y
+            )
             check_type(nn_params, "neural_net_param_dict", dict)
             nn_params = dict(nn_params)  # defensive copy
-
+            invalid_keys = ["module", "criterion", "predict_nonlinearity"]
+            for k in invalid_keys:
+                if k in nn_params:
+                    raise ValueError(
+                        f"{k} must not be a key in `neural_net_param_dict`."
+                    )
+            if not callable(predict_nonlin) or isclass(predict_nonlin):
+                raise TypeError("`predict_nonlinearity` has to be a callable.")
             self.neural_net_ = NeuralNet(
                 module=module,
                 criterion=criterion,
+                predict_nonlinearity=predict_nonlin,
                 **nn_params,
             ).initialize()
 
@@ -1687,7 +1698,7 @@ if successful_skorch_torch_import:
             if need_reinit:
                 X, y = self.initialize(X=X, y=y, enforce_check_X_y=True)
             else:
-                vd_kwargs = self._validate_data_kwargs() or {}
+                vd_kwargs = self._validate_data_kwargs()
                 X, y, _ = self._validate_data(X=X, y=y, **vd_kwargs)
 
             X_train, y_train = self._return_training_data(X=X, y=y)
@@ -1714,14 +1725,18 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            module : torch.nn.Module or Callable[..., torch.nn.Module]
-                The classification/regression module or a factory returning it.
-            criterion : Callable or torch.nn.Module
-                The loss used by the internal network. May be pre-wrapped to
-                handle tuple targets or other conventions.
+            module : torch.nn.Module.__class__ or torch.nn.Module
+                A PyTorch `torch.nn.Module`. In general, the uninstantiated
+                class should be passed, although instantiated modules will also
+                work.
+            criterion : torch.nn.Module.__class__
+                The uninitialized criterion (loss) used to optimize the module.
+            predict_nonlinearity : Callable
+                The nonlinearity to be applied to the prediction.
             params : dict
-                Keyword arguments for `skorch.NeuralNet` construction. Must
-                be a mapping and may be empty.
+                Keyword arguments (excluding `predict_non_linearity`) for
+                `skorch.NeuralNet` construction. Must be a mapping and may be
+                empty.
             """
             raise NotImplementedError
 

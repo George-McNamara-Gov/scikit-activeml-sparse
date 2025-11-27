@@ -987,11 +987,9 @@ if successful_skorch_torch_import:
                 "lr": 0.001,
                 "max_epochs": 30,
                 "batch_size": 2,
-                "predict_nonlinearity": nn.Softmax(dim=1),
             }
             init_default_params = {
                 "module": TestNeuralNet,
-                "criterion": nn.CrossEntropyLoss,
                 "classes": None,
                 "missing_label": MISSING_LABEL,
                 "random_state": 1,
@@ -1024,14 +1022,36 @@ if successful_skorch_torch_import:
         def test_init_param_criterion(self, test_cases=None):
             test_cases = [] if test_cases is None else test_cases
             test_cases += [
-                ("Test", TypeError),
-                (None, TypeError),
-                (nn.NLLLoss, None),
+                ("Test", ValueError),
+                (None, ValueError),
+                (nn.NLLLoss, ValueError),
                 (nn.CrossEntropyLoss, None),
-                (nn.NLLLoss(), None),
+                (nn.NLLLoss(), ValueError),
                 (nn.CrossEntropyLoss(), None),
             ]
             self._test_param("init", "criterion", test_cases)
+
+        def test_init_param_predict_nonlinearity(self, test_cases=None):
+            test_cases = [] if test_cases is None else test_cases
+            test_cases += [
+                ("Test", TypeError),
+                (None, None),
+                (nn.Identity(), None),
+                (np.exp, None),
+                (nn.Identity, TypeError),
+                (nn.Softmax(-1), None),
+            ]
+            self._test_param("init", "predict_nonlinearity", test_cases)
+            test_cases = [
+                (None, ValueError),
+                (nn.LogSoftmax(-1), None),
+            ]
+            self._test_param(
+                "init",
+                "predict_nonlinearity",
+                test_cases,
+                replace_init_params={"criterion": nn.NLLLoss},
+            )
 
         def test_init_param_include_unlabeled_samples(self, test_cases=None):
             test_cases = [] if test_cases is None else test_cases

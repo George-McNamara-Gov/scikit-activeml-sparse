@@ -488,7 +488,6 @@ try:
                 "module__hidden_dropout": self.hidden_dropout,
                 "module__eta": self.eta,
                 "iterator_train__collate_fn": collate_fn,
-                "predict_nonlinearity": None,
             }
 
     class _AnnotMixModule(_MultiAnnotatorClassificationModule):
