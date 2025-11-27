@@ -179,6 +179,7 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
             attrgetter(fit_function)(self.estimator_)(
                 X_train, y_train, **estimator_params
             )
+            self.is_fitted_ = True
         except Exception as e:
             warnings.warn(
                 f"The 'estimator' could not be fitted because of"
@@ -188,6 +189,7 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
                 f"`_label_std={self._label_std}` will be used to make "
                 f"predictions."
             )
+            self.is_fitted_ = False
 
         return self
 
@@ -213,24 +215,24 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
         predict_dict = {"ensure_min_samples": 1, "ensure_min_features": 1}
         X = check_array(X, **(self.check_X_dict_ | predict_dict))
         check_n_features(self, X, reset=False)
-        try:
+        if self.is_fitted_:
             return self.estimator_.predict(X, **predict_kwargs)
-        except NotFittedError:
-            warnings.warn(
-                f"Since the 'estimator' could not be fitted when"
-                f" calling the `fit` method, the label "
-                f"mean `_label_mean={self._label_mean}` and optionally the "
-                f"label standard deviation `_label_std={self._label_std}` is "
-                f"used to make the predictions."
+
+        warnings.warn(
+            f"Since the 'estimator' could not be fitted when"
+            f" calling the `fit` method, the label "
+            f"mean `_label_mean={self._label_mean}` and optionally the "
+            f"label standard deviation `_label_std={self._label_std}` is "
+            f"used to make the predictions."
+        )
+        has_std = predict_kwargs.pop("return_std", False)
+        if has_std:
+            return (
+                np.full(len(X), self._label_mean),
+                np.full(len(X), self._label_std),
             )
-            has_std = predict_kwargs.pop("return_std", False)
-            if has_std:
-                return (
-                    np.full(len(X), self._label_mean),
-                    np.full(len(X), self._label_std),
-                )
-            else:
-                return np.full(len(X), self._label_mean)
+        else:
+            return np.full(len(X), self._label_mean)
 
     @match_signature("estimator", "sample_y")
     def sample_y(self, X, n_samples=1, **sample_kwargs):
@@ -323,7 +325,7 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
             return y_samples
 
     def __sklearn_is_fitted__(self):
-        if hasattr(self, "_label_mean"):
+        if hasattr(self, "is_fitted_"):
             return True
 
         try:
@@ -332,6 +334,7 @@ class SklearnRegressor(SkactivemlRegressor, MetaEstimatorMixin):
             return False
 
         # set attributes that would be set by the fit function
+        self.is_fitted_ = True
         self._label_mean = 0
         self._label_std = 1
         self.estimator_ = deepcopy(self.estimator)
