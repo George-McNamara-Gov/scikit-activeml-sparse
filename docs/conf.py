@@ -70,7 +70,9 @@ extensions = [
     "sphinxcontrib.bibtex",
     "nbsphinx",
     "numpydoc",
-    "copy_sphinx_gallery_notebooks"
+    "sphinx_copybutton",
+    "sphinx_sitemap",
+    "copy_sphinx_gallery_notebooks",
 ]
 
 nitpicky = True
@@ -300,3 +302,6 @@ generate_switcher(
     switcher_location="_static/switcher.json",
     blacklisted_versions=blacklisted_versions
 )
+
+html_baseurl = 'https://scikit-activeml.github.io/latest/'
+sitemap_url_scheme = "{link}"
