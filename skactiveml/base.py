@@ -1583,13 +1583,12 @@ if successful_skorch_torch_import:
 
     class SkorchMixin(ABC):
         """
-        Minimal mixin to build and train a `skorch.NeuralNet` with strict
-        hooks.
+        Minimal mixin to build and train a `skorch.NeuralNet`.
 
-        Subclasses must implement the hook methods to provide the module,
-        criterion, validation kwargs, and label filtering. This mixin always
+        Subclasses must implement the abstract methods to provide the module,
+        criterion, validation kwargs, and training data. This mixin always
         rebuilds and initializes `self.neural_net_` on `initialize` and
-        fits only on labeled data in `_fit`.
+        fits only on training data in `_fit`.
         """
 
         def initialize(self, X=None, y=None, enforce_check_X_y=False):
@@ -1615,21 +1614,8 @@ if successful_skorch_torch_import:
                 Returned when no input data was supplied
                 (both `X` and `y` are `None`).
             X_out, y_out : ndarray
-                Validated `X` and `y` as a tuple, returned when any input
-                data was supplied.
-
-            Raises
-            ------
-            TypeError
-                If the object returned by `_neural_net_param_dict()` is
-                not a `dict`.
-            ValueError
-                Propagated from `_validate_data` if inputs are invalid.
-
-            Notes
-            -----
-            The parameter dict is defensively copied before constructing the
-            net.
+                Validated `X` and `y` as a tuple, returned when
+                `enforce_check_X_y=True`.
             """
             has_data = (X is not None) or (y is not None)
             vd_kwargs = self._validate_data_kwargs()
@@ -1640,7 +1626,7 @@ if successful_skorch_torch_import:
                 X=X, y=y
             )
             check_type(nn_params, "neural_net_param_dict", dict)
-            nn_params = dict(nn_params)  # defensive copy
+            nn_params = dict(nn_params)
             invalid_keys = ["module", "criterion", "predict_nonlinearity"]
             for k in invalid_keys:
                 if k in nn_params:
@@ -1656,7 +1642,7 @@ if successful_skorch_torch_import:
                 **nn_params,
             ).initialize()
 
-            return (X, y) if (enforce_check_X_y or has_data) else self
+            return (self, X, y) if enforce_check_X_y else self
 
         def _fit(self, fit_function, X, y, **fit_params):
             """
@@ -1685,18 +1671,13 @@ if successful_skorch_torch_import:
             -------
             self : SkorchMixin
                 The fitted estimator.
-
-            Raises
-            ------
-            ValueError
-                Propagated from `_validate_data` if inputs are invalid.
             """
             need_reinit = (not hasattr(self, "neural_net_")) or (
                 fit_function == "fit"
                 and not getattr(self.neural_net_, "warm_start", False)
             )
             if need_reinit:
-                X, y = self.initialize(X=X, y=y, enforce_check_X_y=True)
+                _, X, y = self.initialize(X=X, y=y, enforce_check_X_y=True)
             else:
                 vd_kwargs = self._validate_data_kwargs()
                 X, y, _ = self._validate_data(X=X, y=y, **vd_kwargs)

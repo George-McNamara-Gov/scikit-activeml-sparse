@@ -1237,6 +1237,9 @@ if successful_skorch_torch_import:
                 (np.int32, TypeError),
                 ("a", TypeError),
                 ({"abcdefg": 0}, ValueError),
+                ({"predict_nonlinearity": nn.Identity()}, ValueError),
+                ({"module": TestNeuralNet}, ValueError),
+                ({"criterion": nn.CrossEntropyLoss}, ValueError),
             ]
             self._test_param("init", "neural_net_param_dict", test_cases)
 

@@ -253,6 +253,9 @@ try:
                 (bad_type, TypeError),
                 (bad_conflict, TypeError),
                 (bad_value, ValueError),
+                ({"predict_nonlinearity": nn.Identity()}, ValueError),
+                ({"module": TestNeuralNet}, ValueError),
+                ({"criterion": nn.CrossEntropyLoss}, ValueError),
             ]
             self._test_param("init", "neural_net_param_dict", test_cases)
 
