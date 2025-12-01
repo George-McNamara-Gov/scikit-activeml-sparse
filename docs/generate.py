@@ -142,9 +142,9 @@ def automodule(module, api_root_path, level=0):
     path = os.path.join(api_root_path, f"{module.__name__}.rst")
     if level == 0:
         with open(path, "w") as file:
-            file.write("=============\n")
-            file.write("API Reference\n")
-            file.write("=============\n")
+            file.write("===\n")
+            file.write("API\n")
+            file.write("===\n")
             file.write("\n")
             file.write("This is an overview of the API.\n")
             file.write("\n")

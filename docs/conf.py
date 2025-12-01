@@ -29,7 +29,7 @@ from docs.generate import (
 # -- Project information -----------------------------------------------------
 
 project = "scikit-activeml"
-copyright = "2020"
+copyright = "2025"
 author = "Daniel Kottke, " \
          "Marek Herde, " \
          "Pham Minh Tuan, " \
@@ -70,7 +70,9 @@ extensions = [
     "sphinxcontrib.bibtex",
     "nbsphinx",
     "numpydoc",
-    "copy_sphinx_gallery_notebooks"
+    "sphinx_copybutton",
+    "sphinx_sitemap",
+    "copy_sphinx_gallery_notebooks",
 ]
 
 nitpicky = True
@@ -184,7 +186,8 @@ html_theme_options = {
         "version_match": version,
     },
     "check_switcher": False,
-    "navbar_start": ["navbar-logo", "version-switcher"]
+    "navbar_start": ["navbar-logo", "version-switcher"],
+    "header_links_before_dropdown": 7,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -205,7 +208,12 @@ html_js_files = [
 # default: ``['localtoc.html', 'relations.html', 'sourcelink.html',
 # 'searchbox.html']``.
 #
-# html_sidebars = {}
+html_sidebars = {
+    "tutorials": [], # no primary sidebar for this page
+    "contributing": [], # no primary sidebar for this page
+    "generated/strategy_overview": [], # no primary sidebar for this page
+    "generated/sphinx_gallery_examples/index": [],  # no primary sidebar for this page
+}
 
 
 # -- Options for HTMLHelp output ---------------------------------------------
@@ -243,10 +251,7 @@ intersphinx_mapping = {
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     "matplotlib": ("https://matplotlib.org/stable/", None),
     "joblib": ("https://joblib.readthedocs.io/en/latest/", None),
-    "iteration-utilities": (
-        "https://iteration-utilities.readthedocs.io/en/latest/",
-        None,
-    ),
+    "skorch": ("https://skorch.readthedocs.io/en/stable/", None),
 }
 
 # -- Options for todo extension ----------------------------------------------
@@ -297,3 +302,6 @@ generate_switcher(
     switcher_location="_static/switcher.json",
     blacklisted_versions=blacklisted_versions
 )
+
+html_baseurl = 'https://scikit-activeml.github.io/latest/'
+sitemap_url_scheme = "{link}"

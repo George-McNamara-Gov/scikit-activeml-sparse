@@ -1,7 +1,4 @@
 # %%
-# .. note::
-#    The generated animation can be found at the bottom of the page.
-#
 # | **Google Colab Note**: If the notebook fails to run after installing the
 #   needed packages, try to restart the runtime (Ctrl + M) under
 #   Runtime -> Restart session.
@@ -21,14 +18,11 @@
 # %%
 import numpy as np
 from matplotlib import pyplot as plt, animation
-import matplotlib.patheffects as path_effects
 from matplotlib.ticker import MaxNLocator
 from sklearn.datasets import make_blobs
 
 from skactiveml.utils import (
     MISSING_LABEL,
-    labeled_indices,
-    unlabeled_indices,
     majority_vote,
     is_labeled,
 )

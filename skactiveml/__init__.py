@@ -3,6 +3,7 @@ __all__ = [
     "pool",
     "stream",
     "classifier",
+    "regressor",
     "visualization",
     "utils",
     "exceptions",

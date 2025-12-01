@@ -29,14 +29,24 @@ class Badge(SingleAnnotatorPoolQueryStrategy):
 
     Parameters
     ----------
-    clf_embedding_flag_name : str or None, default=None
-        Name of the flag, which is passed to the `predict_proba` method for
+    clf_embedding_flag_name : dict or str or None, default=None
+        Flag, which is passed to the `predict_proba` method for
         getting the (learned) sample representations.
 
-        - If `clf_embedding_flag_name=None` and `predict_proba` returns
+        - If `clf_embedding_flag_name is None` and `predict_proba` returns
           only one output, the input samples `X` are used.
-        - If `predict_proba` returns two outputs or `clf_embedding_name` is
-          not `None`, `(proba, embeddings)` are expected as outputs.
+        - If `clf_embedding_flag_name is None` and `predict_proba` returns
+          two outputs, `(proba, embeddings)` are expected as outputs.
+        - If `isinstance(clf_embedding_name, str)`, we call::
+
+            clf.predict_proba(X, **{clf_embedding_flag_name: True})
+
+          and expect `(proba, embeddings)` as output.
+        - If `isinstance(clf_embedding_name, dict)`, we call::
+
+            clf.predict_proba(X, **clf_embedding_flag_name)
+
+          and expect `(proba, embeddings)` as output.
     missing_label : scalar or string or np.nan or None, default=np.nan
         Value to represent a missing label.
     random_state : None or int or np.random.RandomState, default=None
@@ -139,10 +149,18 @@ class Badge(SingleAnnotatorPoolQueryStrategy):
         check_type(clf, "clf", SkactivemlClassifier)
         check_equal_missing_label(clf.missing_label, self.missing_label_)
         check_scalar(fit_clf, "fit_clf", bool)
+        predict_proba_kwargs = {}
         if self.clf_embedding_flag_name is not None:
-            check_scalar(
-                self.clf_embedding_flag_name, "clf_embedding_flag_name", str
+            check_type(
+                self.clf_embedding_flag_name,
+                "clf_embedding_flag_name",
+                dict,
+                str,
             )
+            if isinstance(self.clf_embedding_flag_name, str):
+                predict_proba_kwargs = {self.clf_embedding_flag_name: True}
+            else:
+                predict_proba_kwargs = self.clf_embedding_flag_name
 
         # Fit the classifier
         if fit_clf:
@@ -166,14 +184,9 @@ class Badge(SingleAnnotatorPoolQueryStrategy):
             unlbld_mapping = np.arange(len(X_cand))
 
         # gradient embedding, aka predict class membership probabilities
-        if self.clf_embedding_flag_name is not None:
-            probas, X_unlbld = clf.predict_proba(
-                X_unlbld, **{self.clf_embedding_flag_name: True}
-            )
-        else:
-            probas = clf.predict_proba(X_unlbld)
-            if isinstance(probas, tuple):
-                probas, X_unlbld = probas
+        probas = clf.predict_proba(X_unlbld, **predict_proba_kwargs)
+        if isinstance(probas, tuple):
+            probas, X_unlbld = probas
 
         y_pred = probas.argmax(axis=-1)
         proba_factor = probas - np.eye(probas.shape[1])[y_pred]
