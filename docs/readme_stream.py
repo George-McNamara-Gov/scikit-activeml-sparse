@@ -60,7 +60,6 @@ class ClassificationModule(nn.Module):
 clf = SkorchClassifier(
     module=ClassificationModule,
     criterion=nn.CrossEntropyLoss,
-    predict_nonlinearity=nn.Softmax(dim=-1),
     neural_net_param_dict={
         # Module-related parameters.
         "module__n_features": n_features,

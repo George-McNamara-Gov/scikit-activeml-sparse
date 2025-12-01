@@ -122,7 +122,7 @@ default :code:`skactiveml` installation and must be installed separately.
    clf = SkorchClassifier(
        module=ClassificationModule,
        criterion=nn.CrossEntropyLoss,
-       predict_nonlinearity=nn.Softmax(dim=-1),
+       forward_outputs={"proba": (0, nn.Softmax(dim=-1)), "emb": (1, None)},
        neural_net_param_dict={
            # Module-related parameters.
            "module__n_features": n_features,
@@ -152,7 +152,7 @@ default :code:`skactiveml` installation and must be installed separately.
    # Create a deep active learning query strategy.
    qs = Badge(
        missing_label=missing_label,
-       clf_embedding_flag_name="return_embeddings",
+       clf_embedding_flag_name={"extra_outputs": "emb"},
    )
 
    # Define the active learning parameters.
@@ -251,7 +251,6 @@ default :code:`skactiveml` installation and must be installed separately.
    clf = SkorchClassifier(
        module=ClassificationModule,
        criterion=nn.CrossEntropyLoss,
-       predict_nonlinearity=nn.Softmax(dim=-1),
        neural_net_param_dict={
            # Module-related parameters.
            "module__n_features": n_features,

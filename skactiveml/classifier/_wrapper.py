@@ -36,8 +36,8 @@ from ..utils import (
 
 successful_skorch_torch_import = False
 try:
+    import torch
     from torch import nn
-    from skorch.utils import to_numpy
     from skactiveml.base import SkorchMixin
     from skactiveml.utils import make_criterion_tuple_aware
 
@@ -766,83 +766,155 @@ if successful_skorch_torch_import:
     class SkorchClassifier(SkactivemlClassifier, SkorchMixin):
         """SkorchClassifier
 
-        Implement a wrapper class, to make it possible to use `torch` with
+        Implement a wrapper class to make it possible to use `torch` with
         `skactiveml`. This is achieved by providing a wrapper around `torch`
-        that has a `skactiveml` interface and also be able to handle missing
-        labels. This wrapper is based on the open-source library `skorch` [1]_.
+        that has a `skactiveml` interface and can handle missing labels.
+        This wrapper is based on the open-source library `skorch` [1]_.
 
         Notes
         -----
-        Adjust your `criterion` with the outputs of your `nn.Module`.
-        For example:
-        - If you use `criterion=nn.CrossEntropyLoss`, then your
-          module is expected to output logits. To ensure that the
-          `predict_proba` method can handle these logits, you need to set
-          `predict_nonlinearity=None` as default case or
-          `predict_nonlinearity=torch.nn.Softmax(dim=-1)`, which then
-          transforms the logits to actual probabilities.
-        - For example, if you use `criterion=nn.NLLLoss`, then your module is
-          expected to output log-probabilities. To ensure that the
-          `predict_proba` method can handle these log-probabilities,
-          you need to set `predict_nonlinearity=torch.exp`, which then
-          transforms the log-probabilities to actual probabilities.
+        Adjust your `criterion` and `module.forward` outputs consistently.
+        See the documentation of the parameters `forward_outputs` and
+        `criterion_output_keys` how to do this.
 
         Parameters
         ----------
         module : torch.nn.Module.__class__ or torch.nn.Module
-            A PyTorch `torch.nn.Module`. In general, the uninstantiated
-            class should be passed, although instantiated modules will also
-            work.
-        criterion : torch.nn.Module.__class__, \
+            A PyTorch `torch.nn.Module`. In general, the uninstantiated class
+            should be passed, although instantiated modules will also work.
+        criterion : torch.nn.Module or torch.nn.Module.__class__, \
                 default=torch.nn.CrossEntropyLoss
-            The uninitialized criterion (loss) used to optimize the module. By
-            default, `torch.nn.CrossEntropyLoss` is used as criterion.
-        predict_nonlinearity : Callable, default=None
-            When calling `predict` or `predict_proba`, this is the nonlinearity
-            to be applied to the output of your module's forward method or its
-            first element, if the output is a tuple. In the default case,
-            we set `predict_nonlinearity=torch.nn.Softmax(dim=-1)`.
-        criterion_input_index : int or array-like of int, default=0
-            Index or indices of the output of `module.forward` that are
-            passed to the loss / criterion. Use this when `module.forward`
-            returns a tuple, e.g. `(logits, embeddings, ...)`, but the
-            criterion expects a single tensor input such as class scores
-            (e.g. `nn.CrossEntropyLoss`).
+            The loss (criterion) used to optimize the module.
 
-            - If an `int`, the corresponding element of the `module.forward`
-              output is passed to the criterion (e.g. `0` to use only the
-              logits).
-            - If an array-like of `int`, the selected elements are packed
-              into a tuple and passed to the criterion in that order.
-            - If `None`, the full output of `module.forward` is passed
-              unchanged.
+            - If a class (subclass of `torch.nn.Module`) is passed
+              (e.g. `torch.nn.CrossEntropyLoss`), it is instantiated
+              internally.
+            - If an instance is passed (e.g. `torch.nn.CrossEntropyLoss()`),
+              that instance (or a wrapped copy of it) is used.
+
+            By default, `torch.nn.CrossEntropyLoss` is used as criterion.
+        forward_outputs : dict[str, tuple[int, Callable | None]] or None,\
+                default=None
+            Dictionary that describes how to get and post-process the outputs
+            of `module.forward` for prediction. This parameter replaces the
+            functionality of `predict_nonlinearity` in a `skorch.net.NeuralNet`
+            (see documentation of `neural_net_param_dict`).
+
+            Let `raw_outputs = module.forward(x)` be normalized to a tuple.
+            Each entry `name -> (idx, transform)` in `forward_outputs` is
+            interpreted as:
+
+            - `idx` : int
+              Index into `raw_outputs` (0-based).
+            - `transform` : callable or `None`
+              If not `None`, it is applied to the selected raw tensor
+              `raw_outputs[idx]`. Otherwise, the raw tensor is used unchanged.
+
+            This allows multiple named outputs to reference the same raw tensor
+            with different transforms, for example::
+
+                forward_outputs = {
+                    "proba":  (0, torch.nn.Softmax(dim=-1)),  # probabilities
+                    "logits": (0, None),                      # raw scores
+                    "emb":    (1, None),                      # embeddings
+                }
+
+            The first entry in `forward_outputs` defines the primary
+            scores used for prediction:
+
+            - In `predict_proba`, the transformed first output is
+              interpreted as class probabilities `P`.
+            - In `predict`, the class probabilities `P` returned by
+              `predict_proba` are used to infer class label predictions.
+
+            If `forward_outputs` is `None`, a sensible default is chosen
+            for common single-output classifiers based on the `criterion`:
+
+            - If `criterion` is `torch.nn.CrossEntropyLoss`, it is
+              assumed that `module.forward` returns logits and the
+              effective mapping is::
+
+                  {"proba": (0, torch.nn.Softmax(dim=-1))}
+
+            - If `criterion` is `torch.nn.NLLLoss`, it is assumed that
+              `module.forward` returns log-probabilities and the effective
+              mapping is::
+
+                  {"proba": (0, torch.exp)}
+
+            - For all other criteria, a single-output module is assumed to
+              already produce values in probability space, and the effective
+              mapping is::
+
+                  {"output": (0, None)}
+
+        criterion_output_keys : str or sequence of str or None, default=None
+            Name or names of the forward outputs that are passed to the
+            loss / criterion during training. Use this when
+            `module.forward` returns multiple outputs
+            (e.g. `(logits, embeddings, ...)`), but the criterion expects
+            a single tensor input or a specific tuple of inputs.
+
+            The names must refer to keys of the effective `forward_outputs`
+            mapping. If `criterion_output_keys` is not `None` and
+            `forward_outputs` is `None`, a `ValueError` is raised
+            because the names cannot be resolved.
+
+            - If a `str`, the corresponding named output of
+              `module.forward` (i.e., the raw tensor selected via its
+              index in `forward_outputs` before applying the transform)
+              is passed to the criterion (e.g. `"logits"` to use only the
+              class scores).
+            - If a sequence of `str`, the selected named outputs are packed
+              into a tuple and passed to the criterion in that order. Each raw
+              forward output index may appear **at most once**: using multiple
+              names that resolve to the same underlying index (e.g. `"proba"`
+              and `"logits"` both pointing to index 0) is not allowed and
+              results in a `ValueError`.
+            - If `None`, the first output defined by the effective
+              `forward_outputs` mapping is used as criterion input. For
+              single-output modules with the default mapping, this is that
+              single output.
+
+            To pass all distinct forward outputs to the criterion in the
+            same order as `forward_outputs`, choose one representative name
+            per raw output index and set, for example::
+
+                # assuming that each key refers to a different raw index
+                criterion_output_keys = tuple(forward_outputs.keys())
+
+            If `forward_outputs` contains multiple names that refer to the
+            same raw output index (aliases such as `"proba"` and `"logits"`
+            both mapping to index 0), you must select at most one name per
+            raw index in `criterion_output_keys`.
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no additional arguments are
-            added. `module`, `criterion`, `predict_nonlinearity` are not
+            added. `module`, `criterion`, and `predict_nonlinearity` are not
             allowed in this dictionary.
         sample_dtype : str or type, default=np.float32
-            Dtype to which input samples are cast inside the estimator. If
-            set to `None`, the input dtype is preserved.
+            Dtype to which input samples are cast inside the estimator. If set
+            to `None`, the input dtype is preserved.
         include_unlabeled_samples : bool, default=False
             - If `False`, only labeled samples are passed to the `fit` method
-              of the `estimator`.
+              of the estimator.
             - If `True`, all samples including the unlabeled ones are passed to
-              the `fit` method of the `estimator`. Ensure that the `criterion`
+              the `fit` method of the estimator. Ensure that the `criterion`
               is able to handle unlabeled samples marked by `missing_label`.
               Otherwise, `missing_label` is interpreted as a regular class
               label.
         classes : array-like of shape (n_classes,), default=None
-            Holds the label for each class. If none, the classes are determined
-            during the fit.
-        missing_label : scalar or string or np.nan or None, default=np.nan
+            Holds the label for each class. If `None`, the classes are
+            determined during the fit.
+        missing_label : scalar or str or np.nan or None, default=np.nan
             Value to represent a missing label.
         cost_matrix : array-like of shape (n_classes, n_classes)
-            Cost matrix with `cost_matrix[i,j]` indicating cost of predicting
-            class `classes[j]` for a sample of class `classes[i]`. Can be only
-            set, if `classes` is not none.
+            Cost matrix with `cost_matrix[i, j]` indicating the cost of
+            predicting class `classes[j]` for a sample of class
+            `classes[i]`. Can only be set if `classes` is not `None`.
         random_state : int or RandomState instance or None, default=None
-            Determines random number for 'predict' method. Pass an int for
+            Determines random number generation for methods that rely on
+            randomness (e.g. `predict` for stochastic models). Pass an int for
             reproducible results across multiple method calls.
 
         References
@@ -856,8 +928,8 @@ if successful_skorch_torch_import:
             self,
             module,
             criterion=nn.CrossEntropyLoss,
-            predict_nonlinearity=None,
-            criterion_input_index=0,
+            forward_outputs=None,
+            criterion_output_keys=None,
             neural_net_param_dict=None,
             sample_dtype=np.float32,
             include_unlabeled_samples=False,
@@ -874,8 +946,8 @@ if successful_skorch_torch_import:
             )
             self.module = module
             self.criterion = criterion
-            self.predict_nonlinearity = predict_nonlinearity
-            self.criterion_input_index = criterion_input_index
+            self.forward_outputs = forward_outputs
+            self.criterion_output_keys = criterion_output_keys
             self.neural_net_param_dict = neural_net_param_dict
             self.sample_dtype = sample_dtype
             self.include_unlabeled_samples = include_unlabeled_samples
@@ -901,15 +973,15 @@ if successful_skorch_torch_import:
             Returns
             -------
             self: SkorchClassifier,
-                The SkorchClassifier is fitted on the training data.
+                `SkorchClassifier` object fitted on the training data.
             """
             return self._fit("fit", X, y, **fit_params)
 
         def partial_fit(self, X, y, **fit_params):
             """Fit the module without re-initialization.
 
-            If the module was already initialized, by calling partial_fit, the
-            module will not be re-initialized again.
+            If the module was already initialized, by calling `partial_fit`,
+            the module will not be re-initialized again.
 
             Parameters
             ----------
@@ -918,7 +990,7 @@ if successful_skorch_torch_import:
                 and unlabeled samples
             y : array-like of shape (n_samples, )
                 Labels of the training data set (possibly including unlabeled
-                ones indicated by self.missing_label)
+                ones indicated by `self.missing_label`)
             fit_params : dict-like
                 Further parameters as input to the 'partial_fit' method of the
                 `skorch.net.NeuralNet`.
@@ -926,88 +998,111 @@ if successful_skorch_torch_import:
             Returns
             -------
             self: SkorchClassifier
-                The `SkorchClassifier` is fitted on the training data.
+                `SkorchClassifier` object fitted on the training data.
             """
             return self._fit("partial_fit", X, y, **fit_params)
 
-        def predict(self, X, return_logits=False, return_embeddings=False):
-            """Return class label predictions for the test samples `X`.
-            Optionally, a tuple is returned whose elements appear in this exact
-            order if they were requested:
+        def predict(self, X, extra_outputs=None):
+            """Return class predictions for the test samples `X`.
 
-            (0) `y_pred` – always returned,
-            (1) `L` – if `return_logits=True`,
-            (2) `X_embed`  – if `return_embeddings=True`.
-
-            Parameters
-            ----------
-            X :  array-like of shape (n_samples, ...)
-                Input samples.
-            return_logits : bool, default=False
-                If `return_logits=True`, the forward method of the neural
-                network module is expected to return logits as first element.
-            return_embeddings : boolean, default=False
-                If `return_embeddings=True`, the forward method of the neural
-                network module is expected to return multiple outputs,
-                of which the first element corresponds to the class predictions
-                (probabilities, logits, etc.) and the second element is a
-                tensor of embeddings learned by the neural network.
-
-            Returns
-            -------
-            y : numpy.ndarray of shape (n_samples,)
-                Predicted class labels of the test samples `X`.
-            L : numpy.ndarray of shape (n_samples, n_classes)
-                The class logits of the test samples, which are only returned
-                if `return_logits=True`. Classes are ordered according to
-                `self.classes_`.
-            X_embed : numpy.ndarray of shape (n_samples, ...)
-                Sample embeddings, which are only returned if
-                `return_embeddings=True`.
-            """
-            return super().predict(
-                X=X,
-                return_logits=return_logits,
-                return_embeddings=return_embeddings,
-            )
-
-        def predict_proba(
-            self, X, return_logits=False, return_embeddings=False
-        ):
-            """Return probability estimates for the test data X. Optionally, a
-            tuple is returned whose elements appear in this exact order if they
-            were requested:
-
-            (0) `P` – always returned,
-            (1) `L` – if `return_logits=True`,
-            (2) `X_embed`  – if `return_embeddings=True`.
+            By default, this method returns only the predicted classes
+            `y_pred`. The predictions are obtained via the class probabilities
+            `P` outputted by `predict_proba`. If `extra_outputs` is provided,
+            a tuple is returned whose first element is `y_pred` and whose
+            remaining elements are the requested additional forward outputs,
+            in the order specified by `extra_outputs`.
 
             Parameters
             ----------
             X : array-like of shape (n_samples, ...)
                 Test samples.
-            return_logits : bool, default=False
-                If `return_logits=True`, the forward method of the neural
-                network module is expected to return logits as first element.
-            return_embeddings : boolean, default=False
-                If `return_embeddings=True`, the forward method of the neural
-                network module is expected to return multiple outputs,
-                of which the first element corresponds to the class predictions
-                (probabilities, logits, etc.) and the second element is a
-                tensor of embeddings learned by the neural network.
+            extra_outputs : None or str or or sequence of str, default=None
+                Names of additional outputs to return next to `y_pred`. The
+                names must be a subset of the keys of the effective
+                `forward_outputs` mapping.
+
+                For example, if::
+
+                    self.forward_outputs = {
+                        "proba":  (0, torch.nn.Softmax(dim=-1)),
+                        "logits": (0, None),
+                        "emb":    (1, None),
+                    }
+
+                then valid values for `extra_outputs` include `"logits"` or
+                `["logits", "emb"]`.
+
+                - If `extra_outputs is None`, only `y_pred` is returned.
+                - If `extra_outputs` is a string, e.g. `"emb"`, the
+                  return value is `(y_pred, emb)`.
+                - If `extra_outputs` is a sequence of strings, the return
+                  value is `(y_pred, out_1, out_2, ...)`, where `out_i`
+                  corresponds to the i-th name in `extra_outputs`.
 
             Returns
             -------
-            P : numpy.ndarray of shape (n_samples, classes)
-                The class probabilities of the test samples. Classes are
-                ordered according to `self.classes_`.
-            L : numpy.ndarray of shape (n_samples, n_classes)
-                The class logits of the test samples, which are only returned
-                if `return_logits=True`. Classes are ordered according to
-                `self.classes_`.
-            X_embed : numpy.ndarray of shape (n_samples, ...)
-                Sample embeddings, which are only returned if
-                `return_embeddings=True`.
+            y_pred : numpy.ndarray of shape (n_samples, ...)
+                Predicted classes of the test samples.
+            extras : tuple of numpy.ndarray, optional
+                Only returned if `extra_outputs` is not `None`. In that
+                case, the method returns a tuple whose first element is
+                `y_pred` and whose remaining elements correspond to the
+                requested forward outputs in the order given by
+                `extra_outputs`.
+            """
+            return super().predict(
+                X=X,
+                extra_outputs=extra_outputs,
+            )
+
+        def predict_proba(self, X, extra_outputs=None):
+            """Return probability estimates for the test samples `X`.
+
+            By default, this method returns only the class probabilities `P`.
+            The probabilities are obtained from the first entry defined in the
+            effective `forward_outputs` mapping after applying its transform
+            (e.g., a softmax or exponential). If `extra_outputs` is provided,
+            a tuple is returned whose first element is `P` and whose remaining
+            elements are the requested additional forward outputs, in the order
+            specified by `extra_outputs`.
+
+            Parameters
+            ----------
+            X : array-like of shape (n_samples, ...)
+                Test samples.
+            extra_outputs : None or str or sequence of str, default=None
+                Names of additional outputs to return next to `P`. The names
+                must be a subset of the keys of the effective `forward_outputs`
+                mapping.
+
+                For example, if::
+
+                    self.forward_outputs = {
+                        "proba":  (0, torch.nn.Softmax(dim=-1)),
+                        "logits": (0, None),
+                        "emb":    (1, None),
+                    }
+
+                then valid values for `extra_outputs` include `"logits"` or
+                `["logits", "emb"]`.
+
+                - If `extra_outputs is None`, only `P` is returned.
+                - If `extra_outputs` is a string, e.g. `"logits"`, the
+                  return value is `(P, logits)`.
+                - If `extra_outputs` is a sequence of strings, the return
+                  value is `(P, out_1, out_2, ...)`, where `out_i`
+                  corresponds to the i-th name in `extra_outputs`.
+
+            Returns
+            -------
+            P : numpy.ndarray of shape (n_samples, n_classes)
+                Class probabilities of the test samples. Classes are ordered
+                according to `self.classes_`.
+            extras : tuple of numpy.ndarray, optional
+                Only returned if `extra_outputs` is not `None`. In that
+                case, the method returns a tuple whose first element is `P`
+                and whose remaining elements correspond to the requested
+                forward outputs in the order given by `extra_outputs`.
             """
             # Initialize module, if not done yet.
             if not hasattr(self, "neural_net_"):
@@ -1018,48 +1113,62 @@ if successful_skorch_torch_import:
             check_n_features(
                 self, X, reset=not hasattr(self, "n_features_in_")
             )
-            check_scalar(
-                return_embeddings, name="return_embeddings", target_type=bool
+
+            # Resolve effective forward_outputs (either user-provided or
+            # defaulted based on the criterion).
+            forward_outputs = self._effective_forward_outputs()
+
+            # Forward propagation whose return values depends on the request
+            # ones.
+            fw_out = self._forward_with_named_outputs(
+                X, forward_outputs=forward_outputs, extra_outputs=extra_outputs
             )
-            check_scalar(return_logits, name="return_logits", target_type=bool)
 
-            # Fast path: probabilities only.
-            if not (return_logits or return_embeddings):
-                P = self.neural_net_.predict_proba(X)
-                self._initialize_fallbacks(P=P)
-                return P
+            # First element is expected to be the class probabilities.
+            P = fw_out[0] if isinstance(fw_out, tuple) else fw_out
+            self._initialize_fallbacks(P)
+            return fw_out
 
-            # Class forward of module.
-            fw_out = self.neural_net_.forward(X)
-            if isinstance(fw_out, tuple):
-                L, X_embed = fw_out[0], fw_out[1]
-            else:
-                L, X_embed = fw_out, None
-                if return_embeddings:
-                    raise ValueError(
-                        "`return_embeddings=True` only works when module is "
-                        "expected to return multiple outputs, of which the "
-                        "first element corresponds to the class predictions "
-                        "(probabilities, logits, etc.) and the second element "
-                        "is a tensor of embeddings."
-                    )
+        def _effective_forward_outputs(self):
+            """Return the effective `forward_outputs` mapping.
 
-            # Convert logits to probabilities via the net's configured
-            # nonlinearity.
-            P_t = self._predict_nonlinearity(L)
-            P = to_numpy(P_t)
+            If the user did not specify `forward_outputs`, choose a reasonable
+            default for common criteria (e.g., `nn.CrossEntropyLoss`) and a
+            simple single-output module.
 
-            out = [P]
-            if return_logits:
-                out.append(to_numpy(L))
-            if return_embeddings:
-                out.append(to_numpy(X_embed))
+            The returned mapping has the form::
 
-            # Ensure fallbacks are initialized with probabilities.
-            self._initialize_fallbacks(P=P)
-            return tuple(out)
+                {name: (idx, transform)}
 
-        def _net_parts(self, X, y):
+            where `idx` is the index into the tuple returned by
+            `module.forward` (0-based) and `transform` is a callable or
+            `None`. For the defaults below, a single-output module is assumed,
+            i.e., `idx == 0`.
+            """
+            # User explicitly provided a mapping: trust it.
+            if self.forward_outputs is not None:
+                return self.forward_outputs
+
+            # No explicit mapping: handle common single-output cases.
+            crit_cls = (
+                self.criterion
+                if isinstance(self.criterion, type)
+                else self.criterion.__class__
+            )
+
+            if crit_cls is nn.CrossEntropyLoss:
+                # Single-output network returning logits.
+                return {"logits": (0, nn.Softmax(dim=-1))}
+
+            if crit_cls is nn.NLLLoss:
+                # Module returns log-probabilities.
+                return {"log-proba": (0, torch.exp)}
+
+            # Fallback: treat the single forward output as already in
+            # probability space. Caller is responsible for making this true.
+            return {"output": (0, None)}
+
+        def _net_parts(self, X=None, y=None):
             """
             Assemble and validate network components.
 
@@ -1083,34 +1192,20 @@ if successful_skorch_torch_import:
                 work.
             criterion : torch.nn.Module.__class__
                 The uninitialized criterion (loss) used to optimize the module.
-            predict_nonlinearity : Callable
-                The nonlinearity to be applied to the prediction.
             params : dict
                 Keyword arguments (excluding `predict_non_linearity`) for
                 `skorch.NeuralNet` construction. Must be a mapping and may be
                 empty.
             """
             criterion = self.criterion
-            if (
-                self.criterion is not nn.CrossEntropyLoss
-                and not isinstance(self.criterion, nn.CrossEntropyLoss)
-            ) and self.predict_nonlinearity is None:
-                raise ValueError(
-                    "`predict_nonlinearity` must not be None, "
-                    "if `criterion` is not torch.nn.CrossEntropyLoss."
-                )
-            if self.criterion_input_index is not None:
-                criterion = make_criterion_tuple_aware(
-                    criterion, criterion_input_index=self.criterion_input_index
-                )
-            if self.predict_nonlinearity is None:
-                self._predict_nonlinearity = nn.Softmax(dim=-1)
-            else:
-                self._predict_nonlinearity = self.predict_nonlinearity
+            criterion = make_criterion_tuple_aware(
+                criterion=criterion,
+                criterion_output_keys=self.criterion_output_keys,
+                forward_outputs=self._effective_forward_outputs(),
+            )
             return (
                 self.module,
                 criterion,
-                self._predict_nonlinearity,
                 self.neural_net_param_dict or {},
             )
 

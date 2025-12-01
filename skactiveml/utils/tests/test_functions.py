@@ -172,149 +172,240 @@ class TestFunctions(unittest.TestCase):
     if successful_skorch_torch_import:
 
         def test_make_criterion_tuple_aware(self):
-            x = torch.randn(20, 10)
-            target = torch.randint(10, (20,))
+            x = torch.randn(8, 5)
+            target = torch.randint(0, 5, (8,))
 
-            # Base loss and reference value.
             base_loss = nn.CrossEntropyLoss()
             loss = base_loss(x, target)
 
-            # Tuple-aware class (using default criterion_input_index=0).
-            TupleAwareCrossEntropy = make_criterion_tuple_aware(
-                nn.CrossEntropyLoss, criterion_input_index=0
-            )
-
-            # Tuple-aware instance.
-            tuple_aware_cross_entropy = make_criterion_tuple_aware(
-                nn.CrossEntropyLoss(ignore_index=-10),
-                criterion_input_index=0,
-            )
-
-            # --- Plain criterion: failing configurations ---
-            with self.assertRaises(TypeError):
-                base_loss((x,), target)
-            with self.assertRaises(TypeError):
-                base_loss((x, x), target)
-            with self.assertRaises(TypeError):
-                base_loss([x, x], target)
-
-            # --- Tuple-aware criterion for class as input ---
-            sig_1 = inspect.signature(TupleAwareCrossEntropy).parameters
-            sig_2 = inspect.signature(nn.CrossEntropyLoss).parameters
-            self.assertEqual(sig_1, sig_2)
-
-            sig_1 = inspect.signature(
-                TupleAwareCrossEntropy.forward
-            ).parameters
-            sig_2 = inspect.signature(nn.CrossEntropyLoss.forward).parameters
-            self.assertEqual(sig_1, sig_2)
-
-            self.assertTrue(
-                issubclass(TupleAwareCrossEntropy, nn.CrossEntropyLoss)
-            )
-
-            # Same behavior for tensor input.
-            out = TupleAwareCrossEntropy()(x, target)
-            self.assertTrue(torch.allclose(loss, out))
-
-            # For tuple input, only index 0 (default) is used.
-            out = TupleAwareCrossEntropy()((x, x), target)
-            self.assertTrue(torch.allclose(loss, out))
-
-            # Lists are still not supported.
-            with self.assertRaises(TypeError):
-                TupleAwareCrossEntropy()([x, x], target)
-
-            # --- Tuple-aware criterion for instance as input ---
-            sig_1 = inspect.signature(
-                tuple_aware_cross_entropy.forward
-            ).parameters
-            sig_2 = inspect.signature(nn.CrossEntropyLoss().forward).parameters
-            self.assertEqual(sig_1, sig_2)
-
-            self.assertIsInstance(
-                tuple_aware_cross_entropy, nn.CrossEntropyLoss
-            )
-            self.assertEqual(tuple_aware_cross_entropy.ignore_index, -10)
-
-            out = tuple_aware_cross_entropy(x, target)
-            self.assertTrue(torch.allclose(loss, out))
-
-            out = tuple_aware_cross_entropy((x, x), target)
-            self.assertTrue(torch.allclose(loss, out))
-
-            with self.assertRaises(TypeError):
-                tuple_aware_cross_entropy([x, x], target)
-
-            # --- Non-zero criterion_input_index ---
-            TupleAwareCrossEntropyIdx1 = make_criterion_tuple_aware(
-                nn.CrossEntropyLoss, criterion_input_index=1
-            )
-            x_alt = torch.randn_like(x)
-            loss_alt = base_loss(x_alt, target)
-
-            out_alt = TupleAwareCrossEntropyIdx1()((x, x_alt), target)
-            self.assertTrue(torch.allclose(loss_alt, out_alt))
-
-            # --- Array-like criterion_input_index ---
-            class DummyTupleLoss(nn.Module):
-                def forward(self, input, target=None):
-                    self.last_input = input  # to inspect what we got
-                    if isinstance(input, tuple):
-                        return input[0].sum() + 10 * input[1].sum()
-                    return input.sum()
-
-            TupleAwareDummyLoss = make_criterion_tuple_aware(
-                DummyTupleLoss, criterion_input_index=[0, 2]
-            )
-
-            a = torch.ones(5, 5)
-            b = torch.full((5, 5), 2.0)
-            c = torch.full((5, 5), 3.0)
-
-            aware_loss = TupleAwareDummyLoss()
-            out_dummy = aware_loss((a, b, c), target=None)
-            expected = a.sum() + 10 * c.sum()
-            self.assertTrue(torch.allclose(out_dummy, expected))
-
-            self.assertIsInstance(aware_loss.last_input, tuple)
-            self.assertEqual(len(aware_loss.last_input), 2)
-            self.assertTrue(torch.allclose(aware_loss.last_input[0], a))
-            self.assertTrue(torch.allclose(aware_loss.last_input[1], c))
-
-            # --- Invalid `criterion`: hit
-            #     `criterion must be an nn.Module subclass or instance.`
+            # Invalid `criterion` (hits TypeError in the first block).
             class NotModule:
                 pass
 
             with self.assertRaises(TypeError):
-                make_criterion_tuple_aware(NotModule, criterion_input_index=0)
+                make_criterion_tuple_aware(NotModule)
 
-            # --- selector=None: hit `_normalize_index(sel is None)`
-            # and idx_key="All" and the `selector is None` branch inside
-            # `forward`.
-            TupleAwareCrossEntropyAll = make_criterion_tuple_aware(
-                nn.CrossEntropyLoss, criterion_input_index=None
+            # No selection at all: both None -> return original (class).
+            self.assertIs(
+                make_criterion_tuple_aware(nn.CrossEntropyLoss),
+                nn.CrossEntropyLoss,
             )
-            aware_all = TupleAwareCrossEntropyAll()
 
-            # For selector=None, full tuple is forwarded unchanged,
-            # so this should fail exactly like the base loss.
-            with self.assertRaises(TypeError):
-                aware_all((x, x), target)
+            # No selection at all: both None -> return original (instance).
+            crit_instance = nn.CrossEntropyLoss()
+            self.assertIs(
+                make_criterion_tuple_aware(crit_instance),
+                crit_instance,
+            )
 
-            # --- Invalid criterion_input_index type: hit
-            #     "criterion_input_index must be an int, array-like of int,
-            #     or None."
-            with self.assertRaises(TypeError):
+            # Invalid combination: criterion_output_keys not None
+            # & forward_outputs None.
+            with self.assertRaises(ValueError):
                 make_criterion_tuple_aware(
-                    nn.CrossEntropyLoss, criterion_input_index="not_valid"
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys="logits",
+                    forward_outputs=None,
                 )
 
-            # --- Invalid array-like criterion_input_index: non-int elements
-            #     `if not all(_is_int_like(i) for i in sel): raise TypeError`
+            # Invalid forward_outputs type (non-dict).
             with self.assertRaises(TypeError):
                 make_criterion_tuple_aware(
                     nn.CrossEntropyLoss,
-                    criterion_input_index=[0, "1"],  # mixed int + str
+                    criterion_output_keys="logits",
+                    forward_outputs=[("logits", (0, None))],
                 )
+
+            # criterion_output_keys=None & forward_outputs={} -> StopIteration
+            # -> ValueError.
+            with self.assertRaises(ValueError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys=None,
+                    forward_outputs={},
+                )
+
+            # Common mapping for multiple tests.
+            forward_outputs = {
+                "logits": (0, None),
+                "embeddings": (1, None),
+            }
+
+            # Name-based: criterion_output_keys is str.
+            TupleAwareCE = make_criterion_tuple_aware(
+                nn.CrossEntropyLoss,
+                criterion_output_keys="logits",
+                forward_outputs=forward_outputs,
+            )
+
+            # Class should be a subclass of base and cached by name.
+            self.assertTrue(issubclass(TupleAwareCE, nn.CrossEntropyLoss))
+
+            # Signature equality (class constructor).
+            sig1 = inspect.signature(TupleAwareCE).parameters
+            sig2 = inspect.signature(nn.CrossEntropyLoss).parameters
+            self.assertEqual(sig1, sig2)
+
+            # Signature equality (forward).
+            sig1 = inspect.signature(TupleAwareCE.forward).parameters
+            sig2 = inspect.signature(nn.CrossEntropyLoss.forward).parameters
+            self.assertEqual(sig1, sig2)
+
+            # Same behavior for tensor input: wrapper just forwards unchanged.
+            out = TupleAwareCE()(x, target)
+            self.assertTrue(torch.allclose(loss, out))
+
+            # For tuple input, only index 0 ("logits") is used.
+            out_tuple = TupleAwareCE()((x, x + 1), target)
+            self.assertTrue(torch.allclose(loss, out_tuple))
+
+            # Instance path: wrap an initialized criterion.
+            ce_instance = nn.CrossEntropyLoss(ignore_index=-10)
+            wrapped_instance = make_criterion_tuple_aware(
+                ce_instance,
+                criterion_output_keys="logits",
+                forward_outputs=forward_outputs,
+            )
+            # We get a new instance with a different class but still behaves
+            # like CE.
+            self.assertIsInstance(wrapped_instance, nn.CrossEntropyLoss)
+            self.assertEqual(wrapped_instance.ignore_index, -10)
+            self.assertIsNot(wrapped_instance, ce_instance)
+            out_inst = wrapped_instance((x, x + 1), target)
+            self.assertTrue(torch.allclose(loss, out_inst))
+
+            # Caching: same selector -> same subclass object.
+            TupleAwareCE2 = make_criterion_tuple_aware(
+                nn.CrossEntropyLoss,
+                criterion_output_keys="logits",
+                forward_outputs=forward_outputs,
+            )
+            self.assertIs(TupleAwareCE, TupleAwareCE2)
+
+            # criterion_output_keys is a non-empty sequence of strings.
+            class DummyTupleLoss(nn.Module):
+                def forward(self, input, target=None):
+                    # store to inspect what we received
+                    self.last_input = input
+                    if isinstance(input, tuple):
+                        return input[0].sum() + 10 * input[1].sum()
+                    return input.sum()
+
+            forward_outputs_dummy = {
+                "a": (0, None),
+                "b": (1, None),
+                "c": (2, None),
+            }
+
+            TupleAwareDummy = make_criterion_tuple_aware(
+                DummyTupleLoss,
+                criterion_output_keys=("a", "c"),
+                forward_outputs=forward_outputs_dummy,
+            )
+
+            a = torch.ones(3, 3)
+            b = torch.full((3, 3), 2.0)
+            c = torch.full((3, 3), 3.0)
+
+            dummy_loss = TupleAwareDummy()
+            out_dummy = dummy_loss((a, b, c), target=None)
+            expected = a.sum() + 10 * c.sum()
+            self.assertTrue(torch.allclose(out_dummy, expected))
+            # Ensure selector=(0,2) branch is used and passes a tuple of
+            # (a, c).
+            self.assertIsInstance(dummy_loss.last_input, tuple)
+            self.assertEqual(len(dummy_loss.last_input), 2)
+            self.assertTrue(torch.allclose(dummy_loss.last_input[0], a))
+            self.assertTrue(torch.allclose(dummy_loss.last_input[1], c))
+
+            # Empty sequence for criterion_output_keys -> ValueError.
+            with self.assertRaises(ValueError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys=[],
+                    forward_outputs={"logits": (0, None)},
+                )
+
+            # Non-string entries in sequence -> TypeError.
+            with self.assertRaises(TypeError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys=["logits", 1],
+                    forward_outputs={"logits": (0, None)},
+                )
+
+            # criterion_output_keys of wrong type (e.g. int) -> TypeError.
+            with self.assertRaises(TypeError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys=123,
+                    forward_outputs={"logits": (0, None)},
+                )
+
+            # Unknown name in criterion_output_keys -> ValueError.
+            with self.assertRaises(ValueError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys="unknown",
+                    forward_outputs={"logits": (0, None)},
+                )
+
+            # Bad spec: not a tuple -> TypeError.
+            with self.assertRaises(TypeError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys="logits",
+                    forward_outputs={"logits": 123},
+                )
+
+            # Bad spec: wrong length -> TypeError.
+            with self.assertRaises(TypeError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys="logits",
+                    forward_outputs={"logits": (0,)},
+                )
+
+            # Bad spec: first element not int -> TypeError.
+            with self.assertRaises(TypeError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys="logits",
+                    forward_outputs={"logits": ("0", None)},
+                )
+
+            # .Bad spec: negative idx -> ValueError.
+            with self.assertRaises(ValueError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys="logits",
+                    forward_outputs={"logits": (-1, None)},
+                )
+
+            # Bad spec: transform not callable / None -> TypeError.
+            with self.assertRaises(TypeError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys="logits",
+                    forward_outputs={"logits": (0, "not_callable")},
+                )
+
+            # Duplicate indices across different names -> ValueError.
+            forward_outputs_dup = {
+                "logits": (0, None),
+                "proba": (0, None),
+            }
+            with self.assertRaises(ValueError):
+                make_criterion_tuple_aware(
+                    nn.CrossEntropyLoss,
+                    criterion_output_keys=("logits", "proba"),
+                    forward_outputs=forward_outputs_dup,
+                )
+
+            # Sanity check: selector attr exists and matches indices for the
+            # last valid class.
+            self.assertTrue(
+                hasattr(TupleAwareDummy, "__criterion_output_selector__")
+            )
+            self.assertEqual(
+                TupleAwareDummy.__criterion_output_selector__, (0, 2)
+            )

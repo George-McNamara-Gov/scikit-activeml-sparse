@@ -1,3 +1,4 @@
+import random
 import unittest
 import warnings
 
@@ -952,7 +953,6 @@ class TestSlidingWindowClassifier(
         )
         clf = SlidingWindowClassifier(
             estimator=ParzenWindowClassifier(missing_label="nan"),
-            missing_label="nan",
         )
 
         clf.fit(X=self.fit_default_params["X"], y=self.fit_default_params["y"])
@@ -969,6 +969,10 @@ if successful_skorch_torch_import:
         TemplateSkactivemlClassifier, unittest.TestCase
     ):
         def setUp(self):
+            # Set global seeds.
+            torch.manual_seed(0)
+            np.random.seed(0)
+            random.seed(0)
             self.X, self.y_true = make_blobs(
                 n_samples=200, n_features=1, centers=2, random_state=0
             )
@@ -984,7 +988,7 @@ if successful_skorch_torch_import:
                 "verbose": False,
                 "optimizer": torch.optim.RAdam,
                 "device": "cpu",
-                "lr": 0.001,
+                "lr": 0.01,
                 "max_epochs": 30,
                 "batch_size": 2,
             }
@@ -1022,36 +1026,14 @@ if successful_skorch_torch_import:
         def test_init_param_criterion(self, test_cases=None):
             test_cases = [] if test_cases is None else test_cases
             test_cases += [
-                ("Test", ValueError),
-                (None, ValueError),
-                (nn.NLLLoss, ValueError),
+                ("Test", TypeError),
+                (None, TypeError),
+                (nn.NLLLoss, None),
                 (nn.CrossEntropyLoss, None),
-                (nn.NLLLoss(), ValueError),
+                (nn.NLLLoss(), None),
                 (nn.CrossEntropyLoss(), None),
             ]
             self._test_param("init", "criterion", test_cases)
-
-        def test_init_param_predict_nonlinearity(self, test_cases=None):
-            test_cases = [] if test_cases is None else test_cases
-            test_cases += [
-                ("Test", TypeError),
-                (None, None),
-                (nn.Identity(), None),
-                (np.exp, None),
-                (nn.Identity, TypeError),
-                (nn.Softmax(-1), None),
-            ]
-            self._test_param("init", "predict_nonlinearity", test_cases)
-            test_cases = [
-                (None, ValueError),
-                (nn.LogSoftmax(-1), None),
-            ]
-            self._test_param(
-                "init",
-                "predict_nonlinearity",
-                test_cases,
-                replace_init_params={"criterion": nn.NLLLoss},
-            )
 
         def test_init_param_include_unlabeled_samples(self, test_cases=None):
             test_cases = [] if test_cases is None else test_cases
@@ -1119,6 +1101,7 @@ if successful_skorch_torch_import:
             init_default_params2 = self.init_default_params.copy()
             init_default_params2["classes"] = [0, 1]
             init_default_params2["neural_net_param_dict"]["warm_start"] = True
+            init_default_params2["neural_net_param_dict"]["verbose"] = 1
             clf = SkorchClassifier(**init_default_params2)
             self.assertRaises(NotFittedError, check_is_fitted, clf)
             clf.fit(self.X, self.y_ulbld)
@@ -1198,16 +1181,22 @@ if successful_skorch_torch_import:
             self.assertEqual(len(y_pred), len(self.X))
 
         def test_predict_proba(self):
-            clf = SkorchClassifier(**self.init_default_params)
+            init_default_params = self.init_default_params.copy()
+            init_default_params["forward_outputs"] = {
+                "probas": (0, nn.Softmax(dim=-1)),
+                "logits": (0, None),
+                "emb": (1, None),
+            }
+            clf = SkorchClassifier(**init_default_params)
             clf.fit(self.X, self.y_true)
             P_class, L_class, X_embed = clf.predict_proba(
-                self.X, return_logits=True, return_embeddings=True
+                self.X, extra_outputs=["logits", "emb"]
             )
             self.assertTrue((P_class.sum(axis=-1).round(3) == 1).all())
-            self.assertTrue((P_class > +0).all())
+            self.assertTrue((P_class > 0).all())
             np.testing.assert_array_equal(L_class.shape, (len(self.X), 2))
             self.assertTrue((L_class < 0).any())
-            self.assertTrue(X_embed.shape[1], 2)
+            self.assertTrue(X_embed.shape[1], 1)
             init_default_params = self.init_default_params.copy()
             init_default_params["classes"] = [0, 1]
             clf = SkorchClassifier(**init_default_params)
@@ -1243,93 +1232,84 @@ if successful_skorch_torch_import:
             ]
             self._test_param("init", "neural_net_param_dict", test_cases)
 
-        def test_init_param_criterion_input_index(self):
-            test_cases = [
-                (0, None),
-                ([0], None),
-                (False, TypeError),
-            ]
-            self._test_param("init", "criterion_input_index", test_cases)
+        def test_init_param_forward_outputs(self):
             test_cases = [
                 (None, None),
+                ({"logits": (0, None)}, None),
+                ({"logits": (0, None), "emb": (1, None)}, None),
+                (
+                    {
+                        "proba": (0, nn.Softmax(dim=-1)),
+                        "logits": (0, None),
+                        "emb": (1, None),
+                    },
+                    None,
+                ),
+                ({"logits": (0,)}, TypeError),
+                ({"logits": (-1, None)}, ValueError),
+                ({"logits": ("str", None)}, TypeError),
+                ({"logits": (2, None)}, ValueError),
             ]
-            default_dict = deepcopy(
-                self.init_default_params["neural_net_param_dict"]
-            )
-            default_dict["module__return_embeddings"] = False
+            self._test_param("init", "forward_outputs", test_cases)
+
+            test_cases = [
+                (None, None),
+                ({"log-probas": (0, torch.exp)}, None),
+            ]
             self._test_param(
                 "init",
-                "criterion_input_index",
+                "forward_outputs",
                 test_cases,
-                replace_init_params={"neural_net_param_dict": default_dict},
+                replace_init_params={"criterion": nn.NLLLoss},
             )
 
-        def test_predict_proba_param_return_embeddings(self):
+        def test_init_param_criterion_output_keys(self):
             test_cases = [
-                ("a", TypeError),
-                (None, TypeError),
-                (True, None),
-                (False, None),
+                (None, None),
+                ("logits", None),
+                (["logits"], None),
+                ("test", ValueError),
+                (["test"], ValueError),
+                (False, TypeError),
             ]
-            self._test_param(
-                "predict_proba",
-                "return_embeddings",
-                test_cases,
-                extras_params={"X": self.X},
-            )
-            test_cases = [(True, ValueError), (False, None)]
-            default_dict = deepcopy(
-                self.init_default_params["neural_net_param_dict"]
-            )
-            default_dict["module__return_embeddings"] = False
-            self._test_param(
-                "predict_proba",
-                "return_embeddings",
-                test_cases,
-                extras_params={"X": self.X},
-                replace_init_params={"neural_net_param_dict": default_dict},
-            )
+            self._test_param("init", "criterion_output_keys", test_cases)
 
-        def test_predict_proba_param_return_logits(self):
-            test_cases = [
-                ("a", TypeError),
-                (None, TypeError),
-                (True, None),
-                (False, None),
+            replace_init_params = {
+                "forward_outputs": {
+                    "probas": (0, nn.Softmax(dim=-1)),
+                    "logits": (0, None),
+                    "emb": (1, None),
+                }
+            }
+            test_cases += [
+                ("probas", None),
+                (["probas"], None),
+                ("emb", IndexError),
+                (["emb"], IndexError),
+                (["probas", "logits"], ValueError),
+                (["logits", "emb"], TypeError),
             ]
             self._test_param(
-                "predict_proba",
-                "return_logits",
+                "init",
+                "criterion_output_keys",
                 test_cases,
-                extras_params={"X": self.X},
+                replace_init_params=replace_init_params,
             )
-
-        def test_predict_param_return_embeddings(self):
+            nn_rep = self.init_default_params["neural_net_param_dict"].copy()
+            nn_rep["module__return_embeddings"] = False
             test_cases = [
-                ("a", TypeError),
-                (None, TypeError),
-                (True, None),
-                (False, None),
+                (None, None),
+                ("logits", None),
+                (["logits"], None),
+                ("test", ValueError),
+                (["test"], ValueError),
+                (False, TypeError),
             ]
             self._test_param(
-                "predict",
-                "return_embeddings",
+                "init",
+                "criterion_output_keys",
                 test_cases,
-                extras_params={"X": self.X},
-            )
-
-        def test_predict_param_return_logits(self):
-            test_cases = [
-                ("a", TypeError),
-                (None, TypeError),
-                (True, None),
-                (False, None),
-            ]
-            self._test_param(
-                "predict",
-                "return_logits",
-                test_cases,
-                extras_params={"X": self.X},
+                replace_init_params={"neural_net_param_dict": nn_rep},
             )
 
     class TestNeuralNet(nn.Module):
@@ -1337,15 +1317,15 @@ if successful_skorch_torch_import:
             super().__init__()
             self.return_embeddings = return_embeddings
             self.input_to_hidden = nn.Linear(
-                in_features=1, out_features=5, bias=True, dtype=torch.float32
+                in_features=1, out_features=1, bias=True, dtype=torch.float32
             )
             self.hidden_to_output = nn.Linear(
-                in_features=5, out_features=2, bias=True, dtype=torch.float32
+                in_features=1, out_features=2, bias=True, dtype=torch.float32
             )
 
         def forward(self, X):
             hidden = self.input_to_hidden(X)
-            hidden = torch.relu(hidden)
+            hidden = torch.sigmoid(hidden)
             output_values = self.hidden_to_output(hidden)
             if self.return_embeddings:
                 return output_values, hidden

@@ -16,9 +16,9 @@ try:
     class _SkorchMultiAnnotatorClassifier(SkorchClassifier, ABC):
         """
         Abstract base class for neural multi-annotator classifiers built on top
-        of :class:`SkorchClassifier`.
+        of `SkorchClassifier`.
 
-        This estimator wraps a *multi-annotator* module that operates on
+        This estimator wraps a multi-annotator module that operates on
         annotation matrices `y` of shape `(n_samples, n_annotators)` and
         internally uses a classifier module `clf_module`. The class takes care
         of
@@ -28,7 +28,7 @@ try:
         - splitting and normalizing `neural_net_param_dict` into parameters
           for the multi-annotator module and the underlying classifier, and
         - enforcing skorch parameter overrides provided by subclasses via
-          :meth:`_build_neural_net_param_overrides`.
+          `_build_neural_net_param_overrides`.
 
         Subclasses are expected to implement
         `_build_neural_net_param_overrides` to inject architecture-specific
@@ -122,7 +122,6 @@ try:
             super(_SkorchMultiAnnotatorClassifier, self).__init__(
                 module=multi_annotator_module,
                 criterion=criterion,
-                predict_nonlinearity=nn.Identity(),
                 classes=classes,
                 missing_label=missing_label,
                 cost_matrix=cost_matrix,
@@ -208,7 +207,6 @@ try:
             return (
                 self.module,
                 self.criterion,
-                self.predict_nonlinearity,
                 neural_net_param_dict,
             )
 

@@ -8,7 +8,6 @@ import warnings
 
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from inspect import isclass
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.metrics import accuracy_score
 from sklearn.utils.multiclass import check_classification_targets
@@ -48,12 +47,13 @@ __all__ = [
     "ClassFrequencyEstimator",
     "SkactivemlRegressor",
     "ProbabilisticRegressor",
-    "SkorchMixin",
 ]
 
 successful_skorch_torch_import = False
 try:
+    from collections.abc import Sequence
     from skorch import NeuralNet
+    from skorch.utils import to_numpy
 
     successful_skorch_torch_import = True
 except ImportError:  # pragma: no cover
@@ -1613,7 +1613,7 @@ if successful_skorch_torch_import:
             self : SkorchMixin
                 Returned when no input data was supplied
                 (both `X` and `y` are `None`).
-            X_out, y_out : ndarray
+            X_out, y_out : tuple of nd.array, optional
                 Validated `X` and `y` as a tuple, returned when
                 `enforce_check_X_y=True`.
             """
@@ -1622,9 +1622,7 @@ if successful_skorch_torch_import:
             if enforce_check_X_y or has_data:
                 X, y, _ = self._validate_data(X=X, y=y, **vd_kwargs)
 
-            module, criterion, predict_nonlin, nn_params = self._net_parts(
-                X=X, y=y
-            )
+            module, criterion, nn_params = self._net_parts(X=X, y=y)
             check_type(nn_params, "neural_net_param_dict", dict)
             nn_params = dict(nn_params)
             invalid_keys = ["module", "criterion", "predict_nonlinearity"]
@@ -1633,12 +1631,10 @@ if successful_skorch_torch_import:
                     raise ValueError(
                         f"{k} must not be a key in `neural_net_param_dict`."
                     )
-            if not callable(predict_nonlin) or isclass(predict_nonlin):
-                raise TypeError("`predict_nonlinearity` has to be a callable.")
             self.neural_net_ = NeuralNet(
                 module=module,
                 criterion=criterion,
-                predict_nonlinearity=predict_nonlin,
+                predict_nonlinearity=None,
                 **nn_params,
             ).initialize()
 
@@ -1687,10 +1683,210 @@ if successful_skorch_torch_import:
                 self.neural_net_.partial_fit(X_train, y_train, **fit_params)
             return self
 
-        @abstractmethod
-        def _net_parts(self, X, y):
+        def _forward_with_named_outputs(
+            self,
+            X,
+            forward_outputs,
+            extra_outputs=None,
+        ):
+            """Run `module.forward(X)` once and return the primary output plus
+            optionally requested extra outputs as NumPy arrays.
+
+            The primary output is defined as the first entry of
+            `forward_outputs` (after applying its transform, if any), or the
+            sole output of `module.forward` if `forward_outputs` is `None`.
+            Primary and extra outputs are always returned after applying their
+            configured transforms.
+
+            Parameters
+            ----------
+            X : array-like of shape (n_samples, ...)
+                Input samples. It is assumed that X has already been validated
+                and that `self.neural_net_` is initialized.
+            forward_outputs : dict[str, tuple[int, Callable | None]]
+                `dict` that describes how to obtain and post-process the
+                outputs of `module.forward` for prediction.
+
+                Let `raw_outputs = module.forward(X)` be normalized to a tuple.
+                Each entry `name -> (idx, transform)` is interpreted as:
+
+                - `idx`: integer index into `raw_outputs` (0-based).
+                - `transform`: callable `f(tensor) -> tensor` or `None`.
+                  If `transform` is not `None`, it is applied to the selected
+                  raw tensor; otherwise the raw tensor is used unchanged.
+            extra_outputs : None or str or sequence of str, default=None
+                Names of additional outputs to return next to the primary
+                output. Must be a subset of `forward_outputs.keys()` if
+                `forward_outputs` is not `None`. The first key in
+                `forward_outputs` (the primary output) is not allowed here.
+                Duplicate entries are not allowed.
+
+            Returns
+            -------
+            output : numpy.ndarray or tuple of numpy.ndarray
+                If `extra_outputs is None`, returns the primary output as a
+                single NumPy array. Otherwise, returns a tuple whose first
+                element is the primary output and whose remaining elements are
+                the requested extra outputs in the order specified by
+                `extra_outputs`.
             """
-            Assemble and validate network components.
+            # Run module forward once.
+            fw_out = self.neural_net_.forward(X)
+
+            # Normalize to tuple of raw outputs.
+            if isinstance(fw_out, tuple):
+                raw_outputs = fw_out
+            else:
+                raw_outputs = (fw_out,)
+
+            # Check forward_outputs configured.
+            check_type(forward_outputs, "forward_outputs", dict)
+
+            # Validate and normalize specs into a dict:
+            # name -> (idx, transform)
+            specs = {}
+            for name, spec in forward_outputs.items():
+                if (
+                    not isinstance(spec, tuple)
+                    or len(spec) != 2
+                    or not isinstance(spec[0], int)
+                ):
+                    raise TypeError(
+                        "Each value in forward_outputs must be a tuple "
+                        "`(idx: int, transform: Callable | None)`. "
+                        f"Got {spec!r} for key {name!r}."
+                    )
+                idx, transform = spec
+                if idx < 0:
+                    raise ValueError(
+                        f"Index `idx={idx}` for key {name!r} must be "
+                        f"non-negative."
+                    )
+                if transform is not None and not callable(transform):
+                    raise TypeError(
+                        "The second element of each forward_outputs tuple "
+                        f"must be a `Callable` or `None`. Got {transform!r} "
+                        f"for key {name!r}."
+                    )
+                specs[name] = (idx, transform)
+
+            # Check that all indices are within range of raw_outputs.
+            if specs:
+                max_idx = max(idx for idx, _ in specs.values())
+                if max_idx >= len(raw_outputs):
+                    raise ValueError(
+                        f"`forward_outputs` references raw output index "
+                        f"{max_idx}, but module.forward returned only "
+                        f"{len(raw_outputs)} object(s)."
+                    )
+
+            # Primary output = first configured output
+            # (dicts preserve insertion order).
+            try:
+                primary_name = next(iter(specs))
+            except StopIteration:
+                raise ValueError(
+                    "`forward_outputs` must contain at least one entry."
+                )
+
+            # Normalize and validate extra_outputs:
+            # - None / str / sequence of str,
+            # - subset of forward_outputs.keys(),
+            # - no duplicates,
+            # - no primary_name.
+            extra_names = self._normalize_extra_outputs(
+                extra_outputs,
+                allowed_names=specs.keys(),
+                primary_name=primary_name,
+            )
+
+            # Helper to extract and transform a single named output lazily.
+            def _get_named(name: str):
+                idx, transform = specs[name]
+                value = raw_outputs[idx]
+                if transform is not None:
+                    value = transform(value)
+                return to_numpy(value)
+
+            # Primary output (transform applied here).
+            primary_np = _get_named(primary_name)
+
+            # Extra outputs (transforms applied only for these).
+            if not extra_names:
+                return primary_np
+
+            extras_np = tuple(_get_named(name) for name in extra_names)
+            return primary_np, *extras_np
+
+        @staticmethod
+        def _normalize_extra_outputs(
+            extra_outputs, allowed_names, primary_name=None
+        ):
+            """Validate `extra_outputs` and return a list of names.
+
+            Parameters
+            ----------
+            extra_outputs : None or str or sequence of str
+                User-specified extra outputs.
+            allowed_names : Collection[str]
+                Set or iterable of allowed names, e.g.,
+                `forward_outputs.keys()`.
+            primary_name : str or None, default=None
+                Name of the primary output which must not be requested
+                as extra.
+
+            Returns
+            -------
+            list[str]
+                Validated list of extra output names.
+            """
+            if extra_outputs is None:
+                return []
+
+            # Normalize to list of strings
+            if isinstance(extra_outputs, str):
+                names = [extra_outputs]
+            elif isinstance(extra_outputs, Sequence) and not isinstance(
+                extra_outputs, (str, bytes)
+            ):
+                names = list(extra_outputs)
+            else:
+                raise TypeError(
+                    "`extra_outputs` must be None, a string, or a sequence "
+                    f"of strings, got {type(extra_outputs)}."
+                )
+
+            if not all(isinstance(n, str) for n in names):
+                raise TypeError(
+                    "All entries in extra_outputs must be strings."
+                )
+
+            # No duplicates
+            if len(set(names)) != len(names):
+                raise ValueError(
+                    "`extra_outputs` must not contain duplicate names."
+                )
+
+            allowed_names = set(allowed_names)
+            unknown = [n for n in names if n not in allowed_names]
+            if unknown:
+                raise ValueError(
+                    f"Requested extra output(s) {unknown!r} are not defined; "
+                    f"allowed names are {sorted(allowed_names)!r}."
+                )
+
+            if primary_name is not None and primary_name in names:
+                raise ValueError(
+                    f"Primary output {primary_name!r} (first key in "
+                    f"`forward_outputs`) cannot be requested again as an "
+                    f"`extra_output`."
+                )
+
+            return names
+
+        @abstractmethod
+        def _net_parts(self, X=None, y=None):
+            """Assemble and validate network components.
 
             Implementations should perform any optional checks or normalization
             of constructor/init parameters (e.g., shape consistency, dtype
@@ -1711,9 +1907,7 @@ if successful_skorch_torch_import:
                 class should be passed, although instantiated modules will also
                 work.
             criterion : torch.nn.Module.__class__
-                The uninitialized criterion (loss) used to optimize the module.
-            predict_nonlinearity : Callable
-                The nonlinearity to be applied to the prediction.
+                The criterion (loss) used to optimize the module.
             params : dict
                 Keyword arguments (excluding `predict_non_linearity`) for
                 `skorch.NeuralNet` construction. Must be a mapping and may be
@@ -1723,8 +1917,7 @@ if successful_skorch_torch_import:
 
         @abstractmethod
         def _validate_data_kwargs(self):
-            """
-            Return kwargs forwarded to `_validate_data`.
+            """Return kwargs forwarded to `_validate_data`.
 
             Returns
             -------
@@ -1735,8 +1928,7 @@ if successful_skorch_torch_import:
 
         @abstractmethod
         def _validate_data(self, X, y, **kwargs):
-            """
-            Validate inputs and return cleaned arrays.
+            """Validate inputs and return cleaned arrays.
 
             Parameters
             ----------
@@ -1749,9 +1941,9 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            X_out : ndarray
+            X_out : np.ndarray
                 Validated `X`.
-            y_out : ndarray
+            y_out : np.ndarray
                 Validated `y`.
             sample_weight_or_dummy : Any
                 Third return to maintain compatibility with callers expecting
@@ -1761,8 +1953,7 @@ if successful_skorch_torch_import:
 
         @abstractmethod
         def _return_training_data(self, X, y):
-            """
-            Return only samples and labels required for training.
+            """Return only samples and labels required for training.
 
             Parameters
             ----------
@@ -1774,9 +1965,9 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            X_train : ndarray or None
+            X_train : np.ndarray or None
                 Training samples or `None` if none exist.
-            y_train : ndarray or None
+            y_train : np.ndarray or None
                 Training labels or `None` if none exist.
             """
             raise NotImplementedError

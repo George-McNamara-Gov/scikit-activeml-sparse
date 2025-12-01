@@ -47,7 +47,7 @@ class ClassificationModule(nn.Module):
 clf = SkorchClassifier(
     module=ClassificationModule,
     criterion=nn.CrossEntropyLoss,
-    predict_nonlinearity=nn.Softmax(dim=-1),
+    forward_outputs={"proba": (0, nn.Softmax(dim=-1)), "emb": (1, None)},
     neural_net_param_dict={
         # Module-related parameters.
         "module__n_features": n_features,
@@ -101,7 +101,7 @@ y_train = np.full_like(y_pool, missing_label)
 # Create a deep active learning query strategy.
 qs = Badge(
     missing_label=missing_label,
-    clf_embedding_flag_name="return_embeddings",
+    clf_embedding_flag_name={"extra_outputs": "emb"},
 )
 
 # Define the active learning parameters.

@@ -1,12 +1,12 @@
 import inspect
-import sys
-
-from copy import deepcopy
 from types import MethodType
 from makefun import with_signature
 
 successful_skorch_torch_import = False
 try:
+    import sys
+    from collections.abc import Sequence
+    from copy import deepcopy
     from torch import nn
 
     successful_skorch_torch_import = True
@@ -168,85 +168,204 @@ def match_signature(wrapped_obj_name, func_name):
 
 if successful_skorch_torch_import:
 
-    def make_criterion_tuple_aware(criterion, criterion_input_index=0):
+    def make_criterion_tuple_aware(
+        criterion,
+        criterion_output_keys=None,
+        forward_outputs=None,
+    ):
         """
-        Create a loss *class* (or wrap an existing instance) that selects part
+        Create a loss class (or wrap an existing instance) that selects part
         of a model's (possibly tuple-valued) output before passing it to the
-        criterion. This utility generates (and caches) a dynamic subclass named
+        criterion.
+
+        This utility generates (and caches) a dynamic subclass named
         `TupleAware<LossName>Idx<...>` of the given base loss class. The
         subclass overrides `forward` so that, if the `input` argument is a
         tuple (e.g., `(logits, embeddings, ...)`), only the element(s)
-        specified by `criterion_input_index` are passed to the base class's
+        selected by `criterion_output_keys` are passed to the base class's
         `forward`. If `input` is not a tuple, it is forwarded unchanged.
+
+        If no selection is required (i.e., `criterion_output_keys` is
+        `None` and `forward_outputs` is `None` so that the full input
+        is passed unchanged), the original `criterion` is returned without
+        wrapping.
 
         Parameters
         ----------
-        criterion : type or nn.Module
-            - Either a loss **class** (subclass of :class:`torch.nn.Module`),
-              e.g., `nn.CrossEntropyLoss`, or
-            - a loss **instance**, e.g. `nn.CrossEntropyLoss()`.
+        criterion : torch.nn.Module.__class__ or torch.nn.Module
+            - Either a loss class (subclass of `torch.nn.Module`),
+              e.g. `nn.CrossEntropyLoss`, or
+            - a loss instance, e.g. `nn.CrossEntropyLoss()`.
+        criterion_output_keys : str or sequence of str or None, default=None
+            Name or names of the forward outputs that are passed to the
+            loss / criterion during training. Use this when `module.forward`
+            returns multiple outputs (e.g. `(logits, embeddings, ...)`), but
+            the criterion expects a single tensor input or a specific tuple of
+            inputs. The names must refer to keys of `forward_outputs`. If
+            `criterion_output_keys` is not `None` and `forward_outputs`
+            is `None`, a `ValueError` is raised because the names
+            cannot be resolved.
 
-        criterion_input_index : int or array-like of int or None, default=0
-            Index or indices of the output of `module.forward` to pass as the
-            `input` argument of the criterion:
+            - If a `str`, the corresponding named output of
+              `module.forward` (i.e., the raw tensor selected via its index
+              in `forward_outputs` before applying any transform) is passed
+              to the criterion (e.g. `"logits"` to use only the class scores).
+            - If a sequence of `str`, the selected named outputs are packed
+              into a tuple and passed to the criterion in that order. Each raw
+              forward output index may appear at most once: using multiple
+              names that resolve to the same underlying index (e.g. `"proba"`
+              and `"logits"` both pointing to index 0) is not allowed and
+              results in a `ValueError`.
+            - If `None`:
 
-            - If an `int`, `input[criterion_input_index]` is used.
-            - If an array-like of int, the selected elements are packed into a
-              tuple `(input[i_1], ..., input[i_k])`.
-            - If `None`, the full `input` is passed unchanged (wrapping is
-              effectively a no-op for tuples).
+              - and `forward_outputs` is not `None`, the first output
+                defined by `forward_outputs` is used as criterion input;
+              - and `forward_outputs` is `None`, the full `input` is
+                passed unchanged. In this case, the caller is responsible for
+                ensuring that `module.forward` returns a single tensor if the
+                criterion does not accept tuples.
+
+        forward_outputs : dict[str, tuple[int, Callable | None]] or None,\
+                default=None
+            Dictionary from output names to `(idx, transform)` tuples, as used
+            in the estimator's `forward_outputs` parameter. Only the keys and
+            their associated indices `idx` are used here to resolve
+            `criterion_output_keys` into raw output positions; the transform
+            part is ignored by this helper. If `criterion_output_keys` is given
+            as a string or sequence of strings, `forward_outputs` must be
+            provided.
 
         Returns
         -------
-        type or nn.Module
-            - If `criterion` is a **class**, returns the generated subclass
-              `TupleAware<LossName>Idx<...>`.
-            - If `criterion` is an **instance**, returns a **new** instance
+        torch.nn.Module.__class__ or torch.nn.Module
+            - If `criterion` is a class, returns the generated subclass
+              `TupleAware<LossName>Idx<...>` (or the original class if no
+              selection is required).
+            - If `criterion` is an instance, returns a new instance
               (deep copy) whose class is that subclass. The original instance
-              is not modified.
+              is not modified. If no selection is required, the original
+              instance is returned unchanged.
         """
-        import numbers
-        from collections.abc import Sequence
-
+        # Validate criterion
         if isinstance(criterion, nn.Module):
             base_cls = criterion.__class__
-        elif issubclass(criterion, nn.Module):
+        elif isinstance(criterion, type) and issubclass(criterion, nn.Module):
             base_cls = criterion
         else:
             raise TypeError(
-                "criterion must be an nn.Module subclass or instance."
+                "criterion must be an `nn.Module` subclass or instance."
             )
 
-        # Normalize the selector to something predictable for both logic
-        # & naming.
-        def _normalize_index(sel):
-            msg = (
-                "criterion_input_index must be an int, "
-                "array-like of int, or None."
+        # Check invalid combination.
+        if criterion_output_keys is not None and forward_outputs is None:
+            raise ValueError(
+                "`criterion_output_keys` is not `None`, but `forward_outputs` "
+                "is `None`. Pass the same `forward_outputs` mapping that "
+                "describes `module.forward`."
             )
-            if sel is None:
-                return None
 
-            def _is_int_like(x):
-                return isinstance(x, numbers.Integral) and not isinstance(
-                    x, bool
+        # No selection at all: pass full input unchanged.
+        if criterion_output_keys is None and forward_outputs is None:
+            return criterion
+
+        # Validate forward_outputs if it is provided.
+        if forward_outputs is not None and not isinstance(
+            forward_outputs, dict
+        ):
+            raise TypeError(
+                "`forward_outputs` must be a dictionary if provided, "
+                f"got {type(forward_outputs)}."
+            )
+
+        # Resolve criterion_output_keys -> list of names.
+        if criterion_output_keys is None:
+            try:
+                # No explicit selection, but forward_outputs is given:
+                # use the first configured output name.
+                selected_names = [next(iter(forward_outputs))]
+            except StopIteration:
+                raise ValueError(
+                    "`forward_outputs` must contain at least one entry when "
+                    "`criterion_output_keys` is None."
                 )
+        elif isinstance(criterion_output_keys, str):
+            selected_names = [criterion_output_keys]
+        elif isinstance(criterion_output_keys, Sequence) and not isinstance(
+            criterion_output_keys, (str, bytes)
+        ):
+            if len(criterion_output_keys) == 0:
+                raise ValueError(
+                    "`criterion_output_keys` must not be an empty sequence."
+                )
+            # Ensure all names are strings
+            for name in criterion_output_keys:
+                if not isinstance(name, str):
+                    raise TypeError(
+                        "All entries in `criterion_output_keys` must be "
+                        "strings when a sequence is provided, got "
+                        f"{type(name)} in {criterion_output_keys!r}."
+                    )
+            selected_names = list(criterion_output_keys)
+        else:
+            raise TypeError(
+                "`criterion_output_keys` must be `None`, a string, or a "
+                f"sequence of strings, got {type(criterion_output_keys)}."
+            )
 
-            if _is_int_like(sel):
-                return int(sel)
-            if isinstance(sel, Sequence) and not isinstance(sel, (str, bytes)):
-                if not all(_is_int_like(i) for i in sel):
-                    raise TypeError(msg)
-                return tuple(int(i) for i in sel)
-            raise TypeError(msg)
+        # Map names -> raw indices using forward_outputs[name][0].
+        indices = []
+        for name in selected_names:
+            if name not in forward_outputs:
+                raise ValueError(
+                    f"Unknown forward output name {name!r} in "
+                    "`criterion_output_keys`. Available names are: "
+                    f"{list(forward_outputs.keys())}."
+                )
+            spec = forward_outputs[name]
+            if (
+                not isinstance(spec, tuple)
+                or len(spec) != 2
+                or not isinstance(spec[0], int)
+            ):
+                raise TypeError(
+                    "Each value in forward_outputs must be a tuple "
+                    "(idx: int, transform: Callable | None). "
+                    f"Got {spec!r} for key {name!r}."
+                )
+            idx, transform = spec
+            if idx < 0:
+                raise ValueError(
+                    f"Index `idx={idx}` for key {name!r} must be "
+                    f"non-negative."
+                )
+            if transform is not None and not callable(transform):
+                raise TypeError(
+                    "The second element of each forward_outputs tuple "
+                    f"must be a `Callable` or `None`. Got {transform!r} "
+                    f"for key {name!r}."
+                )
+            indices.append(idx)
 
-        selector = _normalize_index(criterion_input_index)
+        # Enforce: each raw index at most once.
+        if len(set(indices)) != len(indices):
+            raise ValueError(
+                "`criterion_output_keys` must not contain multiple names "
+                "that refer to the same raw forward output index. "
+                f"Names {selected_names!r} resolve to indices {indices!r}."
+            )
 
-        if selector is None:
-            idx_key = "All"
-        elif isinstance(selector, int):
+        # Build selector: int or tuple[int,...].
+        if len(indices) == 1:
+            selector = indices[0]
+            max_idx = selector
+        else:
+            selector = tuple(indices)
+            max_idx = max(selector)
+
+        # Build a class-name key from the selector for caching / pickling.
+        if isinstance(selector, int):
             idx_key = str(selector)
-        else:  # tuple of ints
+        else:
             idx_key = "_".join(str(i) for i in selector)
 
         cls_name = f"TupleAware{base_cls.__name__}Idx{idx_key}"
@@ -255,10 +374,13 @@ if successful_skorch_torch_import:
         def forward(self, input, target, *args, **kwargs):
             x = input
             if isinstance(x, tuple):
-                if selector is None:
-                    # pass full tuple unchanged
-                    x = x
-                elif isinstance(selector, int):
+                if max_idx >= len(x):
+                    raise ValueError(
+                        f"`forward_outputs` references raw output index "
+                        f"{max_idx}, but module.forward returned only "
+                        f"{len(x)} object(s)."
+                    )
+                if isinstance(selector, int):
                     x = x[selector]
                 else:
                     # selector is a tuple of indices
@@ -269,7 +391,7 @@ if successful_skorch_torch_import:
         forward.__signature__ = inspect.signature(base_cls.forward)
         forward.__doc__ = base_cls.forward.__doc__
 
-        # Create/reuse subclass and expose it under *this* module.
+        # Create/reuse subclass and expose it under this module.
         mod = sys.modules[__name__]
         TupleAwareCls = getattr(mod, cls_name, None)
         if TupleAwareCls is None:
@@ -279,10 +401,10 @@ if successful_skorch_torch_import:
                 {
                     "forward": forward,
                     "__module__": mod.__name__,
-                    "__criterion_input_index__": selector,
+                    "__criterion_output_selector__": selector,
                 },
             )
-            setattr(mod, cls_name, TupleAwareCls)  # makes pickle happy
+            setattr(mod, TupleAwareCls.__name__, TupleAwareCls)
 
         if isinstance(criterion, nn.Module):
             wrapped = deepcopy(criterion)
