@@ -48,9 +48,9 @@ snippets are given below:
    :widths: 50 50
    :header-rows: 0
 
-   * - .. image:: https://raw.githubusercontent.com/scikit-activeml/scikit-activeml/refs/heads/skorch_wrapper/docs/logos/readme_pool.gif
+   * - .. image:: https://raw.githubusercontent.com/scikit-activeml/scikit-activeml/refs/heads/development/docs/logos/readme_pool.gif
           :width: 100%
-     - .. image:: https://raw.githubusercontent.com/scikit-activeml/scikit-activeml/refs/heads/skorch_wrapper/docs/logos/readme_stream.gif
+     - .. image:: https://raw.githubusercontent.com/scikit-activeml/scikit-activeml/refs/heads/development/docs/logos/readme_stream.gif
           :width: 100%
 
 .. raw:: html
