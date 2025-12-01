@@ -2,6 +2,7 @@ try:
     import random
     import unittest
     from copy import deepcopy
+    from itertools import combinations
 
     import numpy as np
     from scipy.special import softmax
@@ -121,82 +122,111 @@ try:
             return clf
 
         def _check_predict_outputs(self, out, mode, n_features):
-            """
-            Common checks for outputs of `predict` / `predict_proba` with all
-            return_* flags enabled.
+            # Normalize to a dict so we can selectively check keys
+            n_samples = self.X.shape[0]
 
-            Parameters
-            ----------
-            out : tuple
-                Output of clf.predict(...) or clf.predict_proba(...).
-            mode : {"proba", "label"}
-                - "proba": first element is P_class (predict_proba)
-                - "label": first element is y_class (predict)
-            """
-            self.assertIsInstance(out, tuple)
-            self.assertEqual(len(out), 6)
-
-            first, L_class, X_embed, P_perf, P_annot, A_embed = out
-
-            # Mode-specific checks on the first element.
+            # primary output: probabilities or labels
             if mode == "proba":
-                P_class = first
-                # P_class: (n_samples, n_classes), rows sum to 1
-                self.assertEqual(
-                    P_class.shape, (self.X.shape[0], self.n_classes)
+                # Try common key names, fall back to "first" if using
+                # tuple layout.
+                P_class = out["proba"]
+                self.assertIsNotNone(
+                    P_class, "No probability output found for 'proba' mode."
                 )
+                self.assertEqual(P_class.shape, (n_samples, self.n_classes))
                 np.testing.assert_array_almost_equal(
-                    P_class.sum(axis=-1), np.ones((self.X.shape[0],))
+                    P_class.sum(axis=-1), np.ones((n_samples,))
                 )
-                # L_class should softmax to P_class
-                self.assertEqual(
-                    L_class.shape, (self.X.shape[0], self.n_classes)
-                )
-                np.testing.assert_array_almost_equal(
-                    softmax(L_class, axis=-1), P_class
-                )
+
+                # If logits are present, check that softmax(logits) == P_class.
+                if "logits" in out:
+                    L_class = out["logits"]
+                    self.assertEqual(
+                        L_class.shape, (n_samples, self.n_classes)
+                    )
+                    np.testing.assert_array_almost_equal(
+                        softmax(L_class, axis=-1), P_class
+                    )
+
             elif mode == "label":
-                y_class = first
-                # y_class: (n_samples,) and consistent with argmax of logits
-                self.assertEqual(y_class.shape, (self.X.shape[0],))
+                y_class = out["label"]
+                self.assertIsNotNone(
+                    y_class, "No label output found for 'label' mode."
+                )
+                self.assertEqual(y_class.shape, (n_samples,))
                 self.assertTrue(np.isin(y_class, self.classes).all())
-                self.assertEqual(
-                    L_class.shape, (self.X.shape[0], self.n_classes)
-                )
-                np.testing.assert_array_almost_equal(
-                    np.argmax(L_class, axis=-1), y_class
-                )
+
+                if "logits" in out:
+                    L_class = out["logits"]
+                    self.assertEqual(
+                        L_class.shape, (n_samples, self.n_classes)
+                    )
+                    np.testing.assert_array_almost_equal(
+                        np.argmax(L_class, axis=-1), y_class
+                    )
             else:
                 self.fail(f"Unknown mode {mode!r} in _check_predict_outputs")
 
-            # Shared checks for the remaining outputs.
+            # Embeddings of samples
+            if "embeddings" in out:
+                X_embed = out["embeddings"]
+                self.assertEqual(X_embed.shape, (n_samples, n_features))
 
-            # X_embed: (n_samples, n_learned_features)
-            self.assertEqual(X_embed.shape, (self.X.shape[0], n_features))
+            # Annotator performance
+            if "annotator_perf" in out:
+                P_perf = out["annotator_perf"]
+                self.assertEqual(P_perf.shape, (n_samples, self.n_annotators))
+                self.assertGreaterEqual(P_perf.min(), 0)
+                self.assertLessEqual(P_perf.max(), 1)
 
-            # P_perf: (n_samples, n_annotators), values in [0, 1]
-            self.assertEqual(
-                P_perf.shape, (self.X.shape[0], self.n_annotators)
+                # Good annotators (2..9) should outperform always-wrong
+                # + random (0,1).
+                mean_perf = P_perf.mean(axis=0)
+                good_mean = mean_perf[2:].mean()
+                bad_mean = mean_perf[:2].mean()
+                self.assertGreater(
+                    good_mean,
+                    bad_mean,
+                    msg=(
+                        "Good annotators not clearly better:"
+                        f" good={good_mean:.3f}, bad={bad_mean:.3f}"
+                    ),
+                )
+
+            # Annotator embeddings
+            if "annotator_embeddings" in out:
+                A_embed = out["annotator_embeddings"]
+                self.assertEqual(A_embed.shape, (self.n_annotators, 16))
+
+        def _test_extra_outputs(self, predict_method):
+            test_cases = [
+                ("proba", ValueError),
+                (["proba"], ValueError),
+                (False, TypeError),
+                (None, None),
+                ([], None),
+            ]
+            items = [
+                "logits",
+                "embeddings",
+                "annotator_perf",
+                "annotator_class",
+                "annotator_embeddings",
+            ]
+
+            all_combinations = [
+                list(combo)
+                for r in range(1, len(items) + 1)
+                for combo in combinations(items, r)
+            ]
+            for comb in all_combinations:
+                test_cases.append((comb, None))
+            self._test_param(
+                predict_method,
+                "extra_outputs",
+                test_cases,
+                extras_params={"X": self.X},
             )
-            self.assertGreaterEqual(P_perf.min(), 0)
-            self.assertLessEqual(P_perf.max(), 1)
-
-            # Good annotators (2..9) should outperform the always-wrong +
-            # random (0,1).
-            mean_perf = P_perf.mean(axis=0)
-            good_mean = mean_perf[2:].mean()
-            bad_mean = mean_perf[:2].mean()
-            self.assertGreater(
-                good_mean,
-                bad_mean,
-                msg=(
-                    "Good annotators not clearly better:"
-                    f" good={good_mean:.3f}, bad={bad_mean:.3f}"
-                ),
-            )
-
-            # Check A_embed: (n_annotators, annotator_embed_dim)
-            self.assertEqual(A_embed.shape, (self.n_annotators, 16))
 
         # ------------------------------------------------------------------
         # __init__ parameter tests
@@ -426,7 +456,10 @@ try:
         # ------------------------------------------------------------------
 
         def test_predict_param_extra_outputs(self):
-            pass
+            self._test_extra_outputs("predict")
+
+        def test_predict_proba_param_extra_outputs(self):
+            self._test_extra_outputs("predict_proba")
 
         # ------------------------------------------------------------------
         # Output logic tests for predict_proba / predict
@@ -434,31 +467,51 @@ try:
 
         def test_predict_proba(self):
             clf = self._train_for_output_tests()
-            out = clf.predict_proba(
-                self.X,
-                extra_outputs=[
+            extra_outputs_list = [
+                [
+                    "embeddings",
+                    "annotator_embeddings",
+                    "annotator_class",
+                    "logits",
+                ],
+                [
                     "logits",
                     "embeddings",
                     "annotator_perf",
                     "annotator_class",
                     "annotator_embeddings",
                 ],
-            )
-            self._check_predict_outputs(out, mode="proba", n_features=128)
+            ]
+            for extra_outputs in extra_outputs_list:
+                out = clf.predict_proba(
+                    self.X,
+                    extra_outputs=extra_outputs,
+                )
+                out = dict(zip(["proba"] + extra_outputs, out))
+                self._check_predict_outputs(out, mode="proba", n_features=128)
 
         def test_predict(self):
-            clf = self._train_for_output_tests(module__return_embeddings=False)
-            out = clf.predict(
-                self.X,
-                extra_outputs=[
-                    "logits",
+            clf = self._train_for_output_tests()
+            extra_outputs_list = [
+                [
                     "embeddings",
+                    "annotator_embeddings",
+                ],
+                [
                     "annotator_perf",
                     "annotator_class",
                     "annotator_embeddings",
+                    "embeddings",
+                    "logits",
                 ],
-            )
-            self._check_predict_outputs(out, mode="label", n_features=2)
+            ]
+            for extra_outputs in extra_outputs_list:
+                out = clf.predict(
+                    self.X,
+                    extra_outputs=extra_outputs,
+                )
+                out = dict(zip(["label"] + extra_outputs, out))
+                self._check_predict_outputs(out, mode="label", n_features=128)
 
         # ------------------------------------------------------------------
         # partial_fit / initialize / fit behavior

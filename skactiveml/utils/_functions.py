@@ -275,15 +275,7 @@ if successful_skorch_torch_import:
 
         # Resolve criterion_output_keys -> list of names.
         if criterion_output_keys is None:
-            try:
-                # No explicit selection, but forward_outputs is given:
-                # use the first configured output name.
-                selected_names = [next(iter(forward_outputs))]
-            except StopIteration:
-                raise ValueError(
-                    "`forward_outputs` must contain at least one entry when "
-                    "`criterion_output_keys` is None."
-                )
+            selected_names = [next(iter(forward_outputs))]
         elif isinstance(criterion_output_keys, str):
             selected_names = [criterion_output_keys]
         elif isinstance(criterion_output_keys, Sequence) and not isinstance(
