@@ -41,14 +41,24 @@ class DropQuery(SingleAnnotatorPoolQueryStrategy):
         excluding the parameter for the number of clusters.
     n_cluster_param_name : string, default="n_clusters"
         The name of the parameter for the number of clusters.
-    clf_embedding_flag_name : str or None, default=None
-        Name of the flag, which is passed to the `predict` method for
+    clf_embedding_flag_name : dict or str or None, default=None
+        Flag, which is passed to the `predict` method for
         getting the (learned) sample representations.
 
-        - If `clf_embedding_flag_name=None` and `predict` returns
+        - If `clf_embedding_flag_name is None` and `predict` returns
           only one output, the input samples `X` are used.
-        - If `predict` returns two outputs or `clf_embedding_name` is
-          not `None`, `(proba, embeddings)` are expected as outputs.
+        - If `clf_embedding_flag_name is None` and `predict` returns
+          two outputs, `(y_pred, embeddings)` are expected as outputs.
+        - If `isinstance(clf_embedding_name, str)`, we call::
+
+            clf.predict(X, **{clf_embedding_flag_name: True})
+
+          and expect `(y_pred, embeddings)` as output.
+        - If `isinstance(clf_embedding_name, dict)`, we call::
+
+            clf.predict(X, **clf_embedding_flag_name)
+
+          and expect `(y_pred, embeddings)` as output.
     missing_label : scalar or string or np.nan or None, default=np.nan
         Value to represent a missing label.
     random_state : None or int or np.random.RandomState, default=None
@@ -168,6 +178,18 @@ class DropQuery(SingleAnnotatorPoolQueryStrategy):
         check_type(clf, "clf", SkactivemlClassifier)
         check_type(fit_clf, "fit_clf", bool)
         check_equal_missing_label(clf.missing_label, self.missing_label_)
+        predict_proba_kwargs = {}
+        if self.clf_embedding_flag_name is not None:
+            check_type(
+                self.clf_embedding_flag_name,
+                "clf_embedding_flag_name",
+                dict,
+                str,
+            )
+            if isinstance(self.clf_embedding_flag_name, str):
+                predict_proba_kwargs = {self.clf_embedding_flag_name: True}
+            else:
+                predict_proba_kwargs = self.clf_embedding_flag_name.copy()
 
         # Fit the classifier, if requested.
         if fit_clf:
@@ -177,15 +199,11 @@ class DropQuery(SingleAnnotatorPoolQueryStrategy):
                 clf = clone(clf).fit(X, y)
 
         # Compute predictions and optionally embeddings for original samples.
-        if self.clf_embedding_flag_name is not None:
-            y_pred, X_embed = clf.predict(
-                X_cand, **{self.clf_embedding_flag_name: True}
-            )
+        y_pred = clf.predict(X_cand, **predict_proba_kwargs)
+        if isinstance(y_pred, tuple):
+            y_pred, X_embed = y_pred
         else:
-            y_pred = clf.predict(X_cand)
             X_embed = X_cand
-            if isinstance(y_pred, tuple):
-                y_pred, X_embed = y_pred
 
         # Number of candidate samples.
         n_candidates = len(X_cand)

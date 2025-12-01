@@ -34,14 +34,24 @@ class ContrastiveAL(SingleAnnotatorPoolQueryStrategy):
     nearest_neighbors_dict : dict, default=None
         The parameters passed to the nearest neighboring algorithm
         `sklearn.neighbors.NearestNeighbors`.
-    clf_embedding_flag_name : str or None, default=None
-        Name of the flag, which is passed to the `predict_proba` method for
+    clf_embedding_flag_name : dict or str or None, default=None
+        Flag, which is passed to the `predict_proba` method for
         getting the (learned) sample representations.
 
-        - If `clf_embedding_flag_name=None` and `predict_proba` returns
+        - If `clf_embedding_flag_name is None` and `predict_proba` returns
           only one output, the input samples `X` are used.
-        - If `predict_proba` returns two outputs or `clf_embedding_name` is
-          not `None`, `(proba, embeddings)` are expected as outputs.
+        - If `clf_embedding_flag_name is None` and `predict_proba` returns
+          two outputs, `(proba, embeddings)` are expected as outputs.
+        - If `isinstance(clf_embedding_name, str)`, we call::
+
+            clf.predict_proba(X, **{clf_embedding_flag_name: True})
+
+          and expect `(proba, embeddings)` as output.
+        - If `isinstance(clf_embedding_name, dict)`, we call::
+
+            clf.predict_proba(X, **clf_embedding_flag_name)
+
+          and expect `(proba, embeddings)` as output.
     eps : float  > 0, default=1e-7
         Minimum probability threshold to compute log-probabilities.
     missing_label : scalar or string or np.nan or None, default=np.nan
@@ -171,6 +181,18 @@ class ContrastiveAL(SingleAnnotatorPoolQueryStrategy):
         check_type(clf, "clf", SkactivemlClassifier)
         check_equal_missing_label(clf.missing_label, self.missing_label_)
         check_scalar(fit_clf, "fit_clf", bool)
+        predict_proba_kwargs = {}
+        if self.clf_embedding_flag_name is not None:
+            check_type(
+                self.clf_embedding_flag_name,
+                "clf_embedding_flag_name",
+                dict,
+                str,
+            )
+            if isinstance(self.clf_embedding_flag_name, str):
+                predict_proba_kwargs = {self.clf_embedding_flag_name: True}
+            else:
+                predict_proba_kwargs = self.clf_embedding_flag_name.copy()
 
         if fit_clf:
             if sample_weight is None:
@@ -181,9 +203,6 @@ class ContrastiveAL(SingleAnnotatorPoolQueryStrategy):
         if len(X_labeled) > 0:
             # Obtain classifier predictions and optionally learned feature
             # embeddings (cf. line 3 and 4 in [1]).
-            predict_proba_kwargs = {}
-            if self.clf_embedding_flag_name is not None:
-                predict_proba_kwargs = {self.clf_embedding_flag_name: True}
             P_labeled = clf.predict_proba(X_labeled, **predict_proba_kwargs)
             P_cand = clf.predict_proba(X_cand, **predict_proba_kwargs)
             if isinstance(P_labeled, tuple):
