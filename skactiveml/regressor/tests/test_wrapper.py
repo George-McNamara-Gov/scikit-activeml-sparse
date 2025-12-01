@@ -1,3 +1,4 @@
+import random
 import unittest
 import numpy as np
 
@@ -482,6 +483,10 @@ if successful_skorch_torch_import:
 
     class TestSkorchRegressor(TemplateSkactivemlRegressor, unittest.TestCase):
         def setUp(self):
+            # Set global seeds.
+            torch.manual_seed(0)
+            np.random.seed(0)
+            random.seed(0)
             self.X, self.y_true = make_regression(
                 n_samples=200, n_features=10, random_state=0
             )
@@ -503,7 +508,6 @@ if successful_skorch_torch_import:
             init_default_params = {
                 "module": TestNeuralNet,
                 "criterion": nn.HuberLoss,
-                "predict_nonlinearity": nn.Identity(),
                 "missing_label": MISSING_LABEL,
                 "random_state": 1,
                 "neural_net_param_dict": self.neural_net_param_dict,
@@ -543,29 +547,6 @@ if successful_skorch_torch_import:
                 (nn.HuberLoss(), None),
             ]
             self._test_param("init", "criterion", test_cases)
-
-        def test_init_param_predict_nonlinearity(self, test_cases=None):
-            test_cases = [] if test_cases is None else test_cases
-            test_cases += [
-                ("Test", TypeError),
-                (None, ValueError),
-                (nn.Identity(), None),
-                (np.exp, None),
-                (nn.Identity, TypeError),
-                (nn.Softmax(-1), None),
-            ]
-            self._test_param("init", "predict_nonlinearity", test_cases)
-            test_cases = [
-                (None, None),
-                (nn.LogSoftmax(-1), None),
-                ("Test", TypeError),
-            ]
-            self._test_param(
-                "init",
-                "predict_nonlinearity",
-                test_cases,
-                replace_init_params={"criterion": nn.MSELoss},
-            )
 
         def test_init_param_include_unlabeled_samples(self, test_cases=None):
             test_cases = [] if test_cases is None else test_cases
@@ -689,10 +670,19 @@ if successful_skorch_torch_import:
             np.testing.assert_almost_equal(y_pred_0, y_pred_1)
 
         def test_predict(self):
-            reg = SkorchRegressor(**self.init_default_params)
-            y_pred, X_embed = reg.predict(self.X, return_embeddings=True)
+            init_default_params = self.init_default_params.copy()
+            init_default_params["forward_outputs"] = {
+                "output": (0, torch.ravel),
+                "exp-output": (0, torch.exp),
+                "emb": (1, None),
+            }
+            reg = SkorchRegressor(**init_default_params)
+            y_pred, X_embed, y_pred_exp = reg.predict(
+                self.X, extra_outputs=["emb", "exp-output"]
+            )
             self.assertEqual(len(y_pred), len(self.X))
             self.assertTrue(X_embed.shape[1], 2)
+            np.testing.assert_almost_equal(np.exp(y_pred), y_pred_exp.ravel())
             init_default_params = self.init_default_params.copy()
             reg = SkorchRegressor(**init_default_params)
             y_pred_0 = reg.predict(self.X)
@@ -725,47 +715,131 @@ if successful_skorch_torch_import:
             ]
             self._test_param("init", "neural_net_param_dict", test_cases)
 
-        def test_init_param_criterion_input_index(self):
-            test_cases = [(0, None), (False, TypeError), ([0], None)]
-            self._test_param("init", "criterion_input_index", test_cases)
+        def test_init_param_forward_outputs(self):
             test_cases = [
                 (None, None),
+                ({"output": (0, None)}, None),
+                ({"output": (0, None), "emb": (1, None)}, None),
+                (
+                    {
+                        "output": (0, None),
+                        "exp-output": (0, torch.exp),
+                        "emb": (1, None),
+                    },
+                    None,
+                ),
+                ({"output": (0,)}, TypeError),
+                ({"output": (-1, None)}, ValueError),
+                ({"output": ("str", None)}, TypeError),
+                ({"output": (2, None)}, ValueError),
             ]
-            default_dict = deepcopy(
-                self.init_default_params["neural_net_param_dict"]
-            )
-            default_dict["module__return_embeddings"] = False
+            self._test_param("init", "forward_outputs", test_cases)
+
+            test_cases = [
+                (None, None),
+                ({"output": (0, torch.exp)}, None),
+            ]
             self._test_param(
                 "init",
-                "criterion_input_index",
+                "forward_outputs",
                 test_cases,
-                replace_init_params={"neural_net_param_dict": default_dict},
+                replace_init_params={"criterion": nn.MSELoss},
             )
 
-        def test_predict_param_return_embeddings(self):
+        def test_init_param_criterion_output_keys(self):
             test_cases = [
-                ("a", TypeError),
-                (None, TypeError),
-                (True, None),
-                (False, None),
+                (None, None),
+                ("output", None),
+                (["output"], None),
+                ("test", ValueError),
+                (["test"], ValueError),
+                (False, TypeError),
+            ]
+            self._test_param("init", "criterion_output_keys", test_cases)
+
+            replace_init_params = {
+                "forward_outputs": {
+                    "output": (0, None),
+                    "exp-output": (0, torch.exp),
+                    "emb": (1, None),
+                },
+                "criterion": nn.MSELoss,
+            }
+            test_cases += [
+                ("output", None),
+                (["output"], None),
+                ("emb", None),
+                (["emb"], None),
+                (["output", "exp-output"], ValueError),
+                (["exp-output", "emb"], AttributeError),
+            ]
+            self._test_param(
+                "init",
+                "criterion_output_keys",
+                test_cases,
+                replace_init_params=replace_init_params,
+            )
+            nn_rep = self.init_default_params["neural_net_param_dict"].copy()
+            nn_rep["module__return_embeddings"] = False
+            test_cases = [
+                (None, None),
+                ("output", None),
+                (["output"], None),
+                ("test", ValueError),
+                (["test"], ValueError),
+                (False, TypeError),
+            ]
+            self._test_param(
+                "init",
+                "criterion_output_keys",
+                test_cases,
+                replace_init_params={"neural_net_param_dict": nn_rep},
+            )
+
+        def test_predict_param_extra_outputs(self):
+            test_cases = [
+                (None, None),
+                ([], None),
+                ("outputs", ValueError),
+                (["outputs"], ValueError),
+                ("emb", ValueError),
+                (["emb"], ValueError),
+                ("exp-outputs", ValueError),
+                (["exp-outputs", "emb"], ValueError),
+                (["emb", "exp-outputs"], ValueError),
+                (False, TypeError),
             ]
             self._test_param(
                 "predict",
-                "return_embeddings",
+                "extra_outputs",
                 test_cases,
                 extras_params={"X": self.X},
             )
-            test_cases = [(True, ValueError), (False, None)]
-            default_dict = deepcopy(
-                self.init_default_params["neural_net_param_dict"]
-            )
-            default_dict["module__return_embeddings"] = False
+            test_cases = [
+                (None, None),
+                ([], None),
+                ("outputs", ValueError),
+                (["outputs"], ValueError),
+                ("emb", None),
+                (["emb"], None),
+                ("exp-outputs", None),
+                (["exp-outputs", "emb"], None),
+                (["emb", "exp-outputs"], None),
+                (False, TypeError),
+            ]
+            replace_init_params = {
+                "forward_outputs": {
+                    "outputs": (0, None),
+                    "exp-outputs": (0, torch.exp),
+                    "emb": (1, None),
+                }
+            }
             self._test_param(
                 "predict",
-                "return_embeddings",
+                "extra_outputs",
                 test_cases,
                 extras_params={"X": self.X},
-                replace_init_params={"neural_net_param_dict": default_dict},
+                replace_init_params=replace_init_params,
             )
 
     class TestNeuralNet(nn.Module):

@@ -500,13 +500,7 @@ if successful_skorch_torch_import:
               returns the regression predictions directly and the effective
               mapping is::
 
-                  {"output": (0, None)}
-
-            - If ``criterion`` is ``torch.nn.PoissonNLLLoss``, it is assumed
-              that ``module.forward`` returns the logarithm of the rate
-              parameter and the effective mapping is::
-
-                  {"output": (0, torch.exp)}
+                  {"output": (0, torch.ravel)}
 
             - For all other criteria, a single-output module is assumed to
               already produce values in the target space, and the effective
@@ -722,14 +716,9 @@ if successful_skorch_torch_import:
 
             # Forward propagation whose return values depends on the request
             # ones.
-            fw_out = self._forward_with_named_outputs(
+            return self._forward_with_named_outputs(
                 X, forward_outputs=forward_outputs, extra_outputs=extra_outputs
             )
-            if isinstance(fw_out, tuple):
-                y_pred, extras = fw_out
-                return y_pred.ravel(), extras
-            else:
-                return fw_out.ravel()
 
         def _effective_forward_outputs(self):
             """Return the effective `forward_outputs` mapping.
@@ -749,6 +738,7 @@ if successful_skorch_torch_import:
             """
             # User explicitly provided a mapping: trust it.
             if self.forward_outputs is not None:
+
                 return self.forward_outputs
 
             # No explicit mapping: handle common single-output cases.
@@ -759,20 +749,15 @@ if successful_skorch_torch_import:
             )
 
             if crit_cls in [nn.MSELoss, nn.L1Loss, nn.SmoothL1Loss]:
-                # Single-output network returning logits.
-                return {"raw-pred": (0, None)}
+                # Module returns raw predictions.
+                return {"output": (0, torch.ravel)}
 
-            if crit_cls is nn.PoissonNLLLoss:
-                # Module returns log-probabilities.
-                return {"exp-pred": (0, torch.exp)}
-
-            # Fallback: treat the single forward output as already in
-            # probability space. Caller is responsible for making this true.
+            # Fallback: treat the single forward output as already in desired
+            # target space. Caller is responsible for making this true.
             return {"output": (0, None)}
 
         def _net_parts(self, X=None, y=None):
-            """
-            Assemble and validate network components.
+            """Assemble and validate network components.
 
             Implementations should perform any optional checks or normalization
             of constructor/init parameters (e.g., shape consistency, dtype
@@ -814,8 +799,7 @@ if successful_skorch_torch_import:
             )
 
         def _validate_data_kwargs(self):
-            """
-            Return kwargs forwarded to `_validate_data`.
+            """Return kwargs forwarded to `_validate_data`.
 
             Returns
             -------
