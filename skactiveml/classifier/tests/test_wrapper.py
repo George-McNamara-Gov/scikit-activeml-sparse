@@ -1235,8 +1235,8 @@ if successful_skorch_torch_import:
         def test_init_param_forward_outputs(self):
             test_cases = [
                 (None, None),
-                ({"logits": (0, None)}, None),
-                ({"logits": (0, None), "emb": (1, None)}, None),
+                ({"proba": (0, None)}, None),
+                ({"proba": (0, None), "emb": (1, None)}, None),
                 (
                     {
                         "proba": (0, nn.Softmax(dim=-1)),
@@ -1245,16 +1245,16 @@ if successful_skorch_torch_import:
                     },
                     None,
                 ),
-                ({"logits": (0,)}, TypeError),
-                ({"logits": (-1, None)}, ValueError),
-                ({"logits": ("str", None)}, TypeError),
-                ({"logits": (2, None)}, ValueError),
+                ({"proba": (0,)}, TypeError),
+                ({"proba": (-1, None)}, ValueError),
+                ({"proba": ("str", None)}, TypeError),
+                ({"proba": (2, None)}, ValueError),
             ]
             self._test_param("init", "forward_outputs", test_cases)
 
             test_cases = [
                 (None, None),
-                ({"log-probas": (0, torch.exp)}, None),
+                ({"proba": (0, torch.exp)}, None),
             ]
             self._test_param(
                 "init",
@@ -1266,8 +1266,8 @@ if successful_skorch_torch_import:
         def test_init_param_criterion_output_keys(self):
             test_cases = [
                 (None, None),
-                ("logits", None),
-                (["logits"], None),
+                ("proba", None),
+                (["proba"], None),
                 ("test", ValueError),
                 (["test"], ValueError),
                 (False, TypeError),
@@ -1276,17 +1276,17 @@ if successful_skorch_torch_import:
 
             replace_init_params = {
                 "forward_outputs": {
-                    "probas": (0, nn.Softmax(dim=-1)),
+                    "proba": (0, nn.Softmax(dim=-1)),
                     "logits": (0, None),
                     "emb": (1, None),
                 }
             }
             test_cases += [
-                ("probas", None),
-                (["probas"], None),
+                ("proba", None),
+                (["proba"], None),
                 ("emb", IndexError),
                 (["emb"], IndexError),
-                (["probas", "logits"], ValueError),
+                (["proba", "logits"], ValueError),
                 (["logits", "emb"], TypeError),
             ]
             self._test_param(
@@ -1299,8 +1299,8 @@ if successful_skorch_torch_import:
             nn_rep["module__return_embeddings"] = False
             test_cases = [
                 (None, None),
-                ("logits", None),
-                (["logits"], None),
+                ("proba", None),
+                (["proba"], None),
                 ("test", ValueError),
                 (["test"], ValueError),
                 (False, TypeError),
@@ -1310,6 +1310,58 @@ if successful_skorch_torch_import:
                 "criterion_output_keys",
                 test_cases,
                 replace_init_params={"neural_net_param_dict": nn_rep},
+            )
+
+        def test_predict_param_extra_outputs(self):
+            self._test_extra_outputs("predict_proba")
+
+        def test_predict_proba_param_extra_outputs(self):
+            self._test_extra_outputs("predict_proba")
+
+        def _test_extra_outputs(self, predict_method):
+            test_cases = [
+                (None, None),
+                ([], None),
+                ("proba", ValueError),
+                (["proba"], ValueError),
+                ("emb", ValueError),
+                (["emb"], ValueError),
+                ("logits", ValueError),
+                (["logits", "emb"], ValueError),
+                (["emb", "logits"], ValueError),
+                (False, TypeError),
+            ]
+            self._test_param(
+                predict_method,
+                "extra_outputs",
+                test_cases,
+                extras_params={"X": self.X},
+            )
+            test_cases = [
+                (None, None),
+                ([], None),
+                ("proba", ValueError),
+                (["proba"], ValueError),
+                ("emb", None),
+                (["emb"], None),
+                ("logits", None),
+                (["logits", "emb"], None),
+                (["emb", "logits"], None),
+                (False, TypeError),
+            ]
+            replace_init_params = {
+                "forward_outputs": {
+                    "proba": (0, nn.Softmax(dim=-1)),
+                    "logits": (0, None),
+                    "emb": (1, None),
+                }
+            }
+            self._test_param(
+                predict_method,
+                "extra_outputs",
+                test_cases,
+                extras_params={"X": self.X},
+                replace_init_params=replace_init_params,
             )
 
     class TestNeuralNet(nn.Module):

@@ -846,7 +846,7 @@ if successful_skorch_torch_import:
               already produce values in probability space, and the effective
               mapping is::
 
-                  {"output": (0, None)}
+                  {"proba": (0, None)}
 
         criterion_output_keys : str or sequence of str or None, default=None
             Name or names of the forward outputs that are passed to the
@@ -1158,19 +1158,18 @@ if successful_skorch_torch_import:
 
             if crit_cls is nn.CrossEntropyLoss:
                 # Single-output network returning logits.
-                return {"logits": (0, nn.Softmax(dim=-1))}
+                return {"proba": (0, nn.Softmax(dim=-1))}
 
             if crit_cls is nn.NLLLoss:
                 # Module returns log-probabilities.
-                return {"log-proba": (0, torch.exp)}
+                return {"proba": (0, torch.exp)}
 
             # Fallback: treat the single forward output as already in
             # probability space. Caller is responsible for making this true.
-            return {"output": (0, None)}
+            return {"proba": (0, None)}
 
         def _net_parts(self, X=None, y=None):
-            """
-            Assemble and validate network components.
+            """Assemble and validate network components.
 
             Implementations should perform any optional checks or normalization
             of constructor/init parameters (e.g., shape consistency, dtype
@@ -1210,8 +1209,7 @@ if successful_skorch_torch_import:
             )
 
         def _validate_data_kwargs(self):
-            """
-            Return kwargs forwarded to `_validate_data`.
+            """Return kwargs forwarded to `_validate_data`.
 
             Returns
             -------
@@ -1232,8 +1230,7 @@ if successful_skorch_torch_import:
             return {"check_X_dict": self.check_X_dict_}
 
         def _return_training_data(self, X, y):
-            """
-            Return only samples and labels required for training.
+            """Return only samples and labels required for training.
 
             Parameters
             ----------
@@ -1261,8 +1258,7 @@ if successful_skorch_torch_import:
             return X_train, y_train
 
         def _initialize_fallbacks(self, P):
-            """
-            Initialize label/cost fallbacks if the classifier was not fitted
+            """Initialize label/cost fallbacks if the classifier was not fitted
             before.
 
             Parameters
@@ -1270,17 +1266,6 @@ if successful_skorch_torch_import:
             P : array-like of shape (n_samples, n_classes)
                 Class-probability array used only to infer `n_classes` when
                 `self.classes` is `None`.
-
-            Notes
-            -----
-            Side effects:
-                - Sets `self._le` to an `ExtLabelEncoder` and fits it on
-                  `self.classes` if available, otherwise on
-                  `arange(P.shape[-1])`.
-                - Sets `self.classes_` from the fitted encoder.
-                - Sets `self.cost_matrix_` to a 0/1 loss
-                  `(1 - I_n)` if `self.cost_matrix` is `None`, otherwise
-                  uses `self.cost_matrix`.
             """
             self.random_state_ = check_random_state(self.random_state)
             if not hasattr(self, "_le"):
