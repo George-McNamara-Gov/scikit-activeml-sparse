@@ -1,19 +1,46 @@
 import unittest
-
 import numpy as np
+
+from itertools import combinations
 from sklearn.utils.validation import check_is_fitted
 from sklearn.datasets import make_blobs
 from sklearn.linear_model import LogisticRegression
 
+from skactiveml.tests.template_estimator import TemplateEstimator
 from skactiveml.classifier.multiannotator import AnnotatorLogisticRegression
 
 
-class TestAnnotatorLogisticRegression(unittest.TestCase):
+class TestAnnotatorLogisticRegression(TemplateEstimator, unittest.TestCase):
     def setUp(self):
         self.X = np.zeros((2, 1))
         self.y_nan = [["nan", "nan", "nan"], ["nan", "nan", "nan"]]
         self.y = np.array([["tokyo", "nan", "paris"], ["tokyo", "nan", "nan"]])
         self.w = np.array([[2, np.nan, 1], [1, 1, 1]])
+        self.classes = ["tokyo", "paris"]
+        self.n_classes = len(self.classes)
+        init_default_params = {
+            "n_annotators": self.y.shape[-1],
+            "classes": self.classes,
+            "cost_matrix": None,
+            "missing_label": "nan",
+            "random_state": 0,
+        }
+
+        # Define default parameters for fitting.
+        fit_default_params = {
+            "X": self.X,
+            "y": self.y,
+        }
+
+        # Define default parameters for predicting.
+        predict_default_params = {"X": self.X}
+
+        super().setUp(
+            estimator_class=AnnotatorLogisticRegression,
+            init_default_params=init_default_params,
+            fit_default_params=fit_default_params,
+            predict_default_params=predict_default_params,
+        )
 
     def test_init_param_n_annotators(self):
         lr = AnnotatorLogisticRegression()
@@ -117,6 +144,24 @@ class TestAnnotatorLogisticRegression(unittest.TestCase):
         )
         self.assertRaises(ValueError, lr.fit, X=self.X, y=self.y)
 
+    def test_init_param_cost_matrix(self):
+        test_cases = [
+            (1 - np.eye(self.n_classes), None),
+            (1 - np.eye(self.n_classes + 1), ValueError),
+            ("test", ValueError),
+            (None, None),
+        ]
+        self._test_param("init", "cost_matrix", test_cases)
+
+    def test_init_param_classes(self):
+        test_cases = [
+            (None, None),
+            (self.classes, None),
+            (np.arange(1, self.n_classes + 1), TypeError),
+            ("abc", ValueError),
+        ]
+        self._test_param("init", "classes", test_cases)
+
     def test_fit(self):
         # ---------------------Check trivial use cases.------------------------
         lr = AnnotatorLogisticRegression(
@@ -138,11 +183,9 @@ class TestAnnotatorLogisticRegression(unittest.TestCase):
         self.assertRaises(ValueError, lr.fit, X=[], y=[])
         lr.n_annotators = 5
         lr.fit(X=[], y=[])
-        y_proba, y_logits, y_annot_perf, y_annot_class = lr.predict_proba(
+        y_proba, y_annot_perf, y_annot_class, y_logits = lr.predict_proba(
             X=self.X,
-            return_logits=True,
-            return_annotator_perf=True,
-            return_annotator_class=True,
+            extra_outputs=["annotator_perf", "annotator_class", "logits"],
         )
         y_proba_exp = np.full((len(self.X), 2), fill_value=0.5)
         np.testing.assert_array_equal(y_proba, y_proba_exp)
@@ -288,6 +331,20 @@ class TestAnnotatorLogisticRegression(unittest.TestCase):
             y_skactiveml = lr.fit(X, y_noisy).predict(X)
             np.testing.assert_array_equal(y_sklearn, y_skactiveml)
 
+    def test_fit_param_sample_weight(self):
+        test_cases = [
+            (None, None),
+            (np.nan, ValueError),
+            (1, ValueError),
+            (np.arange(len(self.fit_default_params["y"])), ValueError),
+            (np.ones(self.fit_default_params["y"].shape), None),
+        ]
+        self._test_param(
+            "fit",
+            "sample_weight",
+            test_cases,
+        )
+
     def test_predict_proba(self):
         lr = AnnotatorLogisticRegression(
             random_state=0, missing_label="nan", classes=["tokyo", "paris"]
@@ -308,3 +365,38 @@ class TestAnnotatorLogisticRegression(unittest.TestCase):
         lr.fit(X=self.X, y=self.y, sample_weight=self.w)
         y_pred = lr.predict(X=self.X)
         np.testing.assert_array_equal(y_pred, ["tokyo", "tokyo"])
+
+    def test_predict_param_extra_outputs(self):
+        self._test_extra_outputs("predict")
+
+    def test_predict_proba_param_extra_outputs(self):
+        self._test_extra_outputs("predict_proba")
+
+    def _test_extra_outputs(self, predict_method):
+        test_cases = [
+            ("proba", ValueError),
+            (["proba"], ValueError),
+            (["logits", "logits"], ValueError),
+            (False, TypeError),
+            (None, None),
+            ([], None),
+        ]
+        items = [
+            "logits",
+            "annotator_perf",
+            "annotator_class",
+        ]
+
+        all_combinations = [
+            list(combo)
+            for r in range(1, len(items) + 1)
+            for combo in combinations(items, r)
+        ]
+        for comb in all_combinations:
+            test_cases.append((comb, None))
+        self._test_param(
+            predict_method,
+            "extra_outputs",
+            test_cases,
+            extras_params={"X": self.X},
+        )

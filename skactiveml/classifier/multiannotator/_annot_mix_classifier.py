@@ -40,7 +40,7 @@ try:
             be passed, although instantiated modules will also work. The
             `forward` module must return logits as first element and optional
             sample embeddings as second element. If no sample embeddings are
-            returned, the implement uses the original samples.
+            returned, the implementation uses the original samples.
         clf_sample_embed_dim : int or None, default=None
             - If `clf_sample_embed_dim>0`, the `clf_module` is expected to
               output a per-sample embedding with the given dimensionality.
@@ -198,7 +198,7 @@ try:
             P : numpy.ndarray of shape (n_samples, n_classes)
                 Class probabilities of the test samples. Classes are ordered
                 according to `self.classes_`.
-            extras : tuple of numpy.ndarray, optional
+            *extras : numpy.ndarray, optional
                 Only returned if `extra_outputs` is not `None`. In that
                 case, the method returns a tuple whose first element is `P`
                 and whose remaining elements correspond to the requested
@@ -219,7 +219,6 @@ try:
                   `(n_samples, n_annotators, n_classes)`, where
                   `P_annot[n, m, c]` refers to the probability that annotator
                   `m` provides the class label `c` for sample `X[n]`.
-                  Only returned, if `return_annotator_class=True`.
                 - `A_embed` : `np.ndarray` of shape
                   `(n_annotators, annotator_embed_dim)`, where `A_embed[m]`
                   refers to the learned embedding for annotator `m`.
@@ -235,7 +234,7 @@ try:
             X,
             extra_outputs=None,
         ):
-            """Return probability estimates for the test samples `X`.
+            """Return class probability estimates for the test samples `X`.
 
             By default, this method returns only the class probabilities `P`.
             If `extra_outputs` is provided, a tuple is returned whose first
@@ -270,7 +269,7 @@ try:
             P : numpy.ndarray of shape (n_samples, n_classes)
                 Class probabilities of the test samples. Classes are ordered
                 according to `self.classes_`.
-            extras : tuple of numpy.ndarray, optional
+            *extras : numpy.ndarray, optional
                 Only returned if `extra_outputs` is not `None`. In that
                 case, the method returns a tuple whose first element is `P`
                 and whose remaining elements correspond to the requested
@@ -291,7 +290,6 @@ try:
                   `(n_samples, n_annotators, n_classes)`, where
                   `P_annot[n, m, c]` refers to the probability that annotator
                   `m` provides the class label `c` for sample `X[n]`.
-                  Only returned, if `return_annotator_class=True`.
                 - `A_embed` : `np.ndarray` of shape
                   `(n_annotators, annotator_embed_dim)`, where `A_embed[m]`
                   refers to the learned embedding for annotator `m`.
