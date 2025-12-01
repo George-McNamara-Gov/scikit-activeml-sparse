@@ -953,6 +953,7 @@ class TestSlidingWindowClassifier(
         )
         clf = SlidingWindowClassifier(
             estimator=ParzenWindowClassifier(missing_label="nan"),
+            missing_label="nan",
         )
 
         clf.fit(X=self.fit_default_params["X"], y=self.fit_default_params["y"])

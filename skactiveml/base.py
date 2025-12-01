@@ -54,6 +54,7 @@ try:
     from collections.abc import Sequence
     from skorch import NeuralNet
     from skorch.utils import to_numpy
+    from .utils import _check_forward_outputs
 
     successful_skorch_torch_import = True
 except ImportError:  # pragma: no cover
@@ -1701,19 +1702,19 @@ if successful_skorch_torch_import:
             Parameters
             ----------
             X : array-like of shape (n_samples, ...)
-                Input samples. It is assumed that X has already been validated
-                and that `self.neural_net_` is initialized.
+                Input samples. It is assumed that `X` has already been
+                validated and that `self.neural_net_` is initialized.
             forward_outputs : dict[str, tuple[int, Callable | None]]
                 `dict` that describes how to obtain and post-process the
                 outputs of `module.forward` for prediction.
 
-                Let `raw_outputs = module.forward(X)` be normalized to a tuple.
-                Each entry `name -> (idx, transform)` is interpreted as:
+                Given `raw_outputs = module.forward(X)`, each entry
+                `name -> (idx, transform)` is interpreted as:
 
-                - `idx`: integer index into `raw_outputs` (0-based).
+                - `idx`: integer index of `raw_outputs` (0-based).
                 - `transform`: callable `f(tensor) -> tensor` or `None`.
                   If `transform` is not `None`, it is applied to the selected
-                  raw tensor; otherwise the raw tensor is used unchanged.
+                  raw tensor; otherwise the raw tensor is used.
             extra_outputs : None or str or sequence of str, default=None
                 Names of additional outputs to return next to the primary
                 output. Must be a subset of `forward_outputs.keys()` if
@@ -1730,6 +1731,24 @@ if successful_skorch_torch_import:
                 the requested extra outputs in the order specified by
                 `extra_outputs`.
             """
+            # Check forward_outputs configured.
+            _check_forward_outputs(forward_outputs=forward_outputs)
+
+            # Primary output = first configured output
+            # (dicts preserve insertion order).
+            primary_name = next(iter(forward_outputs))
+
+            # Normalize and validate extra_outputs:
+            # - None / str / sequence of str,
+            # - subset of forward_outputs.keys(),
+            # - no duplicates,
+            # - no primary_name.
+            extra_names = self._normalize_extra_outputs(
+                extra_outputs,
+                allowed_names=forward_outputs.keys(),
+                primary_name=primary_name,
+            )
+
             # Run module forward once.
             fw_out = self.neural_net_.forward(X)
 
@@ -1739,40 +1758,9 @@ if successful_skorch_torch_import:
             else:
                 raw_outputs = (fw_out,)
 
-            # Check forward_outputs configured.
-            check_type(forward_outputs, "forward_outputs", dict)
-
-            # Validate and normalize specs into a dict:
-            # name -> (idx, transform)
-            specs = {}
-            for name, spec in forward_outputs.items():
-                if (
-                    not isinstance(spec, tuple)
-                    or len(spec) != 2
-                    or not isinstance(spec[0], int)
-                ):
-                    raise TypeError(
-                        "Each value in forward_outputs must be a tuple "
-                        "`(idx: int, transform: Callable | None)`. "
-                        f"Got {spec!r} for key {name!r}."
-                    )
-                idx, transform = spec
-                if idx < 0:
-                    raise ValueError(
-                        f"Index `idx={idx}` for key {name!r} must be "
-                        f"non-negative."
-                    )
-                if transform is not None and not callable(transform):
-                    raise TypeError(
-                        "The second element of each forward_outputs tuple "
-                        f"must be a `Callable` or `None`. Got {transform!r} "
-                        f"for key {name!r}."
-                    )
-                specs[name] = (idx, transform)
-
             # Check that all indices are within range of raw_outputs.
-            if specs:
-                max_idx = max(idx for idx, _ in specs.values())
+            if forward_outputs:
+                max_idx = max(idx for idx, _ in forward_outputs.values())
                 if max_idx >= len(raw_outputs):
                     raise ValueError(
                         f"`forward_outputs` references raw output index "
@@ -1780,29 +1768,9 @@ if successful_skorch_torch_import:
                         f"{len(raw_outputs)} object(s)."
                     )
 
-            # Primary output = first configured output
-            # (dicts preserve insertion order).
-            try:
-                primary_name = next(iter(specs))
-            except StopIteration:
-                raise ValueError(
-                    "`forward_outputs` must contain at least one entry."
-                )
-
-            # Normalize and validate extra_outputs:
-            # - None / str / sequence of str,
-            # - subset of forward_outputs.keys(),
-            # - no duplicates,
-            # - no primary_name.
-            extra_names = self._normalize_extra_outputs(
-                extra_outputs,
-                allowed_names=specs.keys(),
-                primary_name=primary_name,
-            )
-
             # Helper to extract and transform a single named output lazily.
             def _get_named(name: str):
-                idx, transform = specs[name]
+                idx, transform = forward_outputs[name]
                 value = raw_outputs[idx]
                 if transform is not None:
                     value = transform(value)
@@ -1811,12 +1779,12 @@ if successful_skorch_torch_import:
             # Primary output (transform applied here).
             primary_np = _get_named(primary_name)
 
-            # Extra outputs (transforms applied only for these).
+            # No extra outputs.
             if not extra_names:
                 return primary_np
 
             extras_np = tuple(_get_named(name) for name in extra_names)
-            return primary_np, *extras_np
+            return (primary_np,) + extras_np
 
         @staticmethod
         def _normalize_extra_outputs(
@@ -1847,7 +1815,7 @@ if successful_skorch_torch_import:
             if isinstance(extra_outputs, str):
                 names = [extra_outputs]
             elif isinstance(extra_outputs, Sequence) and not isinstance(
-                extra_outputs, (str, bytes)
+                extra_outputs, bytes
             ):
                 names = list(extra_outputs)
             else:
@@ -1858,7 +1826,7 @@ if successful_skorch_torch_import:
 
             if not all(isinstance(n, str) for n in names):
                 raise TypeError(
-                    "All entries in extra_outputs must be strings."
+                    "All entries in `extra_outputs` must be strings."
                 )
 
             # No duplicates

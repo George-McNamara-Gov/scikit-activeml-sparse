@@ -404,8 +404,11 @@ class TestFunctions(unittest.TestCase):
             # Sanity check: selector attr exists and matches indices for the
             # last valid class.
             self.assertTrue(
-                hasattr(TupleAwareDummy, "__criterion_output_selector__")
+                hasattr(TupleAwareDummy, "_criterion_output_selector")
             )
             self.assertEqual(
-                TupleAwareDummy.__criterion_output_selector__, (0, 2)
+                TupleAwareDummy._criterion_output_selector, (0, 2)
+            )
+            self.assertEqual(
+                TupleAwareDummy.__name__, "TupleAwareDummyTupleLossIdx0_2"
             )

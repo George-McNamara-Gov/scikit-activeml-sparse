@@ -30,6 +30,7 @@ from ._validation import (
     check_indices,
     check_n_features,
     _check_callable,
+    _check_forward_outputs,
 )
 
 __all__ = [
@@ -62,6 +63,7 @@ __all__ = [
     "simple_batch",
     "check_n_features",
     "_check_callable",
+    "_check_forward_outputs",
 ]
 
 try:

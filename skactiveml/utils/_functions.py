@@ -9,6 +9,8 @@ try:
     from copy import deepcopy
     from torch import nn
 
+    from ._validation import _check_forward_outputs
+
     successful_skorch_torch_import = True
 except ImportError:  # pragma: no cover
     pass
@@ -269,13 +271,7 @@ if successful_skorch_torch_import:
             return criterion
 
         # Validate forward_outputs if it is provided.
-        if forward_outputs is not None and not isinstance(
-            forward_outputs, dict
-        ):
-            raise TypeError(
-                "`forward_outputs` must be a dictionary if provided, "
-                f"got {type(forward_outputs)}."
-            )
+        _check_forward_outputs(forward_outputs=forward_outputs)
 
         # Resolve criterion_output_keys -> list of names.
         if criterion_output_keys is None:
@@ -291,7 +287,7 @@ if successful_skorch_torch_import:
         elif isinstance(criterion_output_keys, str):
             selected_names = [criterion_output_keys]
         elif isinstance(criterion_output_keys, Sequence) and not isinstance(
-            criterion_output_keys, (str, bytes)
+            criterion_output_keys, bytes
         ):
             if len(criterion_output_keys) == 0:
                 raise ValueError(
@@ -315,36 +311,14 @@ if successful_skorch_torch_import:
         # Map names -> raw indices using forward_outputs[name][0].
         indices = []
         for name in selected_names:
-            if name not in forward_outputs:
+            spec = forward_outputs.get(name, None)
+            if spec is None:
                 raise ValueError(
                     f"Unknown forward output name {name!r} in "
                     "`criterion_output_keys`. Available names are: "
                     f"{list(forward_outputs.keys())}."
                 )
-            spec = forward_outputs[name]
-            if (
-                not isinstance(spec, tuple)
-                or len(spec) != 2
-                or not isinstance(spec[0], int)
-            ):
-                raise TypeError(
-                    "Each value in forward_outputs must be a tuple "
-                    "(idx: int, transform: Callable | None). "
-                    f"Got {spec!r} for key {name!r}."
-                )
-            idx, transform = spec
-            if idx < 0:
-                raise ValueError(
-                    f"Index `idx={idx}` for key {name!r} must be "
-                    f"non-negative."
-                )
-            if transform is not None and not callable(transform):
-                raise TypeError(
-                    "The second element of each forward_outputs tuple "
-                    f"must be a `Callable` or `None`. Got {transform!r} "
-                    f"for key {name!r}."
-                )
-            indices.append(idx)
+            indices.append(spec[0])
 
         # Enforce: each raw index at most once.
         if len(set(indices)) != len(indices):
@@ -372,20 +346,22 @@ if successful_skorch_torch_import:
 
         # Build the wrapper `forward`.
         def forward(self, input, target, *args, **kwargs):
-            x = input
-            if isinstance(x, tuple):
-                if max_idx >= len(x):
+            if isinstance(input, tuple):
+                if self._criterion_output_max_selector >= len(input):
                     raise ValueError(
                         f"`forward_outputs` references raw output index "
-                        f"{max_idx}, but module.forward returned only "
-                        f"{len(x)} object(s)."
+                        f"{self._criterion_output_max_selector}, but "
+                        f"`module.forward` returned only {len(input)} "
+                        f"object(s)."
                     )
-                if isinstance(selector, int):
-                    x = x[selector]
+                if isinstance(self._criterion_output_selector, int):
+                    input = input[self._criterion_output_selector]
                 else:
                     # selector is a tuple of indices
-                    x = tuple(x[i] for i in selector)
-            return base_cls.forward(self, x, target, *args, **kwargs)
+                    input = tuple(
+                        input[i] for i in self._criterion_output_selector
+                    )
+            return base_cls.forward(self, input, target, *args, **kwargs)
 
         # Keep signature/tool-tips identical.
         forward.__signature__ = inspect.signature(base_cls.forward)
@@ -401,7 +377,8 @@ if successful_skorch_torch_import:
                 {
                     "forward": forward,
                     "__module__": mod.__name__,
-                    "__criterion_output_selector__": selector,
+                    "_criterion_output_selector": selector,
+                    "_criterion_output_max_selector": max_idx,
                 },
             )
             setattr(mod, TupleAwareCls.__name__, TupleAwareCls)

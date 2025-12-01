@@ -89,12 +89,11 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
         X : array-like of shape (n_samples, n_features)
             Training data set, usually complete, i.e., including the labeled
             and unlabeled samples.
-        y : array-like of shape (n_samples)
+        y : array-like of shape (n_samples,)
             Labels of the training data set (possibly including unlabeled ones
             indicated by self.MISSING_LABEL).
-        candidates : None or array-like of shape (n_candidates), dtype=int or
-            array-like of shape (n_candidates, n_features), default=None
-
+        candidates : None or array-like of shape (n_candidates), dtype=int or\
+                array-like of shape (n_candidates, n_features), default=None
             - If `candidates` is `None`, the unlabeled samples from `(X,y)` are
               considered as `candidates`.
             - If `candidates` is of shape `(n_candidates,)` and of type
@@ -199,7 +198,7 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
             new_candidates = random_state.choice(
                 a=candidate_indices, size=max_candidates, replace=False
             )
-        # subsampling with privided explicit candidates
+        # subsampling with provided explicit candidates
         else:
             # transform max_candidates to int if a ratio is given
             if isinstance(max_candidates, float):
