@@ -213,16 +213,19 @@ class TestSubSamplingWrapper(
                         )
 
         us = UncertaintySampling()
-        qs_us = SubSamplingWrapper(us, exclude_non_subsample=True)
-        qs_us.query(
-            X=self.X,
-            y=np.ones(len(self.X)),
-            candidates=np.arange(len(self.X)),
-            clf=ParzenWindowClassifier(),
-        )
-        sig_qs_us = inspect.signature(qs_us.query).parameters
-        sig_us = inspect.signature(us.query).parameters
-        self.assertEqual(sig_qs_us, sig_us)
+        for max_candidates in [0.2, len(self.X)]:
+            qs_us = SubSamplingWrapper(
+                us, max_candidates=max_candidates, exclude_non_subsample=True
+            )
+            qs_us.query(
+                X=self.X,
+                y=np.ones(len(self.X)),
+                candidates=np.arange(len(self.X)),
+                clf=ParzenWindowClassifier(),
+            )
+            sig_qs_us = inspect.signature(qs_us.query).parameters
+            sig_us = inspect.signature(us.query).parameters
+            self.assertEqual(sig_qs_us, sig_us)
 
     def test_query_batch_variation(self):
         init_params = deepcopy(self.init_default_params)

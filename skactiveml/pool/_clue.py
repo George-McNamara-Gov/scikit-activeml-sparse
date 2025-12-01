@@ -181,7 +181,7 @@ class Clue(SingleAnnotatorPoolQueryStrategy):
             if isinstance(self.clf_embedding_flag_name, str):
                 predict_proba_kwargs = {self.clf_embedding_flag_name: True}
             else:
-                predict_proba_kwargs = self.clf_embedding_flag_name.copy()
+                predict_proba_kwargs = self.clf_embedding_flag_name
 
         # Fit the classifier.
         if fit_clf:

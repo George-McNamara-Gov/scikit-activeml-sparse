@@ -45,9 +45,9 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
           shape `(n_candidates, n_features)`, all unlabeled data will be
           removed from `X` and `y`.
         - If `False`, `X` and `y` stay the same.
-    embed_samples_func : Callable, default=None
+    embed_samples_func : Callable or None, default=None
         - If `embed_samples_func` is a `Callable`, it must accept the samples
-        `X` as input and return the sample-wise embeddings.
+          `X` as input and return the sample-wise embeddings.
         - If `embed_samples_func` is None, no action is performed.
     missing_label : scalar or string or np.nan or None, default=np.nan
         Value to represent a missing label.
@@ -226,6 +226,8 @@ class SubSamplingWrapper(SingleAnnotatorPoolQueryStrategy):
             if candidates is not None and candidates.ndim > 1:
                 subset_and_labeled_indices = all_labeled
             else:
+                # ignore labeled candidates to avoid duplicate samples
+                all_labeled = np.setdiff1d(all_labeled, new_candidates)
                 subset_and_labeled_indices = np.concatenate(
                     [all_labeled, new_candidates]
                 )

@@ -18,6 +18,5 @@ try:
     from ._wrapper import SkorchClassifier  # noqa: F401
 
     __all__ += ["SkorchClassifier"]
-
 except ImportError:  # pragma: no cover
     pass

@@ -118,7 +118,7 @@ try:
             ----------
             X : array-like of shape (n_samples, ...)
                 Test samples.
-            extra_outputs : None, str, or sequence of str, default=None
+            extra_outputs : None or str or sequence of str, default=None
                 Names of additional outputs to return next to `P`. The names
                 must be a subset of the following keys:
 

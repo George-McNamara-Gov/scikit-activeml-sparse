@@ -766,16 +766,17 @@ if successful_skorch_torch_import:
     class SkorchClassifier(SkactivemlClassifier, SkorchMixin):
         """SkorchClassifier
 
-        Implement a wrapper class to make it possible to use `torch` with
-        `skactiveml`. This is achieved by providing a wrapper around `torch`
-        that has a `skactiveml` interface and can handle missing labels.
-        This wrapper is based on the open-source library `skorch` [1]_.
+        Implement a classification wrapper class to make it possible to use
+        `torch` with `skactiveml`. This is achieved by providing a wrapper
+        around `torch` that has a `skactiveml` interface and can handle
+        missing labels. This wrapper is based on the open-source library
+        `skorch` [1]_.
 
         Notes
         -----
         Adjust your `criterion` and `module.forward` outputs consistently.
         See the documentation of the parameters `forward_outputs` and
-        `criterion_output_keys` how to do this.
+        `criterion_output_keys` for further details.
 
         Parameters
         ----------
@@ -800,15 +801,14 @@ if successful_skorch_torch_import:
             functionality of `predict_nonlinearity` in a `skorch.net.NeuralNet`
             (see documentation of `neural_net_param_dict`).
 
-            Let `raw_outputs = module.forward(x)` be normalized to a tuple.
-            Each entry `name -> (idx, transform)` in `forward_outputs` is
-            interpreted as:
+            Given `raw_outputs = module.forward(x)`, each entry
+            `name -> (idx, transform)` in `forward_outputs` is interpreted as:
 
             - `idx` : int
               Index into `raw_outputs` (0-based).
             - `transform` : callable or `None`
               If not `None`, it is applied to the selected raw tensor
-              `raw_outputs[idx]`. Otherwise, the raw tensor is used unchanged.
+              `raw_outputs[idx]`. Otherwise, the raw tensor is used.
 
             This allows multiple named outputs to reference the same raw tensor
             with different transforms, for example::
@@ -865,16 +865,14 @@ if successful_skorch_torch_import:
               index in `forward_outputs` before applying the transform)
               is passed to the criterion (e.g. `"logits"` to use only the
               class scores).
-            - If a sequence of `str`, the selected named outputs are packed
-              into a tuple and passed to the criterion in that order. Each raw
-              forward output index may appear **at most once**: using multiple
-              names that resolve to the same underlying index (e.g. `"proba"`
-              and `"logits"` both pointing to index 0) is not allowed and
-              results in a `ValueError`.
+            - If a sequence of `str`, the selected named outputs are passed to
+              the criterion in that order. Each raw forward output index may
+              appear at most once: using multiple names that resolve to the
+              same underlying index (e.g. `"proba"` and `"logits"` both
+              pointing to index 0) is not allowed and results in a
+              `ValueError`.
             - If `None`, the first output defined by the effective
-              `forward_outputs` mapping is used as criterion input. For
-              single-output modules with the default mapping, this is that
-              single output.
+              `forward_outputs` mapping is used as criterion input.
 
             To pass all distinct forward outputs to the criterion in the
             same order as `forward_outputs`, choose one representative name
@@ -894,7 +892,8 @@ if successful_skorch_torch_import:
             allowed in this dictionary.
         sample_dtype : str or type, default=np.float32
             Dtype to which input samples are cast inside the estimator. If set
-            to `None`, the input dtype is preserved.
+            to `None`, the input dtype is preserved. The encoded label data
+            type is always  `np.int64`.
         include_unlabeled_samples : bool, default=False
             - If `False`, only labeled samples are passed to the `fit` method
               of the estimator.
@@ -1029,8 +1028,8 @@ if successful_skorch_torch_import:
                         "emb":    (1, None),
                     }
 
-                then valid values for `extra_outputs` include `"logits"` or
-                `["logits", "emb"]`.
+                then valid values for `extra_outputs` include `"emb"` or
+                `["emb", "logits"]`.
 
                 - If `extra_outputs is None`, only `y_pred` is returned.
                 - If `extra_outputs` is a string, e.g. `"emb"`, the
@@ -1041,14 +1040,14 @@ if successful_skorch_torch_import:
 
             Returns
             -------
-            y_pred : numpy.ndarray of shape (n_samples, ...)
-                Predicted classes of the test samples.
-            extras : tuple of numpy.ndarray, optional
-                Only returned if `extra_outputs` is not `None`. In that
-                case, the method returns a tuple whose first element is
-                `y_pred` and whose remaining elements correspond to the
-                requested forward outputs in the order given by
-                `extra_outputs`.
+            y_pred : numpy.ndarray of shape (n_samples,)
+                Predicted class labels of the test samples.
+            *extras : numpy.ndarray, optional
+                Additional outputs. Only present if `extra_outputs` is not
+                `None`. In that case, the method returns a single tuple whose
+                first element is `y_pred` and whose remaining elements
+                (`extras`) correspond to the requested forward outputs in the
+                order given by `extra_outputs`.
             """
             return super().predict(
                 X=X,
@@ -1056,15 +1055,13 @@ if successful_skorch_torch_import:
             )
 
         def predict_proba(self, X, extra_outputs=None):
-            """Return probability estimates for the test samples `X`.
+            """Return class probability estimates for the test samples `X`.
 
-            By default, this method returns only the class probabilities `P`.
-            The probabilities are obtained from the first entry defined in the
-            effective `forward_outputs` mapping after applying its transform
-            (e.g., a softmax or exponential). If `extra_outputs` is provided,
-            a tuple is returned whose first element is `P` and whose remaining
-            elements are the requested additional forward outputs, in the order
-            specified by `extra_outputs`.
+            By default, this method returns only the predicted class
+            probabilities `P`. If `extra_outputs` is provided, a tuple is
+            returned whose first element is `y_pred` and whose remaining
+            elements are the requested additional forward outputs, in the
+            order specified by `extra_outputs`.
 
             Parameters
             ----------
@@ -1083,8 +1080,8 @@ if successful_skorch_torch_import:
                         "emb":    (1, None),
                     }
 
-                then valid values for `extra_outputs` include `"logits"` or
-                `["logits", "emb"]`.
+                then valid values for `extra_outputs` include `"emb"` or
+                `["emb", "logits"]`.
 
                 - If `extra_outputs is None`, only `P` is returned.
                 - If `extra_outputs` is a string, e.g. `"logits"`, the
@@ -1098,11 +1095,12 @@ if successful_skorch_torch_import:
             P : numpy.ndarray of shape (n_samples, n_classes)
                 Class probabilities of the test samples. Classes are ordered
                 according to `self.classes_`.
-            extras : tuple of numpy.ndarray, optional
-                Only returned if `extra_outputs` is not `None`. In that
-                case, the method returns a tuple whose first element is `P`
-                and whose remaining elements correspond to the requested
-                forward outputs in the order given by `extra_outputs`.
+            *extras : numpy.ndarray, optional
+                Additional outputs. Only present if `extra_outputs` is not
+                `None`. In that case, the method returns a single tuple whose
+                first element is `P` and whose remaining elements
+                (`extras`) correspond to the requested forward outputs in the
+                order given by `extra_outputs`.
             """
             # Initialize module, if not done yet.
             if not hasattr(self, "neural_net_"):

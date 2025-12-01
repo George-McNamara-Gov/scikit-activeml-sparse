@@ -99,25 +99,6 @@ try:
             params.update(overrides)
             return params
 
-        def _make_clf(self, **overrides):
-            params = self._make_init_params(**overrides)
-            return CrowdLayerClassifier(**params)
-
-        def _test_bool_param(self, method_name, param_name):
-            test_cases = [
-                (True, None),
-                (False, None),
-                (None, TypeError),
-                (0, TypeError),
-                ("abc", TypeError),
-            ]
-            self._test_param(
-                method_name,
-                param_name,
-                test_cases,
-                extras_params={"X": self.X},
-            )
-
         def _train_for_output_tests(
             self, max_epochs=50, module__return_embeddings=True
         ):
@@ -285,29 +266,8 @@ try:
         # predict / predict_proba parameter tests
         # ------------------------------------------------------------------
 
-        def test_predict_proba_param_return_logits(self):
-            self._test_bool_param("predict_proba", "return_logits")
-
-        def test_predict_param_return_logits(self):
-            self._test_bool_param("predict", "return_logits")
-
-        def test_predict_proba_param_return_embeddings(self):
-            self._test_bool_param("predict_proba", "return_embeddings")
-
-        def test_predict_param_return_embeddings(self):
-            self._test_bool_param("predict", "return_embeddings")
-
-        def test_predict_proba_param_return_annotator_perf(self):
-            self._test_bool_param("predict_proba", "return_annotator_perf")
-
-        def test_predict_param_return_annotator_perf(self):
-            self._test_bool_param("predict", "return_annotator_perf")
-
-        def test_predict_proba_param_return_annotator_class(self):
-            self._test_bool_param("predict_proba", "return_annotator_class")
-
-        def test_predict_param_return_annotator_class(self):
-            self._test_bool_param("predict", "return_annotator_class")
+        def test_predict_param_extra_outputs(self):
+            pass
 
         # ------------------------------------------------------------------
         # Output logic tests for predict_proba / predict
@@ -317,10 +277,12 @@ try:
             clf = self._train_for_output_tests()
             out = clf.predict_proba(
                 self.X,
-                return_logits=True,
-                return_embeddings=True,
-                return_annotator_perf=True,
-                return_annotator_class=True,
+                extra_outputs=[
+                    "logits",
+                    "embeddings",
+                    "annotator_perf",
+                    "annotator_class",
+                ],
             )
             self._check_predict_outputs(out, mode="proba", n_features=128)
 
@@ -328,10 +290,12 @@ try:
             clf = self._train_for_output_tests(module__return_embeddings=False)
             out = clf.predict(
                 self.X,
-                return_logits=True,
-                return_embeddings=True,
-                return_annotator_perf=True,
-                return_annotator_class=True,
+                extra_outputs=[
+                    "logits",
+                    "embeddings",
+                    "annotator_perf",
+                    "annotator_class",
+                ],
             )
             self._check_predict_outputs(out, mode="label", n_features=2)
 

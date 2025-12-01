@@ -21,7 +21,6 @@ __all__ = [
 try:
     from ._wrapper import SkorchRegressor  # noqa: F401
 
-    __all__ += "SkorchRegressor"
-
+    __all__ += ["SkorchRegressor"]
 except ImportError:  # pragma: no cover
     pass

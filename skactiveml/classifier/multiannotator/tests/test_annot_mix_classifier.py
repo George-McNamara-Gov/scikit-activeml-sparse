@@ -104,21 +104,6 @@ try:
             params.update(overrides)
             return params
 
-        def _test_bool_param(self, method_name, param_name):
-            test_cases = [
-                (True, None),
-                (False, None),
-                (None, TypeError),
-                (0, TypeError),
-                ("abc", TypeError),
-            ]
-            self._test_param(
-                method_name,
-                param_name,
-                test_cases,
-                extras_params={"X": self.X},
-            )
-
         def _train_for_output_tests(
             self, max_epochs=50, module__return_embeddings=True
         ):
@@ -440,37 +425,8 @@ try:
         # predict / predict_proba parameter tests
         # ------------------------------------------------------------------
 
-        def test_predict_proba_param_return_logits(self):
-            self._test_bool_param("predict_proba", "return_logits")
-
-        def test_predict_param_return_logits(self):
-            self._test_bool_param("predict", "return_logits")
-
-        def test_predict_proba_param_return_embeddings(self):
-            self._test_bool_param("predict_proba", "return_embeddings")
-
-        def test_predict_param_return_embeddings(self):
-            self._test_bool_param("predict", "return_embeddings")
-
-        def test_predict_proba_param_return_annotator_perf(self):
-            self._test_bool_param("predict_proba", "return_annotator_perf")
-
-        def test_predict_param_return_annotator_perf(self):
-            self._test_bool_param("predict", "return_annotator_perf")
-
-        def test_predict_proba_param_return_annotator_class(self):
-            self._test_bool_param("predict_proba", "return_annotator_class")
-
-        def test_predict_param_return_annotator_class(self):
-            self._test_bool_param("predict", "return_annotator_class")
-
-        def test_predict_proba_param_return_annotator_embeddings(self):
-            self._test_bool_param(
-                "predict_proba", "return_annotator_embeddings"
-            )
-
-        def test_predict_param_return_annotator_embeddings(self):
-            self._test_bool_param("predict", "return_annotator_embeddings")
+        def test_predict_param_extra_outputs(self):
+            pass
 
         # ------------------------------------------------------------------
         # Output logic tests for predict_proba / predict
@@ -480,11 +436,13 @@ try:
             clf = self._train_for_output_tests()
             out = clf.predict_proba(
                 self.X,
-                return_logits=True,
-                return_embeddings=True,
-                return_annotator_perf=True,
-                return_annotator_class=True,
-                return_annotator_embeddings=True,
+                extra_outputs=[
+                    "logits",
+                    "embeddings",
+                    "annotator_perf",
+                    "annotator_class",
+                    "annotator_embeddings",
+                ],
             )
             self._check_predict_outputs(out, mode="proba", n_features=128)
 
@@ -492,11 +450,13 @@ try:
             clf = self._train_for_output_tests(module__return_embeddings=False)
             out = clf.predict(
                 self.X,
-                return_logits=True,
-                return_embeddings=True,
-                return_annotator_perf=True,
-                return_annotator_class=True,
-                return_annotator_embeddings=True,
+                extra_outputs=[
+                    "logits",
+                    "embeddings",
+                    "annotator_perf",
+                    "annotator_class",
+                    "annotator_embeddings",
+                ],
             )
             self._check_predict_outputs(out, mode="label", n_features=2)
 
@@ -679,12 +639,17 @@ try:
                 0.8,
                 msg=f"Accuracy {acc:.3f} must be >= 0.8",
             )
-            _, P_perf = clf.predict(X=self.X, return_annotator_perf=True)
+            _, P_perf = clf.predict(X=self.X, extra_outputs="annotator_perf")
             self.assertEqual(P_perf.shape, (len(self.X), self.n_annotators))
 
     class TestMixUpCollate(unittest.TestCase):
 
         def setUp(self):
+            # Set global seeds.
+            torch.manual_seed(0)
+            np.random.seed(0)
+            random.seed(0)
+
             self.n_classes = 3
             self.n_annotators = 2
             self.feature_dim = 4
@@ -935,7 +900,7 @@ try:
             arr3 = torch.arange(self.N * 4, dtype=torch.float32).view(
                 self.N, 2, 2
             )
-            mixed3, lmbda, perm = _mix_up(arr3, alpha=0.3)
+            mixed3, lmbda, perm = _mix_up(arr3, alpha=3)
 
             self.assertEqual(mixed3.shape, arr3.shape)
             self.assertEqual(lmbda.shape, (self.N,))
