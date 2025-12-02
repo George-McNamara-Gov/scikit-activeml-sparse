@@ -2,5 +2,5 @@ joblib<=1.5.2
 numpy<=2.2.6
 scipy<=1.15.3
 scikit-learn<=1.7.2
-matplotlib<=3.10.1
+matplotlib<=3.10.7
 makefun<=1.16.0
