@@ -48,6 +48,8 @@ try:
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is None, no additional arguments are added.
+            `module`, `criterion`, `predict_nonlinearity`, and `train_split`
+            are not allowed in this dictionary.
         sample_dtype : str or type, default=np.float32
             Dtype to which input samples are cast inside the estimator. If set
             to `None`, the input dtype is preserved.
@@ -61,7 +63,7 @@ try:
             class `classes[j]` for a sample of class `classes[i]`. Can be only
             set, if `classes` is not `None`.
         random_state : int or RandomState sample or None, default=None
-            Determines random number for 'predict' method. Pass an int for
+            Determines random number for `predict` method. Pass an int for
             reproducible results across multiple method calls.
 
         References
@@ -119,8 +121,8 @@ try:
             X : array-like of shape (n_samples, ...)
                 Test samples.
             extra_outputs : None or str or sequence of str, default=None
-                Names of additional outputs to return next to `P`. The names
-                must be a subset of the following keys:
+                Names of additional outputs to return next to `y_pred`. The
+                names must be a subset of the following keys:
 
                 - "logits" : Additionally return the class-membership logits
                   `L_class` for the samples in `X`.
@@ -135,15 +137,14 @@ try:
 
             Returns
             -------
-            P : numpy.ndarray of shape (n_samples, n_classes)
-                Class probabilities of the test samples. Classes are ordered
-                according to `self.classes_`.
+            y_pred : numpy.ndarray of shape (n_samples,)
+                Class predictions of the test samples.
             *extras : numpy.ndarray, optional
                 Only returned if `extra_outputs` is not `None`. In that
-                case, the method returns a tuple whose first element is `P`
-                and whose remaining elements correspond to the requested
-                forward outputs in the order given by `extra_outputs`.
-                Potential outputs are:
+                case, the method returns a tuple whose first element is
+                `y_pred` and whose remaining elements correspond to the
+                requested forward outputs in the order given by
+                `extra_outputs`. Potential outputs are:
 
                 - `L_class` : `np.ndarray` of shape `(n_samples, n_classes)`,
                   where `L_class[n, c]` is the logit for the class
@@ -310,9 +311,10 @@ try:
             Number of classes.
         n_annotators : int
             Number of annotators.
-        clf_module : nn.Module
-            Pytorch module of the classification module taking samples as
-            input to predict class-membership logits.
+        clf_module : nn.Module or nn.Module.__class__
+            Classifier backbone/head that maps `x -> logits_class` or
+            `(logits_class, x_embed)`. If it returns only logits, `x_embed` is
+            set to the input `x` (or to `None` if `x` is not an embedding).
         clf_module_param_dict : dict
             Keyword args for constructing `clf_module` if a class is passed.
 
@@ -363,14 +365,15 @@ try:
             -------
             logits_class : torch.Tensor of shape (batch_size, n_classes)
                 Class-membership logits.
-            x_embed : torch.Tensor of shape (batch_size, ...)
+            x_embed : torch.Tensor of shape (batch_size, ...), optional
                 Learned embeddings of samples. Only returned if "x_embed" in
                 `self.forward_return`.
-            p_annot_perf : torch.Tensor of shape (batch_size, n_annotators)
+            p_annot_perf : torch.Tensor of shape (batch_size, n_annotators), \
+                    optional
                 Estimated performance, i.e., label correctness probability, per
                 sample-annotator pair.
             logits_annot : torch.Tensor of shape (batch_size, n_annotators,\
-                    n_classes) or (len(input_ids), n_classes)
+                    n_classes) or (len(input_ids), n_classes), optional
                 Annotation logits for sample-annotator pairs. Only returned
                 if "logits_annot" in self.forward_return. Shape depends on
                 whether `input_ids` is given or `None`.
@@ -383,7 +386,7 @@ try:
             if "logits_class" in self.forward_return:
                 out.append(logits_class)
             if "x_embed" in self.forward_return:
-                out.append(x_embed)
+                out.append(x_embed.detach().flatten(start_dim=1))
 
             # Add annotator logits / performances to `out` if required.
             if (

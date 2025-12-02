@@ -21,7 +21,7 @@ try:
         This estimator wraps a multi-annotator module that operates on
         annotation matrices `y` of shape `(n_samples, n_annotators)` and
         internally uses a classifier module `clf_module`. The class takes care
-        of
+        of:
 
         - validating and storing the class labels `classes_`,
         - validating and storing the number of annotators `n_annotators_`,
@@ -37,14 +37,14 @@ try:
 
         Parameters
         ----------
-        multi_annotator_module : nn.Module or type
+        multi_annotator_module : nn.Module.__class__ or nn.Module
             PyTorch module (or module class) implementing the multi-annotator
             model. It is passed as the `module` argument to
-            :class:`SkorchClassifier`. If a class is given, it is instantiated
-            by skorch using `neural_net_param_dict`.
-        criterion : nn.Module, type, or callable
-            Loss function used by skorch. Passed through to
-            :class:`SkorchClassifier` as `criterion`.
+            `SkorchClassifier`. If a class is given, it is instantiated
+            by `skorch` using `neural_net_param_dict`.
+        criterion : nn.Module.__class__ or nn.Module
+            Loss function used by skorch. Passed through to `SkorchClassifier`
+            as `criterion`.
         clf_module : nn.Module or type
             Backbone / head used by the multi-annotator module to map inputs
             `x` to class logits (and optionally embeddings). This is exposed
@@ -53,15 +53,15 @@ try:
         n_annotators : int or None, default=None
             Number of annotators (i.e., columns in `y`). If not given, it is
             inferred from the shape of `y` on the first call to
-            :meth:`_net_parts`. If given and inconsistent with `y.shape[1]`,
+            `_net_parts`. If given and inconsistent with `y.shape[1]`,
             a `ValueError` is raised.
         neural_net_param_dict : dict or None, default=None
             Dictionary of keyword arguments that configure the underlying
-            skorch :class:`NeuralNet`. Keys starting with `"module__"` are
+            skorch `NeuralNet`. Keys starting with `"module__"` are
             treated as arguments for the multi-annotator module and are split
             off into `clf_module_param_dict` when building the network.
             Subclasses may add further enforced parameters via
-            :meth:`_build_neural_net_param_overrides`.
+            `_build_neural_net_param_overrides`.
         sample_dtype : str or type, default=np.float32
             Dtype to which input samples are cast inside the estimator. If set
             to `None`, the input dtype is preserved.
@@ -71,39 +71,24 @@ try:
             subclasses must ensure that class information is available before
             fitting; otherwise a `RuntimeError` is raised.
         cost_matrix : array-like of shape (n_classes, n_classes), default=None
-            Misclassification cost matrix used by :class:`SkorchClassifier`.
+            Misclassification cost matrix used by `SkorchClassifier`.
         missing_label : int or float, default=MISSING_LABEL
             Value in `y` indicating an unlabeled entry. The exact convention
             is respected by downstream utilities such as :func:`is_labeled`.
         random_state : int, numpy.random.RandomState, or None, default=None
             Random seed or random state used for reproducible initialization
-            and training, forwarded to :class:`SkorchClassifier`.
-
-        Attributes
-        ----------
-        classes_ : ndarray of shape (n_classes,)
-            Validated array of unique class labels, set during the first call
-            to :meth:`_net_parts` if `classes` was provided.
-        n_annotators_ : int
-            Validated number of annotators inferred from `n_annotators` or
-            from the second axis of `y`.
-        neural_net_param_dict : dict
-            Effective skorch parameter dictionary after merging user-provided
-            parameters with the enforced invariants
-            (`"module__clf_module"`, `"module__clf_module_param_dict"`)
-            and the overrides returned by
-            :meth:`_build_neural_net_param_overrides`.
+            and training, forwarded to `SkorchClassifier`.
 
         Notes
         -----
         This class is intended as an internal base class. Concrete
         multi-annotator estimators should:
 
-        - implement :meth:`_build_neural_net_param_overrides` to supply
+        - implement `_build_neural_net_param_overrides` to supply
           model-specific skorch parameters, and
-        - rely on :meth:`_net_parts` to construct the final module, criterion,
+        - rely on `_net_parts` to construct the final module, criterion,
           and parameter dictionary that are passed to the skorch
-          :class:`NeuralNet` backend.
+          `NeuralNet` backend.
         """
 
         def __init__(
@@ -131,6 +116,62 @@ try:
             )
             self.clf_module = clf_module
             self.n_annotators = n_annotators
+
+        def fit(self, X, y, **fit_params):
+            """Initialize and fit the module.
+
+            If the module was already initialized, by calling fit, the module
+            will be re-initialized (unless `warm_start` is True).
+
+            Parameters
+            ----------
+            X : matrix-like, shape (n_samples, ...)
+                Training data set, usually complete, i.e., including the
+                labeled and unlabeled samples
+            y : array-like of shape (n_samples, n_annotators)
+                It contains the class labels of the training samples, where
+                missing labels are represented via `missing_label`.
+                Specifically, label `y[n, m]` refers to the label of sample
+                `X[n]` from annotator `m`.
+            fit_params : dict-like
+              Further parameters as input to the 'fit' method of the
+              `skorch.net.NeuralNet`.
+
+            Returns
+            -------
+            self: _SkorchMultiAnnotatorClassifier,
+              `_SkorchMultiAnnotatorClassifier` object fitted on the training
+              data.
+            """
+            super().fit(X, y, **fit_params)
+
+        def partial_fit(self, X, y, **fit_params):
+            """Fit the module without re-initialization.
+
+            If the module was already initialized, by calling `partial_fit`,
+            the module will not be re-initialized again.
+
+            Parameters
+            ----------
+            X : matrix-like, shape (n_samples, ...)
+                Training data set, usually complete, i.e., including the
+                labeled and unlabeled samples
+            y : array-like of shape (n_samples, n_annotators)
+                It contains the class labels of the training samples, where
+                missing labels are represented via `missing_label`.
+                Specifically, label `y[n, m]` refers to the label of sample
+                `X[n]` from annotator `m`.
+            fit_params : dict-like
+                Further parameters as input to the 'partial_fit' method of the
+                `skorch.net.NeuralNet`.
+
+            Returns
+            -------
+            self: _SkorchMultiAnnotatorClassifier,
+              `_SkorchMultiAnnotatorClassifier` object fitted on the training
+              data.
+            """
+            super().partial_fit(X, y, **fit_params)
 
         def _net_parts(self, X, y):
             # Check module parameters.
@@ -165,13 +206,15 @@ try:
 
             # Check `n_annotators` parameter.
             if self.n_annotators is None and y is None:
-                raise ValueError("Provide n_annotators or pass y at init.")
+                raise ValueError(
+                    "Provide `n_annotators` or pass `y` when initializing."
+                )
             if (
                 self.n_annotators is not None
                 and isinstance(y, np.ndarray)
                 and self.n_annotators != y.shape[1]
             ):
-                raise ValueError("n_annotators mismatch.")
+                raise ValueError("`n_annotators` mismatch.")
             self.n_annotators_ = (
                 self.n_annotators
                 if self.n_annotators is not None

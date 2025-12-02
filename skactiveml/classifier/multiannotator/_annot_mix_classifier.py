@@ -39,33 +39,23 @@ try:
             samples as input. In general, the uninstantiated class should
             be passed, although instantiated modules will also work. The
             `forward` module must return logits as first element and optional
-            sample embeddings as second element. If no sample embeddings are
-            returned, the implementation uses the original samples.
-        clf_sample_embed_dim : int or None, default=None
-            - If `clf_sample_embed_dim>0`, the `clf_module` is expected to
-              output a per-sample embedding with the given dimensionality.
-            - If `clf_sample_embed_dim` is `None`, the dimensionality of the
-              raw samples is assumed.
-
-            Note this parameter is only relevant, if `sample_embed_dim > 0`
-            because in this case the `clf_sample_embed_dim` defines the input
-            dimension and `sample_embed_dim` the output dimension of an
-            embedding layer modeling sample-dependent annotator performances.
+            sample embeddings as
+            second element. If no sample embeddings are returned, the
+            implementation uses the original samples.
         alpha : float, default=0.5
             MixUp concentration parameter. The mix coefficient `lambda` is
             drawn from `Beta(alpha, alpha)`. Use `alpha=0` to disable MixUp.
         annotator_embed_dim : int, default=16
-            Dimensionality of the annotator embedding used to model annotator-
-            specific behavior.
+            Dimensionality of the annotator embedding used to model
+            annotator-specific behavior.
         sample_embed_dim : int, default=0
             Dimensionality of an optional learnable sample-embedding used to
             model sample-specific behavior of each annotator. If
-            ``sample_embed_dim=0``, the annotator performances are only
-            modeled as class-specific. Note to set the `clf_sample_embed_dim`
-            in accordance with your implemented `clf_module`.
+            `sample_embed_dim=0`, the annotator performances are only
+            modeled as class-specific.
         hidden_dim : int or None, default=None
             Hidden size of the fusion multi-layer perceptron that propagates
-            sample and annotator representations. If ``None``, a sensible
+            sample and annotator representations. If `None`, a sensible
             default is used, which depends on the other input parameters.
             Note that this parameter has no effect for `n_hidden_layers=0`.
         n_hidden_layers : int, default=0
@@ -83,6 +73,8 @@ try:
         neural_net_param_dict : dict, default=None
             Additional arguments for `skorch.net.NeuralNet`. If
             `neural_net_param_dict` is `None`, no extra arguments are added.
+            `module`, `criterion`, `predict_nonlinearity`, and `train_split`
+            are not allowed in this dictionary.
         sample_dtype : str or type, default=np.float32
             Dtype to which input samples are cast inside the estimator. If set
             to `None`, the input dtype is preserved.
@@ -95,8 +87,8 @@ try:
             Cost matrix with `cost_matrix[i,j]` indicating cost of predicting
             class `classes[j]` for a sample of class `classes[i]`. Can be only
             set, if `classes` is not `None`.
-        random_state : int or RandomState sample or None, default=None
-            Determines random number for 'predict' method. Pass an int for
+        random_state : int or RandomState instance or None, default=None
+            Determines random number for `predict` method. Pass an int for
             reproducible results across multiple method calls.
 
         References
@@ -120,7 +112,6 @@ try:
         def __init__(
             self,
             clf_module,
-            clf_sample_embed_dim=None,
             alpha=0.5,
             sample_embed_dim=0,
             annotator_embed_dim=16,
@@ -148,7 +139,6 @@ try:
                 sample_dtype=sample_dtype,
             )
             self.clf_module = clf_module
-            self.clf_sample_embed_dim = clf_sample_embed_dim
             self.alpha = alpha
             self.sample_embed_dim = sample_embed_dim
             self.annotator_embed_dim = annotator_embed_dim
@@ -175,9 +165,9 @@ try:
             ----------
             X : array-like of shape (n_samples, ...)
                 Test samples.
-            extra_outputs : None or str or or sequence of str, default=None
-                Names of additional outputs to return next to `P`. The names
-                must be a subset of the following keys:
+            extra_outputs : None or str or sequence of str, default=None
+                Names of additional outputs to return next to `y_pred`. The
+                names must be a subset of the following keys:
 
                 - "logits" : Additionally return the class-membership logits
                   `L_class` for the samples in `X`.
@@ -195,15 +185,14 @@ try:
 
             Returns
             -------
-            P : numpy.ndarray of shape (n_samples, n_classes)
-                Class probabilities of the test samples. Classes are ordered
-                according to `self.classes_`.
+            y_pred : numpy.ndarray of shape (n_samples,)
+                Class labels of the test samples.
             *extras : numpy.ndarray, optional
                 Only returned if `extra_outputs` is not `None`. In that
-                case, the method returns a tuple whose first element is `P`
-                and whose remaining elements correspond to the requested
-                forward outputs in the order given by `extra_outputs`.
-                Potential outputs are:
+                case, the method returns a tuple whose first element is
+                `y_pred` and whose remaining elements correspond to the
+                requested forward outputs in the order given by
+                `extra_outputs`. Potential outputs are:
 
                 - `L_class` : `np.ndarray` of shape `(n_samples, n_classes)`,
                   where `L_class[n, c]` is the logit for the class
@@ -392,19 +381,6 @@ try:
                 min_val=0.0,
                 min_inclusive=True,
             )
-            if self.clf_sample_embed_dim is None and (X is None or X.ndim > 2):
-                clf_sample_embed_dim = 0
-            elif self.clf_sample_embed_dim is None:
-                clf_sample_embed_dim = X.shape[-1]
-            else:
-                check_scalar(
-                    self.clf_sample_embed_dim,
-                    name="clf_sample_embed_dim",
-                    target_type=int,
-                    min_val=1,
-                    min_inclusive=True,
-                )
-                clf_sample_embed_dim = self.clf_sample_embed_dim
             check_scalar(
                 self.sample_embed_dim,
                 name="sample_embed_dim",
@@ -470,7 +446,6 @@ try:
                 "criterion__reduction": "batchmean",
                 "module__n_classes": len(self.classes_),
                 "module__n_annotators": self.n_annotators_,
-                "module__clf_sample_embed_dim": clf_sample_embed_dim,
                 "module__sample_embed_dim": self.sample_embed_dim,
                 "module__annotator_embed_dim": self.annotator_embed_dim,
                 "module__hidden_dim": hidden_dim,
@@ -491,31 +466,22 @@ try:
             Number of classes.
         n_annotators : int
             Number of annotators.
-        clf_module : nn.Module or type
+        clf_module : nn.Module or nn.Module.__class__
             Classifier backbone/head that maps `x -> logits_class` or
             `(logits_class, x_embed)`. If it returns only logits, `x_embed` is
             set to the input `x` (or to `None` if `x` is not an embedding).
         clf_module_param_dict : dict
             Keyword args for constructing `clf_module` if a class is passed.
-                clf_module : nn.Module or nn.Module.__class__
-            A PyTorch module as classification model outputting logits for
-            samples as input. In general, the uninstantiated class should
-            be passed, although instantiated modules will also work.
-        clf_sample_embed_dim : int or None, default=0
-            - If `clf_sample_embed_dim=0`, samples are ignored in subsequent
-              inference stages.
-            - If `clf_sample_embed_dim>0`, the `clf_module` is expected to
-              output a per-sample embedding with the given dimensionality.
         annotator_embed_dim : int
-            Dimensionality of the annotator embedding used to model annotator-
-            specific behavior.
+            Dimensionality of the annotator embedding used to model
+            annotator-specific behavior.
         sample_embed_dim : int or None
             Dimensionality of an optional learnable sample-embedding used to
             model sample-specific behavior of each annotator. If
-            ``sample_embed_dim=0``, no additional sample embedding is learned.
+            `sample_embed_dim=0`, no additional sample embedding is learned.
         hidden_dim : int or None
             Hidden size of the fusion multi-layer perceptron that propagates
-            sample and annotator representations. If ``None``, a sensible
+            sample and annotator representations. If `None`, a sensible
             default is used, which depends on the other input parameters.
         n_hidden_layers : int
             Number of hidden layers in the fusion multi-layer perceptron.
@@ -524,6 +490,7 @@ try:
         eta : float in (0, 1)
             Prior annotator performance, i.e., the probability of obtaining a
             correct annotation from an arbitrary annotator for an arbitrary
+            sample.
 
         References
         ----------
@@ -550,7 +517,6 @@ try:
             n_annotators,
             clf_module,
             clf_module_param_dict,
-            clf_sample_embed_dim,
             sample_embed_dim,
             annotator_embed_dim,
             hidden_dim,
@@ -579,9 +545,8 @@ try:
                 "a", torch.eye(n_annotators, dtype=torch.float32)
             )
             self.sample_embed = None
-            if clf_sample_embed_dim > 0 and sample_embed_dim > 0:
-                self.sample_embed = nn.Linear(
-                    in_features=clf_sample_embed_dim,
+            if sample_embed_dim > 0:
+                self.sample_embed = nn.LazyLinear(
                     out_features=sample_embed_dim,
                 )
             self.annotator_embed = nn.Linear(
@@ -655,7 +620,9 @@ try:
 
                 # Sample/annotator embeddings for annotator head.
                 if self.sample_embed:
-                    x_embed = self.sample_embed(x_embed.detach())
+                    x_embed = self.sample_embed(
+                        x_embed.detach().flatten(start_dim=1)
+                    )
                 a_embed = self.annotator_embed(a)
 
                 # Generate pairs of samples and annotator if not done yet.
@@ -729,7 +696,7 @@ try:
 
         Notes
         -----
-        Labels are returned as one-hot vectors of length `n_classes`.
+        Labels are returned as one-hot encoded vectors of length `n_classes`.
 
         References
         ----------
@@ -819,7 +786,7 @@ try:
 
     def _mix_up(*arrays, alpha=1.0, lmbda=None, permute_indices=None):
         """
-        MixUp [1]_ multiple arrays in lockstep using the same permutation and
+        MixUp [1]_ multiple arrays using the same permutation and
         lambdas.
 
         Parameters

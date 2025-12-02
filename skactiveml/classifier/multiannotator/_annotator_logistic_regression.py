@@ -166,11 +166,12 @@ class AnnotatorLogisticRegression(SkactivemlClassifier):
         ----------
         X : array-like of shape (n_samples, n_features)
             Feature matrix representing the samples.
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-            It contains the class labels of the training samples.
-            The number of class labels may be variable for the samples, where
-            missing labels are represented the attribute `missing_label`.
-        sample_weight : array-like of shape (n_samples, n_outputs)
+        y : array-like of shape (n_samples, n_annotators)
+            It contains the class labels of the training samples, where
+            missing labels are represented via `missing_label`.
+            Specifically, label `y[n, m]` refers to the label of sample
+            `X[n]` from annotator `m`.
+        sample_weight : array-like of shape (n_samples, n_annotators)
             It contains the weights of the training samples' class labels.
             It must have the same shape as `y`. Accordingly, the sample
             weights are only used for the initialization of the majority vote
@@ -548,7 +549,7 @@ class AnnotatorLogisticRegression(SkactivemlClassifier):
         X : array-like of shape (n_samples, ...)
             Test samples.
         extra_outputs : None or str or sequence of str, default=None
-            Names of additional outputs to return next to `P`. The names
+            Names of additional outputs to return next to `y_pred`. The names
             must be a subset of the following keys:
 
             - "logits" : Additionally return the class-membership logits
@@ -562,9 +563,8 @@ class AnnotatorLogisticRegression(SkactivemlClassifier):
 
         Returns
         -------
-        P : numpy.ndarray of shape (n_samples, n_classes)
-            Class probabilities of the test samples. Classes are ordered
-            according to `self.classes_`.
+        y_pred : numpy.ndarray of shape (n_samples,)
+            Class predictions of the test samples.
         *extras : numpy.ndarray, optional
             Only returned if `extra_outputs` is not `None`. In that
             case, the method returns a tuple whose first element is `P`

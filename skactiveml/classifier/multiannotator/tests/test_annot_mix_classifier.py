@@ -300,50 +300,6 @@ try:
             ]
             self._test_param("init", "classes", test_cases)
 
-        def test_init_param_clf_sample_embed_dim(self):
-            test_cases = [
-                (0, ValueError),
-                (1, RuntimeError),
-                (2, None),
-                (None, None),
-                (128, RuntimeError),
-            ]
-            neural_net_param_dict = self.init_default_params[
-                "neural_net_param_dict"
-            ].copy()
-            neural_net_param_dict["module__return_embeddings"] = False
-            self._test_param(
-                "init",
-                "clf_sample_embed_dim",
-                test_cases,
-                replace_init_params={
-                    "neural_net_param_dict": neural_net_param_dict,
-                    "sample_embed_dim": 2,
-                },
-            )
-            test_cases = [
-                (0, ValueError),
-                (1, RuntimeError),
-                (2, RuntimeError),
-                (None, RuntimeError),
-                (128, None),
-            ]
-            self._test_param(
-                "init",
-                "clf_sample_embed_dim",
-                test_cases,
-                replace_init_params={"sample_embed_dim": 2},
-            )
-
-            test_cases = [
-                (None, None),
-                (0, ValueError),
-                (1.0, TypeError),
-                (1, None),
-                (-1, ValueError),
-            ]
-            self._test_param("init", "clf_sample_embed_dim", test_cases)
-
         def test_init_param_sample_embed_dim(self):
             test_cases = [
                 (0, None),
@@ -360,14 +316,12 @@ try:
                 test_cases,
                 replace_init_params={
                     "neural_net_param_dict": neural_net_param_dict,
-                    "clf_sample_embed_dim": 2,
                 },
             )
             self._test_param(
                 "init",
                 "sample_embed_dim",
                 test_cases,
-                replace_init_params={"clf_sample_embed_dim": 128},
             )
 
             test_cases = [
@@ -375,7 +329,6 @@ try:
                 ("1", TypeError),
                 (1.0, TypeError),
                 (0, None),
-                (1, RuntimeError),
             ]
             self._test_param("init", "sample_embed_dim", test_cases)
 
@@ -683,7 +636,6 @@ try:
             init_params["neural_net_param_dict"]["max_epochs"] = 50
             init_params["sample_embed_dim"] = 1
             init_params["n_hidden_layers"] = 1
-            init_params["clf_sample_embed_dim"] = 128
             clf = AnnotMixClassifier(**init_params)
             clf.fit(self.X, self.y_annot)
             acc = clf.score(X=self.X, y=self.y_true)

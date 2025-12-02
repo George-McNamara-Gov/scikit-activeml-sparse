@@ -87,11 +87,12 @@ class AnnotatorEnsembleClassifier(MetaEstimatorMixin, SkactivemlClassifier):
         ----------
         X : array-like of shape (n_samples, ...)
             The feature matrix representing the samples.
-        y : array-like of shape (n_samples, n_estimators)
-            It contains the class labels of the training samples.
-            The number of class labels may be variable for the samples, where
-            missing labels are represented the attribute `self.missing_label_`.
-        sample_weight : array-like of shape (n_samples, n_estimators)
+        y : array-like of shape (n_samples, n_annotators)
+            It contains the class labels of the training samples, where
+            missing labels are represented via `missing_label`.
+            Specifically, label `y[n, m]` refers to the label of sample
+            `X[n]` from annotator `m`.
+        sample_weight : array-like of shape (n_samples, n_annotators)
             It contains the weights of the training samples' class labels.
             It must have the same shape as `y`.
 
@@ -161,7 +162,7 @@ class AnnotatorEnsembleClassifier(MetaEstimatorMixin, SkactivemlClassifier):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array-like of shape (n_samples, ...)
             Test samples.
 
         Returns
