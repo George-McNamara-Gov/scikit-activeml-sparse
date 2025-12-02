@@ -131,10 +131,9 @@ def ensure_blank_before_code_blocks(text: str) -> str:
     return "\n".join(out) + "\n"
 
 
-def main(src: str, dst: str) -> None:
+def main(src, dst):
     src_path = Path(src)
     dst_path = Path(dst)
-
     text = src_path.read_text(encoding="utf8")
     text = transform_raw_blocks(text)
     text = cleanup_html_fragments(text)
