@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name            = "scikit-activeml"
 description     = "scikit-activeml is a Python library for active learning on top of SciPy and scikit-learn."
-readme          = { file = "README.rst", content-type = "text/x-rst" }
+readme          = { file = "README-pypi.rst", content-type = "text/x-rst" }
 requires-python = ">=3.10"
 license-files   = ["LICENSE.txt"]
 maintainers     = [

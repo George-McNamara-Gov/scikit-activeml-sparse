@@ -40,7 +40,7 @@ for the most informative samples, achieving high performance with fewer labeled 
 With this goal in mind, **scikit-activeml** has been developed as a Python library for active
 learning on top of `scikit-learn <https://scikit-learn.org/stable/>`_. As a
 result, it natively supports **deep active learning** via
-`skorch <https://skorch.readthedocs.io/en/stable/>`_. Illustrations for pool-based and stream-based active learning with code
+`skorch <https://skorch.readthedocs.io/en/stable/>`__. Illustrations for pool-based and stream-based active learning with code
 snippets are given below:
 
 
@@ -318,7 +318,7 @@ your environment. Since the correct PyTorch build depends on your hardware
 and CUDA setup, we do **not** install PyTorch automatically.
 
     Please install PyTorch separately by following the installation
-    instructions of from `skorch <https://github.com/skorch-dev/skorch?tab=readme-ov-file#pytorch>`_.
+    instructions of from `skorch <https://github.com/skorch-dev/skorch?tab=readme-ov-file#pytorch>`__.
 
 .. raw:: html
 
@@ -327,6 +327,7 @@ and CUDA setup, we do **not** install PyTorch automatically.
      <b>Minimal Installation</b>
    </summary>
    The minimum way to install scikit-activeml is using:
+
 .. code-block:: bash
 
   pip install -U scikit-activeml
