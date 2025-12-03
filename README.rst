@@ -73,7 +73,16 @@ Unlabeled data is represented by the value :code:`missing_label` in the
 label vector :code:`y_train`. Note that the packages `torch <https://pytorch.org/>`_,
 `sentence_transformers <https://www.sbert.net/>`_, and `datasets
 <https://huggingface.co/docs/datasets/en/quickstart>`_ are not included in the
-default :code:`skactiveml` installation and must be installed separately.
+default :code:`skactiveml` installation and must be installed separately. You
+can do this via:
+
+.. code-block:: bash
+
+   pip install -U torch torchvision
+   pip install -U scikit-activeml[opt] datasets sentence-transformers
+
+Note that you might need to adjust this command for GPU support with
+:code:`torch`.
 
 .. code-block:: python
 
@@ -195,6 +204,14 @@ the label vector :code:`y_train`. Note that the packages `torch <https://pytorch
 <https://huggingface.co/docs/datasets/en/quickstart>`_ are not included in the
 default :code:`skactiveml` installation and must be installed separately.
 
+.. code-block:: bash
+
+   pip install -U torch torchvision
+   pip install -U scikit-activeml[opt] datasets transformers
+
+Note that you might need to adjust this command for GPU support with
+:code:`torch`.
+
 .. code-block:: python
 
    import numpy as np
@@ -202,13 +219,11 @@ default :code:`skactiveml` installation and must be installed separately.
    from torch import nn
    from torch.optim.lr_scheduler import CosineAnnealingLR
    from datasets import load_dataset
-   from sklearn.manifold import TSNE
    from skorch.callbacks import LRScheduler
    from transformers import AutoImageProcessor, Dinov2Model
 
    from skactiveml.classifier import SkorchClassifier
    from skactiveml.stream import Split
-   from skactiveml.utils import is_labeled
 
    # Define the device depending on its availability.
    device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -391,7 +406,7 @@ following mind map illustrates different attributes of a query strategy.
 ---------------------
 
 The table below summarizes a subset of our many in-depth `tutorials <https://scikit-activeml
-.github.io/latest/generated/tutorials.html>`_.
+.github.io/latest/tutorials.html>`_.
 Each entry lists the active learning scenario, prediction task, data
 modality, and models used in the tutorial.
 
