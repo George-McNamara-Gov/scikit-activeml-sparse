@@ -211,7 +211,10 @@ class AnnotatorEnsembleClassifier(MetaEstimatorMixin, SkactivemlClassifier):
                 )
             est = elem[1]
             if not isinstance(est, SkactivemlClassifier):
-                raise TypeError(f"'{est}' is not a 'SkactivemlClassifier'.")
+                raise TypeError(
+                    f"'{est}' at position {i_elem} is not "
+                    f"a `SkactivemlClassifier`."
+                )
             if self.voting == "soft" and not hasattr(est, "predict_proba"):
                 raise ValueError(
                     f"If 'voting' is soft, each classifier must "
