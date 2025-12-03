@@ -45,6 +45,8 @@ author = "Marek Herde, " \
 
 # The short X.Y version
 version = skactiveml.__version__
+if '.' in version:
+    version = '.'.join(version.split('.')[:-1])
 # The full version, including alpha/beta/rc tags
 release = skactiveml.__version__
 
@@ -79,7 +81,8 @@ extensions = [
 
 nitpicky = True
 nitpick_ignore = [
-    ("py:class", "skactiveml.pool._bald._GeneralBALD")
+    ("py:class", "skactiveml.pool._bald._GeneralBALD"),
+    ("py:class", "skactiveml.classifier.multiannotator._utils._SkorchMultiAnnotatorClassifier"),
 ]
 
 # nbsphinx_execute = 'always'
@@ -185,7 +188,7 @@ html_theme_options = {
     "icon_links_label": "Quick Links",
     "switcher": {
         "json_url": switcher_json_path,
-        "version_match": version,
+        "version_match": release,
     },
     "check_switcher": False,
     "navbar_start": ["navbar-logo", "version-switcher"],
@@ -285,7 +288,8 @@ generate_api_reference_rst(gen_path=os.path.abspath("generated"))
 json_data = generate_examples(
     gen_path="generated/examples/",
     json_path="examples/",
-    example_notebook_directory=copy_gallery_notebooks_dst_path
+    example_notebook_directory=copy_gallery_notebooks_dst_path,
+    version=version
 )
 
 generate_strategy_overview_rst(
@@ -296,6 +300,7 @@ generate_tutorials(
     src_path=os.path.abspath("../tutorials/"),
     dst_path="generated/tutorials/",
     dst_path_colab="generated/tutorials_colab/",
+    version=version
 )
 
 blacklisted_versions = ['0.0.0', '0.1.0', '0.1.1', '0.1.2']

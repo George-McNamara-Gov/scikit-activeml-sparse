@@ -412,7 +412,11 @@ def table_data_to_rst_table(
 
 
 def generate_examples(
-    gen_path, json_path, example_notebook_directory, recursive=True
+    gen_path,
+    json_path,
+    example_notebook_directory,
+    recursive=True,
+    version="latest"
 ):
     """
     Creates all example scripts for the specified package and returns the data
@@ -430,6 +434,9 @@ def generate_examples(
         The path to the directory where the notebooks are saved.
     recursive : bool, default=True
         If True, examples for sub-packagers are also created.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
 
     Returns
     -------
@@ -465,6 +472,7 @@ def generate_examples(
                         local_dir_path=sub_dir_str,
                         dst=dst,
                         notebook_directory=example_notebook_directory,
+                        version=version
                     )
                     for filename in files
                 )
@@ -479,6 +487,7 @@ def generate_examples(
                         local_dir_path=sub_dir_str,
                         dst=dst,
                         notebook_directory=example_notebook_directory,
+                        version=version
                     )
                 )
         for json_data_list in json_data_lists:
@@ -498,7 +507,7 @@ def generate_examples(
 
 
 def _generate_single_example(
-    filename, root, local_dir_path, dst, notebook_directory
+    filename, root, local_dir_path, dst, notebook_directory, version="latest"
 ):
     """_summary_
 
@@ -514,6 +523,9 @@ def _generate_single_example(
         The root directory where the examples are saved.
     notebook_directory: str
         The path to the directory where the notebooks are saved.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
     """
     data_list = []
     if filename.endswith(".json"):
@@ -539,6 +551,7 @@ def _generate_single_example(
                     package=current_package,
                     template_path=os.path.abspath(data["template"]),
                     notebook_directory=notebook_directory,
+                    version=version
                 )
     elif not filename.startswith("template"):
         if filename.endswith(".py") or filename.endswith(".ipynb"):
@@ -562,6 +575,7 @@ def generate_example_script(
     template_path,
     notebook_directory,
     google_colab_link=None,
+    version="latest"
 ):
     """
     Generates a python example file needed, for the 'sphinx-gallery' extension.
@@ -586,6 +600,9 @@ def generate_example_script(
     google_colab_link: str or None, default=None
         The link to google colab that can be used to open notebooks directly in
         google colab.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
     """
     # create directory if it does not exist.
     os.makedirs(dir_path, exist_ok=True)
@@ -594,7 +611,7 @@ def generate_example_script(
     if data["class"] not in package.__all__:
         raise ValueError(f'"{data["class"]}" is not in "{package}.__all__".')
 
-    google_colab_link = check_google_colab_link(google_colab_link)
+    google_colab_link = check_google_colab_link(google_colab_link, version)
 
     notebook_filename = filename.replace(".py", ".ipynb")
 
@@ -858,7 +875,7 @@ def dict_to_str(d, idx=None, allocator="=", key_as_string=False):
     return dd_str[0:-2]
 
 
-def generate_tutorials(src_path, dst_path, dst_path_colab):
+def generate_tutorials(src_path, dst_path, dst_path_colab, version="latest"):
     """Includes the tutorials folder from the git root, such that tutorials are
     included in the documentation. Effectively this function copies all
     contents from src_path to dst_path.
@@ -873,6 +890,9 @@ def generate_tutorials(src_path, dst_path, dst_path_colab):
         The path where the notebooks are saved, such that tutorials.rst can
         find them. This path is specially used to save the versions of the
         notebook that are linked to Google Colab.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
     """
     if os.path.exists(dst_path):
         shutil.rmtree(dst_path)
@@ -884,11 +904,13 @@ def generate_tutorials(src_path, dst_path, dst_path_colab):
         dst_path,
         colab_notebook_path=dst_path_colab,
         show_installation_code=False,
+        version=version
     )
     post_process_tutorials(
         dst_path_colab,
         colab_notebook_path=dst_path_colab,
         show_installation_code=True,
+        version=version
     )
 
 
@@ -897,6 +919,7 @@ def post_process_tutorials(
     colab_notebook_path,
     show_installation_code=False,
     google_colab_link=None,
+    version="latest"
 ):
     """This function allows to post-process the tutorial notebooks. In
     particular, the placeholder (<colab_link>) within notebooks are replaced
@@ -916,6 +939,9 @@ def post_process_tutorials(
     google_colab_link: str or None, default=None
         The link to google colab that can be used to open notebooks directly in
         google colab.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
     """
     tutorials = [f for f in os.listdir(tutorials_path) if f.endswith(".ipynb")]
     for file_name in tutorials:
@@ -934,7 +960,10 @@ def post_process_tutorials(
                 processed_file_content
             )
             processed_file_content = replace_colab_link(
-                processed_file_content, file_path_colab, google_colab_link
+                processed_file_content,
+                file_path_colab,
+                google_colab_link,
+                version
             )
             if show_installation_code:
                 processed_file_content = uncomment_installation_code(
@@ -972,7 +1001,12 @@ def add_orphan_metadata(file_content):
     return output
 
 
-def replace_colab_link(file_content, colab_path, google_colab_link=None):
+def replace_colab_link(
+        file_content,
+        colab_path,
+        google_colab_link=None,
+        version="latest"
+    ):
     """This function replaces the placeholder (<colab_link>) within
     `file_content` with the link that matches the location once the notebook is
     included into the deployed documentation.
@@ -987,6 +1021,9 @@ def replace_colab_link(file_content, colab_path, google_colab_link=None):
         The Google Colab address where you can specify the notebook to open in
         Google Colab. If None, it is assumed that the official scikit-activeml
         documentation is used.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
 
     Returns
     -------
@@ -994,7 +1031,7 @@ def replace_colab_link(file_content, colab_path, google_colab_link=None):
         The notebook that includes the Google Colab link if there was a
         placeholder.
     """
-    google_colab_link = check_google_colab_link(google_colab_link)
+    google_colab_link = check_google_colab_link(google_colab_link, version)
     colab_link = f"{google_colab_link}/{colab_path}"
     output = re.sub(
         pattern="<colab_link>", repl=colab_link, string=file_content
@@ -1002,7 +1039,7 @@ def replace_colab_link(file_content, colab_path, google_colab_link=None):
     return output
 
 
-def check_google_colab_link(google_colab_link):
+def check_google_colab_link(google_colab_link, version='latest'):
     """This function checks if `google_colab_link` is a string. If it is, it is
     returned as is. If it is `None`, a valid string that points to the official
     scikit-activeml documentation is returned.
@@ -1013,6 +1050,9 @@ def check_google_colab_link(google_colab_link):
         The Google Colab address where you can specify the notebook to open in
         Google Colab. If None, it is assumed that the official scikit-activeml
         documentation is used.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
 
     Returns
     -------
@@ -1025,7 +1065,7 @@ def check_google_colab_link(google_colab_link):
     if google_colab_link is None:
         colab_github = "https://colab.research.google.com/github"
         docs_repo_name = "scikit-activeml/scikit-activeml.github.io"
-        docs_branch_path = "blob/gh-pages/latest"
+        docs_branch_path = f"blob/gh-pages/{version}"
         output = f"{colab_github}/{docs_repo_name}/{docs_branch_path}"
     return output
 
