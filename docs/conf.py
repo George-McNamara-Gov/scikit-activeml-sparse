@@ -305,5 +305,5 @@ generate_switcher(
     blacklisted_versions=blacklisted_versions
 )
 
-html_baseurl = 'https://scikit-activeml.github.io/latest/'
+html_baseurl = f'https://scikit-activeml.github.io/{version}/'
 sitemap_url_scheme = "{link}"
