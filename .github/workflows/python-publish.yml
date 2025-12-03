@@ -34,6 +34,9 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install --upgrade build twine
+    - name: Prepare README for PyPI
+      run: |
+        python docs/clean_readme_for_pypi.py README.rst README-pypi.rst
     - name: Build package
       run: |
         python -m build

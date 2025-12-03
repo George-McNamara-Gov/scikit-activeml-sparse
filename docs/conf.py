@@ -30,16 +30,18 @@ from docs.generate import (
 
 project = "scikit-activeml"
 copyright = "2025"
-author = "Daniel Kottke, " \
-         "Marek Herde, " \
-         "Pham Minh Tuan, " \
-         "Pascal Mergard, " \
-         "Christoph Sandrock, " \
+author = "Marek Herde, " \
+         "Minh Tuan Pham, " \
+         "Daniel Kottke, " \
          "Alexander Benz, " \
          "Lukas Lührs, " \
+         "Pascal Mergard, " \
+         "Christoph Sandrock, " \
          "Jiaying Cheng, "\
+         "Atal Roghman," \
          "Mehmet Mjüde, " \
-         "Atal Roghman"
+         "Lukas Rauch, " \
+         "Bernhard Sick "
 
 # The short X.Y version
 version = skactiveml.__version__
