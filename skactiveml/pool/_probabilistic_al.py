@@ -21,8 +21,13 @@ class ProbabilisticAL(SingleAnnotatorPoolQueryStrategy):
     """Multi-class Probabilistic Active Learning (McPAL)
 
     This class implements the query strategy Multi-class Probabilistic Active
-    Learning (McPAL) [1]_, which estimates the performance gain when labeling
-    samples.
+    Learning (McPAL) [1]_, which scores each unlabeled sample by the
+    density-weighted expected gain in a target performance metric
+    (e.g., accuracy), integrating a sample's impact, its class posterior,
+    and the posterior's reliability via a closed-form expectation over all
+    possible labelings. This yields a non-myopic selector for
+    multi-class problems. Its effectiveness hinges on calibrated posteriors and
+    sensible density estimates.
 
     Parameters
     ----------
@@ -111,8 +116,8 @@ class ProbabilisticAL(SingleAnnotatorPoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, `candidates` is
-              considered as the candidate samples in `(X,y)`.
+            - If `candidates` is of shape `(n_candidates, ...)`, `candidates`
+              is considered as the candidate samples in `(X,y)`.
         batch_size : int, default=1
             The number of samples to be selected in one AL cycle.
         return_utilities : bool, default=False
@@ -140,7 +145,7 @@ class ProbabilisticAL(SingleAnnotatorPoolQueryStrategy):
               in `X`.
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `utilities` refers to the samples in `X`.
-            - If `candidates` is of shape `(n_candidates, *)`, `utilities`
+            - If `candidates` is of shape `(n_candidates, ...)`, `utilities`
               refers to the indexing in `candidates`.
         """
         # Validate input parameters.

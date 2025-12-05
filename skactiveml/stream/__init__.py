@@ -6,6 +6,7 @@ stream-based active learning.
 from ._stream_baselines import StreamRandomSampling, PeriodicSampling
 from ._stream_probabilistic_al import StreamProbabilisticAL
 from ._uncertainty_zliobaite import (
+    UncertaintyZliobaite,
     FixedUncertainty,
     VariableUncertainty,
     Split,
@@ -24,6 +25,7 @@ __all__ = [
     "budgetmanager",
     "StreamRandomSampling",
     "PeriodicSampling",
+    "UncertaintyZliobaite",
     "FixedUncertainty",
     "VariableUncertainty",
     "Split",

@@ -29,11 +29,16 @@ class EpistemicUncertaintySampling(SingleAnnotatorPoolQueryStrategy):
     """Epistemic Uncertainty Sampling (EpisUS)
 
     This class implements the Epistemic Uncertainty Sampling (EpisUS) query
-    strategy [1]_, which is only supported for binary classification tasks and
-    the following classifiers:
+    strategy [1]_, which distinguishes epistemic from aleatoric uncertainty and
+    queries samples with maximal epistemic uncertainty, meaning predictions
+    vary most across models that are well-supported by the current data. It
+    implements this via relative-likelihood based degrees of support and
+    provides instantiations for Parzen windows, decision trees, and logistic
+    regression. The current implementation only supports binary
+    classification tasks and the following classifiers:
 
     - `skactiveml.classifier.ParzenWindowClassifier` and
-    - `sklearn logistic regression classifier`.
+    - `sklearn.linear_model.LogisticRegression`.
 
     Parameters
     ----------
@@ -80,7 +85,7 @@ class EpistemicUncertaintySampling(SingleAnnotatorPoolQueryStrategy):
         y : array-like of shape (n_samples,)
             Labels of the training data set (possibly including unlabeled ones
             indicated by `self.missing_label`).
-        clf : skactiveml.classifier.ParzenWindowClassifier or
+        clf : skactiveml.classifier.ParzenWindowClassifier or \
                 wrapped sklearn.linear_model.LogisticRegression
             Only the Parzen Window Classifier and a wrapped sklearn
             logistic regression are supported as classifiers.
@@ -94,7 +99,7 @@ class EpistemicUncertaintySampling(SingleAnnotatorPoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, the
+            - If `candidates` is of shape `(n_candidates, ...)`, the
               candidate samples are directly given in `candidates` (not
               necessarily contained in `X`).
         batch_size : int, default=1

@@ -1,4 +1,6 @@
-﻿skactiveml.utils.MISSING\_LABEL
+﻿:orphan:
+
+skactiveml.utils.MISSING\_LABEL
 ===============================
 
 Define constant for missing label used throughout the package.

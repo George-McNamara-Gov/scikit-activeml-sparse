@@ -21,7 +21,8 @@ class GreedySamplingX(SingleAnnotatorPoolQueryStrategy):
 
     This class implements the query strategy Greedy Sampling in the Feature
     Space (GSx) [1]_ that tries to select those samples that increase the
-    diversity of the feature space the most.
+    diversity of the feature space the most. It does this by selecting those
+    features that are the furthest away from all previously labeled samples.
 
     Parameters
     ----------
@@ -74,8 +75,8 @@ class GreedySamplingX(SingleAnnotatorPoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, `candidates` is
-              considered as the candidate samples in `(X,y)`.
+            - If `candidates` is of shape `(n_candidates, ...)`, `candidates`
+              is considered as the candidate samples in `(X,y)`.
         batch_size : int, default=1
             The number of samples to be selected in one AL cycle.
         return_utilities : bool, default=False
@@ -103,7 +104,7 @@ class GreedySamplingX(SingleAnnotatorPoolQueryStrategy):
               in `X`.
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `utilities` refers to the samples in `X`.
-            - If `candidates` is of shape `(n_candidates, *)`, `utilities`
+            - If `candidates` is of shape `(n_candidates, ...)`, `utilities`
               refers to the indexing in `candidates`.
         """
         X, y, candidates, batch_size, return_utilities = self._validate_data(
@@ -153,9 +154,14 @@ class GreedySamplingTarget(SingleAnnotatorPoolQueryStrategy):
 
     This class implements the query strategy Greedy Sampling in the Target
     Space (GSi or GSy) [1]_ that at first selects samples to maximize the
-    diversity in the feature space and than selects samples to maximize the
+    diversity in the feature space and then selects samples to maximize the
     diversity in the feature and the target space (GSi), optionally only the
     diversity in the target space can be maximized (GSy).
+    The diversity is maximized by selecting those samples that are the
+    furthest away from all previously labeled samples. To measure the distance
+    in the target space the strategy predicts the label corresponding to each
+    sample. For GSi this distances is measured as the product of the distance
+    in the feature space and the target space.
 
     Parameters
     ----------
@@ -240,8 +246,8 @@ class GreedySamplingTarget(SingleAnnotatorPoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, `candidates` is
-              considered as the candidate samples in `(X,y)`.
+            - If `candidates` is of shape `(n_candidates, ...)`, `candidates`
+              is considered as the candidate samples in `(X,y)`.
         batch_size : int, default=1
             The number of samples to be selected in one AL cycle.
         return_utilities : bool, default=False
@@ -269,7 +275,7 @@ class GreedySamplingTarget(SingleAnnotatorPoolQueryStrategy):
               in `X`.
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `utilities` refers to the samples in `X`.
-            - If `candidates` is of shape `(n_candidates, *)`, `utilities`
+            - If `candidates` is of shape `(n_candidates, ...)`, `utilities`
               refers to the indexing in `candidates`.
         """
         X, y, candidates, batch_size, return_utilities = self._validate_data(

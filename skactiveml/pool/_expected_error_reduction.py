@@ -17,14 +17,15 @@ from ..utils import (
 
 
 class ExpectedErrorReduction(SingleAnnotatorPoolQueryStrategy):
-    """Abstract class for Expected Error Reduction (EER)
+    """Expected Error Reduction (EER)
 
-    This class implements the basic workflow of EER algorithms containing:
-     - determining ever candidates x label pair and simulate its outcome
-       in the classifier by simulating it,
-     - determining some kind of risk for the new classifier.
+    This class implements the basic workflow of EER algorithms by:
 
-    These structure has been used by [1]_, [2]_, [3]_, and [4]_.
+     - determining each candidates-label pair and simulate its utility
+       by retraining the classifier with it,
+     - determining some kind of risk for the retrained classifier.
+
+    This workflow has been used by [1]_, [2]_, [3]_, and [4]_.
 
     Parameters
     ----------
@@ -109,7 +110,7 @@ class ExpectedErrorReduction(SingleAnnotatorPoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, the
+            - If `candidates` is of shape `(n_candidates, ...)`, the
               candidate samples are directly given in `candidates` (not
               necessarily contained in `X`).
         sample_weight_candidates : array-like of shape (n_candidates,), \
@@ -501,15 +502,16 @@ class ExpectedErrorReduction(SingleAnnotatorPoolQueryStrategy):
 
 
 class MonteCarloEER(ExpectedErrorReduction):
-    """Monte Carlo Expected Error Reduction
+    """Monte Carlo Expected Error Reduction (EER)
 
     This class implements the expected error method from [1]_ that uses a
     Monte-Carlo approach to estimate the error.
 
     Therefore, it implements the following two steps:
-     - determining ever candidates x label pair and simulate its outcome
-       in the classifier by simulating it,
-     - determining some kind of risk for the new classifier.
+
+     - determining each candidates-label pair and simulate its utility
+       by retraining the classifier with it,
+     - determining some kind of risk for the retrained classifier.
 
     Parameters
     ----------
@@ -631,9 +633,10 @@ class ValueOfInformationEER(ExpectedErrorReduction):
     it also implements [2]_ and [3]_. The default parameters described in [1]_.
 
     Therefore, it implements the following two steps:
-     - determining ever candidates x label pair and simulate its outcome
-       in the classifier by simulating it,
-     - determining some kind of risk for the new classifier.
+
+     - determining each candidates-label pair and simulate its utility
+       by retraining the classifier with it,
+     - determining some kind of risk for the retrained classifier.
 
     Parameters
     ----------
@@ -744,7 +747,7 @@ class ValueOfInformationEER(ExpectedErrorReduction):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, the
+            - If `candidates` is of shape `(n_candidates, ...)`, the
               candidate samples are directly given in `candidates` (not
               necessarily contained in `X`).
         batch_size : int, default=1

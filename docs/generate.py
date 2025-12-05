@@ -1,4 +1,5 @@
 import os
+from collections import OrderedDict
 
 import packaging.version
 import importlib
@@ -11,6 +12,7 @@ import warnings
 import copy
 
 import numpy as np
+from matplotlib.lines import Line2D
 from pybtex.database import parse_file
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -38,23 +40,10 @@ def generate_api_reference_rst(gen_path):
     path = os.path.join(os.path.basename(gen_path), "api_reference.rst")
     gen_path = os.path.join(os.path.basename(gen_path), "api")
     os.makedirs(os.path.abspath(gen_path), exist_ok=True)
-    with open(path, "w") as file:
-        file.write(".. _api_reference:\n")
-        file.write("\n")
-        file.write("=============\n")
-        file.write("API Reference\n")
-        file.write("=============\n")
-        file.write("\n")
-        file.write("This is an overview of the API.\n")
-        file.write("\n")
-        file.write(".. module:: skactiveml\n")
-        file.write("\n")
-        for item in skactiveml.__all__:
-            if inspect.ismodule(getattr(skactiveml, item)):
-                file.write(automodule(getattr(skactiveml, item)))
+    automodule(skactiveml, api_root_path=gen_path)
 
 
-def automodule(module, level=0):
+def automodule(module, api_root_path, level=0):
     """
     This function generates the restructured text for the api reference and the
      specified module.
@@ -70,6 +59,7 @@ def automodule(module, level=0):
     -------
         str : The restructured text
     """
+    header_str = ""
     rst_str = ""
     modules = []
     classes = []
@@ -91,21 +81,35 @@ def automodule(module, level=0):
             constants.append(item)
 
     title = f":mod:`{module.__name__}`"
-    rst_str += title + "\n"
-    rst_str += "".ljust(len(title), "=") + "\n\n"
+    header_str += title + "\n"
+    header_str += "".ljust(len(title), "=") + "\n\n"
 
-    rst_str += f".. automodule:: {module.__name__}\n"
-    rst_str += f"    :no-members:\n"
-    rst_str += f"    :no-inherited-members:\n\n"
+    header_str += f".. automodule:: {module.__name__}\n"
+    header_str += f"    :no-members:\n"
+    header_str += f"    :no-inherited-members:\n\n"
 
-    rst_str += f'.. currentmodule:: {module.__name__.split(".")[0]}\n\n'
+    header_str += f'.. currentmodule:: {module.__name__.split(".")[0]}\n\n'
+
+    if modules:
+        rst_str += f"Submodules\n"
+        rst_str += f"----------\n\n"
+
+        rst_str += f".. list-table::\n"
+        rst_str += f"  :header-rows: 0\n"
+        rst_str += f"  :widths: 100\n"
+        rst_str += "\n"
+        for item in modules:
+            item_module_path = f"{module.__name__}.{item}"
+            rst_str += f"  * - :mod:`{item_module_path}`\n"
+        rst_str += "\n"
+
     if classes:
         rst_str += f"Classes\n"
         rst_str += f"-------\n\n"
 
         rst_str += f".. autosummary::\n"
         rst_str += f"   :nosignatures:\n"
-        rst_str += f"   :toctree: api\n"
+        rst_str += f"   :toctree: .\n"
         rst_str += f"   :template: class.rst\n\n"
         for item in classes:
             name = module.__name__
@@ -123,7 +127,7 @@ def automodule(module, level=0):
 
         rst_str += f".. autosummary::\n"
         rst_str += f"   :nosignatures:\n"
-        rst_str += f"   :toctree: api\n"
+        rst_str += f"   :toctree: .\n"
         rst_str += f"   :template: function.rst\n\n"
         for item in functions:
             name = module.__name__
@@ -135,10 +139,42 @@ def automodule(module, level=0):
             rst_str += f"   {name}" + "\n"
         rst_str += "\n"
 
-    for item in modules:
-        rst_str += automodule(getattr(module, item), level=level + 1)
+    path = os.path.join(api_root_path, f"{module.__name__}.rst")
+    if level == 0:
+        with open(path, "w") as file:
+            file.write("===\n")
+            file.write("API\n")
+            file.write("===\n")
+            file.write("\n")
+            file.write("This is an overview of the API.\n")
+            file.write("\n")
+            file.write(".. toctree::\n")
+            file.write("  :titlesonly:\n")
+            file.write("  :includehidden:\n")
+            file.write("  :maxdepth: 4\n")
 
-    return rst_str
+            file.write("\n")
+            for item in modules:
+                file.write(f"  {module.__name__}.{item}\n")
+            file.write("\n")
+            file.write("\n")
+            file.write(".. module:: skactiveml\n")
+    else:
+        with open(path, "w") as file:
+            file.write(header_str)
+            file.write("\n")
+            file.write(".. toctree::\n")
+            file.write("  :hidden:\n")
+            file.write("\n")
+            for item in modules:
+                file.write(f"  {module.__name__}.{item}\n")
+            file.write("\n")
+            file.write(rst_str)
+
+    for item in modules:
+        automodule(
+            getattr(module, item), api_root_path=api_root_path, level=level + 1
+        )
 
 
 def generate_strategy_overview_rst(gen_path, json_data):
@@ -152,7 +188,6 @@ def generate_strategy_overview_rst(gen_path, json_data):
     json_data : dict
         The data of the examples directory stored in a dictionary.
     """
-
     strategy_table = json_data_to_strategy_table(json_data, gen_path)
 
     # Generate file
@@ -162,10 +197,18 @@ def generate_strategy_overview_rst(gen_path, json_data):
         file.write("#################\n")
         file.write("\n")
 
+        file.write("|\n\n")
+        # TODO: Replace image path.
+        file.write(".. image:: ../logos/scikit-activeml-query-strategy-overview.svg\n")
+        file.write("   :class: dark-light\n")
+        file.write("   :align: center\n")
+        file.write("   :width: 100%\n\n")
+        file.write("|\n\n")
+
         file.write(
-            f"This is an overview of all implemented active learning "
-            f"strategies, which are often divided into three main "
-            "categories based on the utilities they compute for sample "
+            f"This is an overview of all implemented pool- and stream-based "
+            f"active learning strategies, which are often divided into three"
+            f"main categories based on the utilities they compute for sample "
             "selection:\n\n"
             "1. **Informativeness-based** strategies mostly select samples "
             "for which the model is most uncertain (e.g., via "
@@ -180,7 +223,11 @@ def generate_strategy_overview_rst(gen_path, json_data):
         file.write(
             "Furthermore, we distinguish between **regression** and "
             "**classification** as supervised learning tasks, where labels can"
-            "be provided by a **single annotator** or **multiple annotators**. "
+            "be provided by a **single annotator** or "
+            "**multiple annotators**. Finally, a strategy builds a "
+            "batch of samples by either including the samples with "
+            "the **top-k** utilities or by including **diverse** samples "
+            "with high utility scores.\n\n"
             "You can use the checkboxes below to filter the query strategies "
             "based on these distinctions.\n"
         )
@@ -193,23 +240,40 @@ def generate_strategy_overview_rst(gen_path, json_data):
             "   <label>Regression</label>\n"
             '   <input type="checkbox" class="input-tag" '
             'value="classification">\n '
-            "   <label>Classification</label>\n"
+            "   <label>Classification</label>\n\n"
             '   <input type="checkbox" class="input-tag" '
-            'value="multi-annotator">\n '
-            "   <label>Multi-Annotator</label>\n"
+            'value="top-k-batch">\n '
+            "   <label>Top-k-Batch</label>\n"
+            '   <input type="checkbox" class="input-tag" '
+            'value="diverse-batch">\n '
+            "   <label>Diverse-Batch</label>\n\n"
             '   <input type="checkbox" class="input-tag" '
             'value="single-annotator">\n '
             "   <label>Single-Annotator</label>\n"
+            '   <input type="checkbox" class="input-tag" '
+            'value="multi-annotator">\n '
+            "   <label>Multi-Annotator</label>\n"
         )
         file.write("\n")
 
         # Iterate over the sections.
-        for section_name, cats in strategy_table.items():
-            file.write(
-                " ".join([s.capitalize() for s in section_name.split(os.sep)])
-                + "\n"
-            )
-            file.write("".ljust(len(section_name), "-") + "\n")
+        strategy_order = list(strategy_table.keys())
+        strategy_order.sort()
+        for section_name in strategy_order:
+            cats = strategy_table[section_name]
+            if len(section_name) > 0:
+                with open(
+                    os.path.join(
+                        os.path.dirname(gen_path),
+                        f"examples/{section_name}/README.rst",
+                    ),
+                    "r",
+                ) as f:
+                    first_line = f.readline().strip()
+            else:
+                first_line = ""
+            file.write(f"{first_line}\n")
+            file.write("".ljust(len(first_line), "-") + "\n")
             file.write("\n")
 
             # Iterate over the examples.
@@ -232,14 +296,16 @@ def json_data_to_strategy_table(json_data, gen_path):
     for section_name, section_items in json_data.items():
         table = np.ndarray(shape=(0, 5))
         for data in section_items["data"]:
+
             # Collect the data needed to generate the strategy overview.
             qs_name = data["class"]
             method = data["method"]
-            package = getattr(skactiveml, data["package"])
-            package_name = package.__name__.replace("skactiveml.", "")
+            package = skactiveml
+            for subpackage in data["package"].split("."):
+                package = getattr(package, subpackage)
             methods_text = (
                 f":doc:`{method} </generated/sphinx_gallery_examples/"
-                f"{package_name}/plot-{qs_name}-"
+                f"{section_name}/plot-{qs_name}-"
                 f'{method.replace(" ", "_")}>`'
             )
             strategy_text = (
@@ -346,10 +412,11 @@ def table_data_to_rst_table(
 
 
 def generate_examples(
-        gen_path,
-        json_path,
-        example_notebook_directory,
-        recursive=True
+    gen_path,
+    json_path,
+    example_notebook_directory,
+    recursive=True,
+    version="latest"
 ):
     """
     Creates all example scripts for the specified package and returns the data
@@ -367,6 +434,9 @@ def generate_examples(
         The path to the directory where the notebooks are saved.
     recursive : bool, default=True
         If True, examples for sub-packagers are also created.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
 
     Returns
     -------
@@ -376,7 +446,7 @@ def generate_examples(
     # create directory if it does not exist.
     os.makedirs(gen_path, exist_ok=True)
 
-    json_data = dict()
+    json_data = OrderedDict()
     # iterate over json example files
     for root, dirs, files in os.walk(json_path, topdown=True):
         if root.endswith("__pycache__"):
@@ -401,7 +471,8 @@ def generate_examples(
                         root=root,
                         local_dir_path=sub_dir_str,
                         dst=dst,
-                        notebook_directory=example_notebook_directory
+                        notebook_directory=example_notebook_directory,
+                        version=version
                     )
                     for filename in files
                 )
@@ -415,7 +486,8 @@ def generate_examples(
                         root=root,
                         local_dir_path=sub_dir_str,
                         dst=dst,
-                        notebook_directory=example_notebook_directory
+                        notebook_directory=example_notebook_directory,
+                        version=version
                     )
                 )
         for json_data_list in json_data_lists:
@@ -423,7 +495,7 @@ def generate_examples(
             json_data_entry = json_data
             for sp in package_structure:
                 if sp not in json_data_entry.keys():
-                    json_data_entry[sp] = dict()
+                    json_data_entry[sp] = OrderedDict()
                 json_data_entry = json_data_entry[sp]
             if "data" not in json_data_entry.keys():
                 json_data_entry["data"] = list()
@@ -435,12 +507,8 @@ def generate_examples(
 
 
 def _generate_single_example(
-        filename,
-        root,
-        local_dir_path,
-        dst,
-        notebook_directory
-        ):
+    filename, root, local_dir_path, dst, notebook_directory, version="latest"
+):
     """_summary_
 
     Parameters
@@ -455,6 +523,9 @@ def _generate_single_example(
         The root directory where the examples are saved.
     notebook_directory: str
         The path to the directory where the notebooks are saved.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
     """
     data_list = []
     if filename.endswith(".json"):
@@ -469,14 +540,18 @@ def _generate_single_example(
                     + "-"
                     + data["method"].replace(" ", "_")
                 )
+                current_package = skactiveml
+                for subpackage in data["package"].split("."):
+                    current_package = getattr(current_package, subpackage)
                 generate_example_script(
                     filename=plot_filename + ".py",
                     dir_path=dst,
                     local_dir_path=local_dir_path,
                     data=data,
-                    package=getattr(skactiveml, data["package"]),
+                    package=current_package,
                     template_path=os.path.abspath(data["template"]),
-                    notebook_directory=notebook_directory
+                    notebook_directory=notebook_directory,
+                    version=version
                 )
     elif not filename.startswith("template"):
         if filename.endswith(".py") or filename.endswith(".ipynb"):
@@ -492,14 +567,15 @@ def _generate_single_example(
 
 
 def generate_example_script(
-        filename,
-        dir_path,
-        local_dir_path,
-        data,
-        package,
-        template_path,
-        notebook_directory,
-        google_colab_link=None
+    filename,
+    dir_path,
+    local_dir_path,
+    data,
+    package,
+    template_path,
+    notebook_directory,
+    google_colab_link=None,
+    version="latest"
 ):
     """
     Generates a python example file needed, for the 'sphinx-gallery' extension.
@@ -524,6 +600,9 @@ def generate_example_script(
     google_colab_link: str or None, default=None
         The link to google colab that can be used to open notebooks directly in
         google colab.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
     """
     # create directory if it does not exist.
     os.makedirs(dir_path, exist_ok=True)
@@ -532,17 +611,17 @@ def generate_example_script(
     if data["class"] not in package.__all__:
         raise ValueError(f'"{data["class"]}" is not in "{package}.__all__".')
 
-    google_colab_link = check_google_colab_link(google_colab_link)
+    google_colab_link = check_google_colab_link(google_colab_link, version)
 
-    notebook_filename = filename.replace('.py', '.ipynb')
+    notebook_filename = filename.replace(".py", ".ipynb")
 
-    data["colab_link"] = "/".join([
-        google_colab_link,
-        notebook_directory,
-        local_dir_path,
-        notebook_filename
-    ]
-
+    data["colab_link"] = "/".join(
+        [
+            google_colab_link,
+            notebook_directory,
+            local_dir_path,
+            notebook_filename,
+        ]
     )
 
     first_title = True
@@ -796,7 +875,7 @@ def dict_to_str(d, idx=None, allocator="=", key_as_string=False):
     return dd_str[0:-2]
 
 
-def generate_tutorials(src_path, dst_path, dst_path_colab):
+def generate_tutorials(src_path, dst_path, dst_path_colab, version="latest"):
     """Includes the tutorials folder from the git root, such that tutorials are
     included in the documentation. Effectively this function copies all
     contents from src_path to dst_path.
@@ -811,6 +890,9 @@ def generate_tutorials(src_path, dst_path, dst_path_colab):
         The path where the notebooks are saved, such that tutorials.rst can
         find them. This path is specially used to save the versions of the
         notebook that are linked to Google Colab.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
     """
     if os.path.exists(dst_path):
         shutil.rmtree(dst_path)
@@ -821,20 +903,23 @@ def generate_tutorials(src_path, dst_path, dst_path_colab):
     post_process_tutorials(
         dst_path,
         colab_notebook_path=dst_path_colab,
-        show_installation_code=False
+        show_installation_code=False,
+        version=version
     )
     post_process_tutorials(
         dst_path_colab,
         colab_notebook_path=dst_path_colab,
-        show_installation_code=True
+        show_installation_code=True,
+        version=version
     )
 
 
 def post_process_tutorials(
-        tutorials_path,
-        colab_notebook_path,
-        show_installation_code=False,
-        google_colab_link=None
+    tutorials_path,
+    colab_notebook_path,
+    show_installation_code=False,
+    google_colab_link=None,
+    version="latest"
 ):
     """This function allows to post-process the tutorial notebooks. In
     particular, the placeholder (<colab_link>) within notebooks are replaced
@@ -854,6 +939,9 @@ def post_process_tutorials(
     google_colab_link: str or None, default=None
         The link to google colab that can be used to open notebooks directly in
         google colab.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
     """
     tutorials = [f for f in os.listdir(tutorials_path) if f.endswith(".ipynb")]
     for file_name in tutorials:
@@ -861,17 +949,21 @@ def post_process_tutorials(
         file_path_colab = f"{colab_notebook_path}/{file_name}"
 
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 file_content = f.read()
         except OSError:
             file_content = None
 
         if file_content is not None:
             processed_file_content = copy.copy(file_content)
+            processed_file_content = add_orphan_metadata(
+                processed_file_content
+            )
             processed_file_content = replace_colab_link(
                 processed_file_content,
                 file_path_colab,
-                google_colab_link
+                google_colab_link,
+                version
             )
             if show_installation_code:
                 processed_file_content = uncomment_installation_code(
@@ -880,18 +972,41 @@ def post_process_tutorials(
 
             if file_content != processed_file_content:
                 try:
-                    with open(file_path, 'w') as f:
+                    with open(file_path, "w") as f:
                         f.write(processed_file_content)
                 except OSError:
                     print("Error while writing {}")
                     pass
 
 
+def add_orphan_metadata(file_content):
+    """This function adds the orphan metadata that nbsphinx require so that the
+    notebooks don't need to appear in any toctree.
+
+    Parameters
+    ----------
+    file_content: str
+        The content of the jupyter notebook.
+
+    Returns
+    -------
+    output : str
+        The notebook with the added metadata.
+    """
+    notebook_json = json.loads(file_content)
+    nbsphinx_dict = notebook_json["metadata"].get("nbsphinx", {})
+    nbsphinx_dict["orphan"] = True
+    notebook_json["metadata"]["nbsphinx"] = nbsphinx_dict
+    output = json.dumps(notebook_json)
+    return output
+
+
 def replace_colab_link(
         file_content,
         colab_path,
-        google_colab_link=None
-):
+        google_colab_link=None,
+        version="latest"
+    ):
     """This function replaces the placeholder (<colab_link>) within
     `file_content` with the link that matches the location once the notebook is
     included into the deployed documentation.
@@ -906,6 +1021,9 @@ def replace_colab_link(
         The Google Colab address where you can specify the notebook to open in
         Google Colab. If None, it is assumed that the official scikit-activeml
         documentation is used.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
 
     Returns
     -------
@@ -913,17 +1031,15 @@ def replace_colab_link(
         The notebook that includes the Google Colab link if there was a
         placeholder.
     """
-    google_colab_link = check_google_colab_link(google_colab_link)
+    google_colab_link = check_google_colab_link(google_colab_link, version)
     colab_link = f"{google_colab_link}/{colab_path}"
     output = re.sub(
-        pattern="<colab_link>",
-        repl=colab_link,
-        string=file_content
+        pattern="<colab_link>", repl=colab_link, string=file_content
     )
     return output
 
 
-def check_google_colab_link(google_colab_link):
+def check_google_colab_link(google_colab_link, version='latest'):
     """This function checks if `google_colab_link` is a string. If it is, it is
     returned as is. If it is `None`, a valid string that points to the official
     scikit-activeml documentation is returned.
@@ -934,6 +1050,9 @@ def check_google_colab_link(google_colab_link):
         The Google Colab address where you can specify the notebook to open in
         Google Colab. If None, it is assumed that the official scikit-activeml
         documentation is used.
+    version: str, default="latest"
+        The version string of this documentation that is used to point toward
+        the documentation of this version.
 
     Returns
     -------
@@ -944,12 +1063,10 @@ def check_google_colab_link(google_colab_link):
     """
     output = google_colab_link
     if google_colab_link is None:
-        colab_github = 'https://colab.research.google.com/github'
-        docs_repo_name = 'scikit-activeml/scikit-activeml.github.io'
-        docs_branch_path = 'blob/gh-pages/latest'
-        output = (
-            f"{colab_github}/{docs_repo_name}/{docs_branch_path}"
-        )
+        colab_github = "https://colab.research.google.com/github"
+        docs_repo_name = "scikit-activeml/scikit-activeml.github.io"
+        docs_branch_path = f"blob/gh-pages/{version}"
+        output = f"{colab_github}/{docs_repo_name}/{docs_branch_path}"
     return output
 
 
@@ -967,25 +1084,17 @@ def uncomment_installation_code(file_content):
     output : str
         The notebook that would install the needed packages.
     """
-    pattern = r'\"# (!pip install .*?)\"'
+    pattern = r"\"# (!pip install .*?)\""
     repl = r'"\1"'
-    output = re.sub(
-        pattern=pattern,
-        repl=repl,
-        string=file_content
-    )
+    output = re.sub(pattern=pattern, repl=repl, string=file_content)
 
-    pattern = r'\"# (!jupyter nbextension install .*?)\"'
+    pattern = r"\"# (!jupyter nbextension install .*?)\""
     repl = r'"\1"'
-    output = re.sub(
-        pattern=pattern,
-        repl=repl,
-        string=output
-    )
+    output = re.sub(pattern=pattern, repl=repl, string=output)
     return output
 
 
-def export_legend(handles, labels, ax, path="legend.pdf", expand=None):
+def export_legend(handles, labels, ax, path="legend.pdf", expand=None, ncol=4):
     if expand is None:
         expand = [-5, -5, 5, 5]
 
@@ -996,7 +1105,7 @@ def export_legend(handles, labels, ax, path="legend.pdf", expand=None):
         loc=3,
         framealpha=1,
         frameon=True,
-        ncol=4,
+        ncol=ncol,
         mode="expand",
         bbox_to_anchor=(0.0, 0.0, 1.0, 1.0),
         fontsize=8,
@@ -1074,10 +1183,86 @@ def generate_regression_legend(path):
     export_legend(handles, labels, ax, path=path)
 
 
+def generate_multi_annotator_pool_legend(path):
+    handles = []
+    labels = []
+    fig, ax = plt.subplots(1, 1, figsize=(8, 4), tight_layout=True)
+    handles.append(plt.Rectangle((0, 0), 1, 1, color="grey"))
+    labels.append("Requested Labels (Total)")
+    handles.append(
+        Line2D(
+            [0],
+            [0],
+            color="black",
+            markerfacecolor="black",
+            markeredgecolor="black",
+            linewidth=0.5,
+            markeredgewidth=0.2,
+        )
+    )
+    labels.append("AP = Annotator Performance")
+    handles.append(
+        Line2D(
+            [0],
+            [0],
+            color="black",
+            markerfacecolor="black",
+            markeredgecolor="black",
+            linewidth=0.5,
+            markeredgewidth=0.2,
+        )
+    )
+    labels.append(r"$\widehat{\text{AP}}$ = Estimated Annotator Performance")
+    handles.append(
+        Line2D(
+            [0],
+            [0],
+            marker="X",
+            color="w",
+            markerfacecolor=plt.get_cmap("coolwarm")(0),
+            markersize=10,
+        ),
+    )
+    labels.append("Erroneous majority vote for class 0")
+    handles.append(
+        Line2D(
+            [0],
+            [0],
+            marker="X",
+            color="w",
+            markerfacecolor=plt.get_cmap("coolwarm")(0.99),
+            markersize=10,
+        ),
+    )
+    labels.append("Erroneous majority vote for class 1")
+    handles.append(
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=plt.get_cmap("coolwarm")(0),
+            markersize=10,
+        ),
+    )
+    labels.append("Correct majority vote for class 0")
+    handles.append(
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=plt.get_cmap("coolwarm")(0.99),
+            markersize=10,
+        ),
+    )
+    labels.append("Correct majority vote for class 1")
+
+    export_legend(handles, labels, ax, path=path, ncol=3)
+
+
 def generate_switcher(
-        repo_path=None,
-        switcher_location=None,
-        blacklisted_versions=None
+    repo_path=None, switcher_location=None, blacklisted_versions=None
 ):
     """Creates the version switcher file used by the PyDate theme.
 

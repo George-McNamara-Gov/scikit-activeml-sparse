@@ -9,7 +9,11 @@ from ._bald import GreedyBALD, BatchBALD, batch_bald
 from ._cost_embedding_al import CostEmbeddingAL
 from ._discriminative_al import DiscriminativeAL
 from ._epistemic_uncertainty_sampling import EpistemicUncertaintySampling
-from ._expected_error_reduction import MonteCarloEER, ValueOfInformationEER
+from ._expected_error_reduction import (
+    ExpectedErrorReduction,
+    MonteCarloEER,
+    ValueOfInformationEER,
+)
 from ._expected_model_change_maximization import (
     ExpectedModelChangeMaximization,
 )
@@ -42,6 +46,7 @@ from ._clue import Clue
 from ._drop_query import DropQuery
 from ._wrapper import SubSamplingWrapper, ParallelUtilityEstimationWrapper
 from ._falcun import Falcun
+from ._max_herding import MaxHerding
 
 __all__ = [
     "multiannotator",
@@ -53,6 +58,7 @@ __all__ = [
     "uncertainty_scores",
     "expected_average_precision",
     "EpistemicUncertaintySampling",
+    "ExpectedErrorReduction",
     "MonteCarloEER",
     "ValueOfInformationEER",
     "QueryByCommittee",
@@ -84,4 +90,5 @@ __all__ = [
     "SubSamplingWrapper",
     "ParallelUtilityEstimationWrapper",
     "Falcun",
+    "MaxHerding",
 ]

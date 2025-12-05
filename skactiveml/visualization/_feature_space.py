@@ -54,7 +54,7 @@ def plot_utilities(qs, X, y, candidates=None, **kwargs):
         - If `candidates` is of shape `(n_candidates,)` and of type
           `int`, `candidates` is considered as the indices of the
           samples in `(X,y)`.
-        - If `candidates` is of shape `(n_candidates, *)`, the
+        - If `candidates` is of shape `(n_candidates, ...)`, the
           candidate samples are directly given in `candidates` (not
           necessarily contained in `X`). This is not supported by all
           query strategies.
@@ -115,7 +115,7 @@ def plot_annotator_utilities(qs, X, y, candidates=None, **kwargs):
         - If `candidates` is of shape `(n_candidates,)` and of type
           `int`, `candidates` is considered as the indices of the
           samples in `(X,y)`.
-        - If `candidates` is of shape `(n_candidates, *)`, the
+        - If `candidates` is of shape `(n_candidates, ...)`, the
           candidate samples are directly given in `candidates` (not
           necessarily contained in `X`). This is not supported by all
           query strategies.
@@ -533,7 +533,7 @@ def _general_plot_utilities(qs, X, y, candidates=None, **kwargs):
         - If `candidates` is of shape `(n_candidates,)` and of type
           `int`, `candidates` is considered as the indices of the
           samples in `(X,y)`.
-        - If `candidates` is of shape `(n_candidates, *)`, the
+        - If `candidates` is of shape `(n_candidates, ...)`, the
           candidate samples are directly given in `candidates` (not
           necessarily contained in `X`). This is not supported by all
           query strategies.

@@ -51,7 +51,7 @@ class _GeneralBALD(QueryByCommittee):
           performed.
         - If `sample_predictions_method_name` is not `None` and in the
           case of classification, the method is expected to take samples of
-          the shape `(n_samples, *)` as input and to output probabilities
+          the shape `(n_samples, ...)` as input and to output probabilities
           of the shape `(n_members, n_samples, n_classes)`, e.g.,
           `sample_proba` in `skactiveml.base.ClassFrequencyEstimator`.
     sample_predictions_dict : dict, default=None
@@ -142,7 +142,7 @@ class _GeneralBALD(QueryByCommittee):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, the
+            - If `candidates` is of shape `(n_candidates, ...)`, the
               candidate samples are directly given in `candidates` (not
               necessarily contained in `X`). This is not supported by all
               query strategies.
@@ -246,10 +246,11 @@ class _GeneralBALD(QueryByCommittee):
 class BatchBALD(_GeneralBALD):
     """Batch Bayesian Active Learning by Disagreement (BatchBALD)
 
-    Batch Bayesian Active Learning by Disagreement (BatchBALD) [1]_
-    reduces the number of possible hypotheses maximally fast to minimize the
-    uncertainty about the parameters using Shannon's entropy. It seeks the data
-    point that maximises the decrease in expected posterior entropy.
+    Batch Bayesian Active Learning by Disagreement (BatchBALD) [1]_ selects a
+    batch that maximizes the joint mutual information between the labels of the
+    selected points and the model parameters, typically estimated with MC
+    dropout or any other ensemble. This captures uncertainty and inter-sample
+    diversity in one objective, optimized greedily.
 
     Parameters
     ----------
@@ -266,7 +267,7 @@ class BatchBALD(_GeneralBALD):
           performed.
         - If `sample_predictions_method_name` is not `None` and in the
           case of classification, the method is expected to take samples of
-          the shape `(n_samples, *)` as input and to output probabilities
+          the shape `(n_samples, ...)` as input and to output probabilities
           of the shape `(n_members, n_samples, n_classes)`, e.g.,
           `sample_proba` in `skactiveml.base.ClassFrequencyEstimator`.
     sample_predictions_dict : dict, default=None
@@ -334,7 +335,7 @@ class GreedyBALD(_GeneralBALD):
           performed.
         - If `sample_predictions_method_name` is not `None` and in the
           case of classification, the method is expected to take samples of
-          the shape `(n_samples, *)` as input and to output probabilities
+          the shape `(n_samples, ...)` as input and to output probabilities
           of the shape `(n_members, n_samples, n_classes)`, e.g.,
           `sample_proba` in `skactiveml.base.ClassFrequencyEstimator`.
     sample_predictions_dict : dict, default=None

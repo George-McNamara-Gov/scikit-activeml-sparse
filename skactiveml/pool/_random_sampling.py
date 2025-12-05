@@ -8,7 +8,8 @@ class RandomSampling(SingleAnnotatorPoolQueryStrategy):
     """Random Sampling (RS)
 
     This class implements random sampling as a lower baseline for other query
-    strategies.
+    strategies. It randomly selects `batch_size` unlabeled samples whose
+    utility scores are also randomly generated.
 
     Parameters
     ----------
@@ -43,7 +44,7 @@ class RandomSampling(SingleAnnotatorPoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, the
+            - If `candidates` is of shape `(n_candidates, ...)`, the
               candidate samples are directly given in `candidates` (not
               necessarily contained in `X`). This is not supported by all
               query strategies.

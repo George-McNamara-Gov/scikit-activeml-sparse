@@ -12,12 +12,12 @@ class BalancedIncrementalQuantileFilter(BudgetManager):
 
     The Balanced Incremental Quantile Filter has been proposed together with
     Probabilistic Active Learning for Datastreams [1]_. It assesses whether a
-    given spatial utility (i.e., obtained via :class:`ProbabilisticAL`)
-    warrants to query the label in question. The spatial ultilities are
-    compared against a threshold that is derived from a quantile (`budget`) of
-    the last `w` observed utilities. To balance the number of queries, `w_tol`
-    is used to increase or decrease the threshold based on the number of
-    available acquisitions.
+    given spatial utility (i.e., obtained via
+    :class:`skactiveml.pool.ProbabilisticAL`) warrants to query the label in
+    question. The spatial ultilities are compared against a threshold that is
+    derived from a quantile (`budget`) of the last `w` observed utilities. To
+    balance the number of queries, `w_tol` is used to increase or decrease the
+    threshold based on the number of available acquisitions.
 
     Parameters
     ----------
@@ -28,9 +28,9 @@ class BalancedIncrementalQuantileFilter(BudgetManager):
         The window in which the number of acquisitions should stay within the
         budget. `w_tol` should be higher than 0.
     budget : float, default=None
-        Specifies the ratio of samples which are allowed to be sampled, with
-        `0 <= budget <= 1`. If `budget` is `None`, it is replaced with the
-        default budget 0.1.
+        Specifies the ratio of samples which are allowed to be sampled, with `0
+        <= budget <= 1`. If `budget` is `None`, it is replaced with the default
+        budget 0.1.
 
     References
     ----------

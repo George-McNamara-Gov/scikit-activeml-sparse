@@ -23,8 +23,13 @@ from ..utils import (
 class FourDs(SingleAnnotatorPoolQueryStrategy):
     """4DS
 
-    Implementation of the pool-based query strategy 4DS for training a
-    MixtureModelClassifier [1]_.
+    Implementation of the pool-based query strategy 4DS, which combines four
+    criteria computed from a generative mixture-model classifier: distance to
+    the decision boundary (uncertainty), density of the sample's region
+    (representativeness), diversity within the batch (non-redundancy), and
+    class-distribution balancing. It selects a batch by greedily maximizing a
+    weighted sum of these scores with automatically adapted weights, yielding
+    uncertain, representative, and non-redundant queries.
 
     Parameters
     ----------
@@ -85,8 +90,8 @@ class FourDs(SingleAnnotatorPoolQueryStrategy):
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `candidates` is considered as the indices of the
               samples in `(X,y)`.
-            - If `candidates` is of shape `(n_candidates, *)`, `candidates` is
-              considered as the candidate samples in `(X,y)`.
+            - If `candidates` is of shape `(n_candidates, ...)`, `candidates`
+              is considered as the candidate samples in `(X,y)`.
         batch_size : int, default=1
             The number of samples to be selected in one AL cycle.
         return_utilities : bool, default=False
@@ -114,7 +119,7 @@ class FourDs(SingleAnnotatorPoolQueryStrategy):
               in `X`.
             - If `candidates` is of shape `(n_candidates,)` and of type
               `int`, `utilities` refers to the samples in `X`.
-            - If `candidates` is of shape `(n_candidates, *)`, `utilities`
+            - If `candidates` is of shape `(n_candidates, ...)`, `utilities`
               refers to the indexing in `candidates`.
         """
         # Check standard parameters.

@@ -1061,8 +1061,8 @@ class CognitiveDualQueryStrategyRan(CognitiveDualQueryStrategy):
     This class implements the CognitiveDualQueryStrategy [1]_ strategy with
     Random Sampling. The CognitiveDualQueryStrategy strategy is an extension to
     the uncertainty based query strategies proposed by Žliobaitė et al. [2]_
-    and follows the same idea as StreamDensityBasedAL [3]_ where queries for
-    labels is only allowed if the local density around the corresponding
+    and follows the same idea as StreamDensityBasedAL [3]_ where querying a
+    label is only allowed if the local density around the corresponding
     sample is sufficiently high. The authors propose the use of a cognitive
     window that monitors the most representative samples within a data stream.
 
@@ -1106,7 +1106,7 @@ class CognitiveDualQueryStrategyRan(CognitiveDualQueryStrategy):
     See Also
     --------
     .budgetmanager.RandomBudgetManager : The default budget manager.
-    .budgetmanager.CognitiveDualQueryStrategy : The base class for this
+    .CognitiveDualQueryStrategy : The base class for this
         strategy.
 
     References
@@ -1208,7 +1208,7 @@ class CognitiveDualQueryStrategyFixUn(CognitiveDualQueryStrategy):
     See Also
     --------
     .budgetmanager.FixedUncertaintyBudgetManager : The default budget manager
-    .budgetmanager.CognitiveDualQueryStrategy : The base class for this
+    .CognitiveDualQueryStrategy : The base class for this
         strategy.
 
     References
@@ -1322,7 +1322,7 @@ class CognitiveDualQueryStrategyVarUn(CognitiveDualQueryStrategy):
     See Also
     --------
     .budgetmanager.RandomBudgetManager : The default budget manager.
-    .budgetmanager.CognitiveDualQueryStrategy : The base class for this
+    .CognitiveDualQueryStrategy : The base class for this
         strategy.
 
     References
@@ -1423,7 +1423,7 @@ class CognitiveDualQueryStrategyRanVarUn(CognitiveDualQueryStrategy):
     See Also
     --------
     .budgetmanager.RandomBudgetManager : The default budget manager.
-    .budgetmanager.CognitiveDualQueryStrategy : The base class for this
+    .CognitiveDualQueryStrategy : The base class for this
         strategy.
 
     References
