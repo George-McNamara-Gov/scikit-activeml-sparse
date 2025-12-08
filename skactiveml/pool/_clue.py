@@ -32,6 +32,11 @@ class Clue(SingleAnnotatorPoolQueryStrategy):
     result is a diverse set biased toward uncertain regions of representation
     space.
 
+    The original `Clue` query strategy was proposed for classification tasks
+    only and did not include a regression variant. Support for regression in
+    this implementation is therefore an extension of the original formulation
+    and relies on user-provided sample-wise uncertainty estimates.
+
     Parameters
     ----------
     predict_dict : dict or None, default=None
@@ -47,7 +52,7 @@ class Clue(SingleAnnotatorPoolQueryStrategy):
 
             out = estimator.predict(X, **predict_dict)
 
-        If `out` is a tuple, its additional elements are inspected by shape:
+        If `out` is a tuple, its additional elements are inferred by shape:
         sample-wise uncertainties must be a 1D `numpy.ndarray`, and
         sample embeddings must be a 2D `numpy.ndarray`.
 
@@ -70,7 +75,7 @@ class Clue(SingleAnnotatorPoolQueryStrategy):
     cluster_algo : ClusterMixin.__class__, default=KMeans
         The cluster algorithm to be used. It must implement a `fit_transform`
         method, which takes samples `X` and `sample_weight` as inputs, e.g.,
-        sklearn.clustering.KMeans and sklearn.clustering.MiniBatchKMeans.
+        `sklearn.clustering.KMeans` and `sklearn.clustering.MiniBatchKMeans`.
     cluster_algo_dict : dict, default=None
         The parameters passed to the clustering algorithm `cluster_algo`,
         excluding the parameter for the number of clusters.
@@ -80,14 +85,6 @@ class Clue(SingleAnnotatorPoolQueryStrategy):
         Value to represent a missing label.
     random_state : None or int or np.random.RandomState, default=None
         The random state to use.
-
-
-    Notes
-    -----
-    The original `Clue` query strategy was proposed for classification tasks
-    only and did not include a regression variant. Support for regression in
-    this implementation is therefore an extension of the original formulation
-    and relies on user-provided sample-wise uncertainty estimates.
 
     References
     ----------
