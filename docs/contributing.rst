@@ -100,7 +100,13 @@ Now, install the required project dependencies, which are defined in the
    pip install -e .[dev]
 
 After the pip installation is successful, you must install ``pandoc`` and
-``ghostscript`` if they are not already installed.
+``ghostscript``, and ``ffmpeg`` if they are not already installed. For example,
+via ``conda`` you can do this as follows:
+
+.. code:: bash
+
+   conda install -c conda-forge pandoc ghostscript ffmpeg
+
 
 We also provide a `pre-commit <https://https://pre-commit.com/>`__
 configuration that offers automatic linting checks using
@@ -111,13 +117,6 @@ hooks, you need to install them:
 .. code:: bash
 
   pre-commit install
-
-Example with macOS (Homebrew)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code:: bash
-
-   brew install pandoc ghostscript
 
 Contributing Code
 -----------------
