@@ -47,6 +47,9 @@ Classification
      - Image
      - - Vision Transformer with Linear Probing
        - Self-training
+   * - :doc:`Bayesian Active Learning </generated/tutorials/09_bayesian_al>`
+     - Audio
+     - - Wav2Vec with Multi-layer Perceptron Probing
    * - :doc:`Image Annotation Tool </generated/tutorials/03_pool_oracle_annotations>`
      - Image
      - - Multi-layer Perceptron
