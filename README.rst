@@ -104,9 +104,9 @@ Note that you might need to adjust this command for GPU support with
    ds_train = load_dataset("yangwang825/reuters-21578", split="train")
    ds_test = load_dataset("yangwang825/reuters-21578", split="test")
    mdl = SentenceTransformer("all-MiniLM-L6-v2", device=device)
-   X_pool = mdl.encode(ds_train["text"])
+   X_pool = mdl.encode(ds_train["text"], show_progress_bar=True)
    y_pool = np.asarray(ds_train["label"], dtype=np.int64)
-   X_test = mdl.encode(ds_test["text"])
+   X_test = mdl.encode(ds_test["text"], show_progress_bar=True)
    y_test = np.asarray(ds_test["label"], dtype=np.int64)
    n_features, classes = X_pool.shape[1], np.unique(y_pool)
    missing_label = -1
@@ -131,7 +131,12 @@ Note that you might need to adjust this command for GPU support with
    clf = SkorchClassifier(
        module=ClassificationModule,
        criterion=nn.CrossEntropyLoss,
+       # Each mapping entry is interpreted as:
+       #   name -> (idx in module.forward, post-hoc transform).
        forward_outputs={"proba": (0, nn.Softmax(dim=-1)), "emb": (1, None)},
+       # Set `skorch`-specific parameters. Double underscore can be used to set
+       # nested parameters, i.e., `module__n_features` sets `n_features` of
+       # `module` (see `skorch` documentation for more details).
        neural_net_param_dict={
            # Module-related parameters.
            "module__n_features": n_features,
@@ -158,7 +163,8 @@ Note that you might need to adjust this command for GPU support with
    # Start the active learning cycle with zero initial labels.
    y_train = np.full_like(y_pool, missing_label)
 
-   # Create a deep active learning query strategy.
+   # Create query strategy such that:
+   #   P_class, X_embed = clf.predict_proba(X, **clf_embedding_flag_name).
    qs = Badge(
        missing_label=missing_label,
        clf_embedding_flag_name={"extra_outputs": "emb"},
@@ -170,6 +176,9 @@ Note that you might need to adjust this command for GPU support with
 
    # Execute active learning cycles.
    for c in range(n_cycles):
+       # Since we train the classifier outside of `qs.query` in this example,
+       # we use `fit_clf=False` to avoid unnecessary retraining during
+       # querying.
        query_idx = qs.query(
            X=X_pool,
            y=y_train,
@@ -266,6 +275,9 @@ Note that you might need to adjust this command for GPU support with
    clf = SkorchClassifier(
        module=ClassificationModule,
        criterion=nn.CrossEntropyLoss,
+       # Set `skorch`-specific parameters. Double underscore can be used to set
+       # nested parameters, i.e., `module__n_features` sets `n_features` of
+       # `module` (see `skorch` documentation for more details).
        neural_net_param_dict={
            # Module-related parameters.
            "module__n_features": n_features,
@@ -297,6 +309,9 @@ Note that you might need to adjust this command for GPU support with
    n_cycles = len(X_stream)
    query_idx = []
    for t in range(n_cycles):
+       # Since we train the classifier outside of `qs.query` in this example,
+       # we use `fit_clf=False` to avoid unnecessary retraining during
+       # querying.
        query_idx = qs.query(
            candidates=X_stream[[t]], y=y_stream[t], clf=clf, fit_clf=False
        )
