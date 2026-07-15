@@ -85,9 +85,9 @@ class RandomSampling(SingleAnnotatorPoolQueryStrategy):
         X_cand, mapping = self._transform_candidates(candidates, X, y)
 
         if mapping is None:
-            utilities = np.ones(len(X_cand))
+            utilities = np.ones(X_cand.shape[0])
         else:
-            utilities = np.full(len(X), np.nan)
+            utilities = np.full(X.shape[0], np.nan)
             utilities[mapping] = np.ones(len(mapping))
 
         return simple_batch(

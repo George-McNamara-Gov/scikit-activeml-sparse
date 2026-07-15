@@ -157,7 +157,7 @@ class PoolQueryStrategy(QueryStrategy):
         # Check samples.
         if check_X_dict is None:
             check_X_dict = {"allow_nd": True}
-        X = check_array(X, **check_X_dict)
+        X = check_array(X, **check_X_dict, accept_sparse= True)
 
         # Check number of features.
         check_n_features(self, X, reset=reset)
@@ -1191,7 +1191,7 @@ class SkactivemlClassifier(ClassifierMixin, BaseEstimator, ABC):
                 raise ValueError(error_msg)
             self._le.fit(self.classes)
             check_X_dict["ensure_2d"] = False
-        X = check_array(X, **check_X_dict)
+        X = check_array(X, **check_X_dict, accept_sparse= True)
         check_consistent_length(X, y)
         check_n_features(self, X, reset=reset)
 

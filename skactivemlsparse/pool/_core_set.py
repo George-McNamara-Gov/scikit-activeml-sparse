@@ -238,7 +238,7 @@ def k_greedy_center(
           the indexing refers to the samples in `candidates`.
     """
     # valid the input shape whether is valid or not.
-    X = check_array(X, allow_nd=True)
+    X = check_array(X, allow_nd=True, accept_sparse= True)
     y = check_array(
         y, ensure_2d=False, ensure_all_finite="allow-nan", dtype=None
     )

@@ -260,7 +260,7 @@ class Clue(SingleAnnotatorPoolQueryStrategy):
         # Determine `query_indices` of the samples being closest to the
         # respective centroids.
         query_indices = []
-        utilities = np.full((batch_size, len(X)), fill_value=np.nan)
+        utilities = np.full((batch_size, X.shape[0]), fill_value=np.nan)
         for b in range(batch_size):
             utilities[b][mapping] = -dist[:, b]
             utilities[b][query_indices] = np.nan

@@ -181,9 +181,9 @@ class UncertaintySampling(SingleAnnotatorPoolQueryStrategy):
         # Check `utility_weight`.
         if utility_weight is None:
             if mapping is None:
-                utility_weight = np.ones(len(X_cand))
+                utility_weight = np.ones(X_cand.shape[0])
             else:
-                utility_weight = np.ones(len(X))
+                utility_weight = np.ones(X.shape[0])
         utility_weight = check_array(utility_weight, ensure_2d=False)
 
         if mapping is None and not len(X_cand) == len(utility_weight):
@@ -191,10 +191,10 @@ class UncertaintySampling(SingleAnnotatorPoolQueryStrategy):
                 f"'utility_weight' must have length 'n_candidates' but "
                 f"{len(X_cand)} != {len(utility_weight)}."
             )
-        if mapping is not None and not len(X) == len(utility_weight):
+        if mapping is not None and not X.shape[0] == len(utility_weight):
             raise ValueError(
                 f"'utility_weight' must have length 'n_samples' but "
-                f"{len(utility_weight)} != {len(X)}."
+                f"{len(utility_weight)} != {X.shape[0]}."
             )
 
         # Validate method.
@@ -241,7 +241,7 @@ class UncertaintySampling(SingleAnnotatorPoolQueryStrategy):
         if mapping is None:
             utilities = utilities_cand
         else:
-            utilities = np.full(len(X), np.nan)
+            utilities = np.full(X.shape[0], np.nan)
             utilities[mapping] = utilities_cand
         utilities *= utility_weight
 

@@ -195,7 +195,10 @@ class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
         """
         check_is_fitted(self)
         predict_dict = {"ensure_min_samples": 1, "ensure_min_features": 1}
-        X = check_array(X, **(self.check_X_dict_ | predict_dict))
+        X = check_array(
+            X, **(self.check_X_dict_ | predict_dict), 
+            accept_sparse= True
+        )
         check_n_features(self, X, reset=False)
         if self.is_fitted_:
             if self.cost_matrix is None:
@@ -235,7 +238,10 @@ class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
         """
         check_is_fitted(self)
         predict_dict = {"ensure_min_samples": 1, "ensure_min_features": 1}
-        X = check_array(X, **(self.check_X_dict_ | predict_dict))
+        X = check_array(
+            X, **(self.check_X_dict_ | predict_dict), 
+            accept_sparse= True
+        )
         check_n_features(self, X, reset=False)
         if self.is_fitted_:
             P = self.estimator_.predict_proba(X, **predict_proba_kwargs)
@@ -259,10 +265,10 @@ class SklearnClassifier(SkactivemlClassifier, MetaEstimatorMixin):
             f"make the predictions."
         )
         if sum(self._label_counts) == 0:
-            return np.ones([len(X), len(self.classes_)]) / len(self.classes_)
+            return np.ones([X.shape[0], len(self.classes_)]) / len(self.classes_)
         else:
             return np.tile(
-                self._label_counts / np.sum(self._label_counts), [len(X), 1]
+                self._label_counts / np.sum(self._label_counts), [X.shape[0], 1]
             )
 
     def _fit(self, fit_function, X, y, sample_weight=None, **fit_kwargs):

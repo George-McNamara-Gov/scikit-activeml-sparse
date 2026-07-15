@@ -833,7 +833,7 @@ def check_n_features(obj, X, reset):
         using `sklearn_check_n_features`.
     """
     if reset:
-        obj.n_features_in_ = X.shape[1] if len(X) > 0 else None
+        obj.n_features_in_ = X.shape[1] if X.shape[0] > 0 else None
     elif not reset:
         if obj.n_features_in_ is not None:
             sklearn_check_n_features(obj, X, reset=reset)
