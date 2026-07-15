@@ -10,7 +10,7 @@
     "refs" : ["wu2019active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** Greedy Sampling in the Feature Space (GSx) select those samples that increase the diversity of the feature space the most. It does this by selecting those features that are the furthest away from all previously labeled samples.",
-    "import_misc" : ["from skactiveml.pool import GreedySamplingX"],
+    "import_misc" : ["from skactivemlsparse.pool import GreedySamplingX"],
     "init_qs" : "GreedySamplingX()",
     "query_params" : "X=X, y=y"
   },
@@ -25,7 +25,7 @@
     "refs" : ["wu2019active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** Greedy Sampling on the Target Space (GSy) at first selects those samples that to maximize the diversity in the feature space and then selects samples to maximize the diversity in the target space. The diversity is maximized by selecting those samples that are the furthest away from all previously labeled samples. To measure the distance in the target space the strategy predicts the label corresponding to each sample.",
-    "import_misc" : ["from skactiveml.pool import GreedySamplingTarget"],
+    "import_misc" : ["from skactivemlsparse.pool import GreedySamplingTarget"],
     "init_qs" : "GreedySamplingTarget(method='GSy')",
     "query_params" : "X=X, y=y, reg=reg"
   },
@@ -40,7 +40,7 @@
     "refs" : ["wu2019active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** Improved Greedy Sampling (GSi) at first selects those samples that maximize the diversity in the feature space and then selects samples to maximize the diversity in the combined space of features and targets. The diversity is maximized by selecting those samples that are the furthest away from all previously labeled samples. The distance in the combined space is measured as the product of the distance in the feature space and the target space. To measure the distance in the target space the strategy predicts the label corresponding to each unlabeled sample.",
-    "import_misc" : ["from skactiveml.pool import GreedySamplingTarget"],
+    "import_misc" : ["from skactivemlsparse.pool import GreedySamplingTarget"],
     "init_qs" : "GreedySamplingTarget(method='GSi')",
     "query_params" : "X=X, y=y, reg=reg"
   }

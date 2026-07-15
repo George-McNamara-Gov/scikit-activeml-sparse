@@ -10,7 +10,7 @@
     "refs" : ["zliobaite2014active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** The Fixed-Uncertainty query strategy queries samples based on the classifiers uncertainty that is assessed based on the classifier's predictions. The sample is queried when the probability of the most likely class exceeds a threshold calculated based on the budget and the number of classes.",
-    "import_misc" : "from skactiveml.stream import FixedUncertainty",
+    "import_misc" : "from skactivemlsparse.stream import FixedUncertainty",
     "init_qs" : "FixedUncertainty(budget=0.2, classes=[0, 1])",
     "query_params" : "candidates=X_cand, clf=clf",
     "update_params" : "candidates=X_cand, queried_indices=sampled_indices"
@@ -26,7 +26,7 @@
     "refs" : ["zliobaite2014active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** The Variable-Uncertainty query strategy queries labels based on the classifiers uncertainty assessed based on the classifier's predictions. The sample is queried when the probability of the most likely class exceeds a time-dependent threshold calculated based on the budget, number of observed and acquired samples.",
-    "import_misc" : "from skactiveml.stream import VariableUncertainty",
+    "import_misc" : "from skactivemlsparse.stream import VariableUncertainty",
     "init_qs" : "VariableUncertainty(budget=0.2)",
     "query_params" : "candidates=X_cand, clf=clf",
     "update_params" : "candidates=X_cand, queried_indices=sampled_indices"
@@ -42,7 +42,7 @@
     "refs" : ["zliobaite2014active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** The Randomized-Variable-Uncertainty query strategy queries labels based on the classifier's uncertainty assessed based on the classifier's predictions. The sample is queried when the probability of the most likely class exceeds a time-dependent threshold calculated based on the budget, and the number of observed and acquired samples. The threshold is randomized by being multiplied with a random number sampled from N(1,delta).",
-    "import_misc" : "from skactiveml.stream import RandomVariableUncertainty",
+    "import_misc" : "from skactivemlsparse.stream import RandomVariableUncertainty",
     "init_qs" : "RandomVariableUncertainty(budget=0.2)",
     "query_params" : "candidates=X_cand, clf=clf",
     "update_params" : "candidates=X_cand, queried_indices=sampled_indices"
@@ -58,7 +58,7 @@
     "refs" : ["zliobaite2014active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** The Split query strategy queries labels based on the classifiers uncertainty assessed based on the classifier's predictions. The sample is queried when the probability of the most likely class exceeds a time-dependent threshold calculated based on the budget, number of observed and acquired samples. It is a hybrid strategy that combines `VariableUncertainty` with randomly sampling samples with a given probability.",
-    "import_misc" : "from skactiveml.stream import Split",
+    "import_misc" : "from skactivemlsparse.stream import Split",
     "init_qs" : "Split(budget=0.2)",
     "query_params" : "candidates=X_cand, clf=clf",
     "update_params" : "candidates=X_cand, queried_indices=sampled_indices"

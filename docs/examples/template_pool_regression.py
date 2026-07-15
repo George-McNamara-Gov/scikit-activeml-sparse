@@ -17,9 +17,9 @@ import numpy as np
 from matplotlib import pyplot as plt, animation
 from scipy.stats import uniform
 
-from skactiveml.utils import MISSING_LABEL, is_labeled
+from skactivemlsparse.utils import MISSING_LABEL, is_labeled
 
-"$import_reg|from skactiveml.regressor import NICKernelRegressor"
+"$import_reg|from skactivemlsparse.regressor import NICKernelRegressor"
 "$import_misc"
 
 # Set a fixed random state for reproducibility.

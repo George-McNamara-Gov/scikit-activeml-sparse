@@ -10,7 +10,7 @@
     "refs" : ["elreedy2019novel"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** Regression based Kullback Leibler Divergence Maximization selects those samples that maximize the expected Kullback-Leibler divergence from the new model to the old model, where the new model is the model that results from adding the samples to the training set and the expectation is performed over the model parameters.",
-    "import_misc" : ["from skactiveml.pool import KLDivergenceMaximization"],
+    "import_misc" : ["from skactivemlsparse.pool import KLDivergenceMaximization"],
     "init_qs" : ["KLDivergenceMaximization(",
                  "    random_state=random_state,",
                  "    integration_dict_target_val={",

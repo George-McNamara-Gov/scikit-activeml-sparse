@@ -4,8 +4,8 @@ import torch
 from datasets import load_dataset
 from matplotlib import pyplot as plt, animation
 from sentence_transformers import SentenceTransformer
-from skactiveml.classifier import SkorchClassifier
-from skactiveml.pool import Badge
+from skactivemlsparse.classifier import SkorchClassifier
+from skactivemlsparse.pool import Badge
 from sklearn.manifold import TSNE
 from skorch.callbacks import LRScheduler
 from torch import nn

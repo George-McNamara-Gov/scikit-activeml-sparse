@@ -10,9 +10,9 @@
     "refs" : ["reitmaier2013let"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** 4DS combines four criteria computed from a generative mixture-model classifier: distance to the decision boundary (uncertainty), density of the sample’s region (representativeness), diversity within the batch (non-redundancy), and class-distribution balancing. It selects a batch by greedily maximizing a weighted sum of these scores with automatically adapted weights, yielding uncertain, representative, and non-redundant queries.",
-    "import_misc" : ["from skactiveml.pool import FourDs",
+    "import_misc" : ["from skactivemlsparse.pool import FourDs",
                      "from sklearn.mixture import GaussianMixture"],
-    "import_clf" : "from skactiveml.classifier import MixtureModelClassifier",
+    "import_clf" : "from skactivemlsparse.classifier import MixtureModelClassifier",
     "init_clf" : "MixtureModelClassifier(classes=[0, 1], mixture_model=GaussianMixture(n_components=5))",
     "init_qs" : "FourDs()",
     "query_params" : "X=X, y=y, clf=clf"
@@ -28,9 +28,9 @@
     "refs" : ["reitmaier2013let"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** 4DS combines four criteria computed from a generative mixture-model classifier: distance to the decision boundary (uncertainty), density of the sample’s region (representativeness), diversity within the batch (non-redundancy), and class-distribution balancing. It selects a batch by greedily maximizing a weighted sum of these scores with automatically adapted weights, yielding uncertain, representative, and non-redundant queries.",
-    "import_misc" : ["from skactiveml.pool import FourDs",
+    "import_misc" : ["from skactivemlsparse.pool import FourDs",
                      "from sklearn.mixture import GaussianMixture"],
-    "import_clf" : "from skactiveml.classifier import MixtureModelClassifier",
+    "import_clf" : "from skactivemlsparse.classifier import MixtureModelClassifier",
     "init_clf" : "MixtureModelClassifier(classes=[0, 1], mixture_model=GaussianMixture(n_components=5))",
     "init_qs" : "FourDs()",
     "query_params" : "X=X, y=y, clf=clf"

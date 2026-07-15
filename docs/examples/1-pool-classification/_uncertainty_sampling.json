@@ -10,7 +10,7 @@
     "refs" : ["settles2009active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** US (margin sampling) samples where the gap between the two most probable classes is smallest.",
-    "import_misc" : "from skactiveml.pool import UncertaintySampling",
+    "import_misc" : "from skactivemlsparse.pool import UncertaintySampling",
     "init_qs" : "UncertaintySampling(method='margin_sampling')",
     "query_params" : "X=X, y=y, clf=clf",
     "plot_utility_params" : "candidates=None"
@@ -26,7 +26,7 @@
     "refs" : ["settles2009active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** US (least confidence) selects samples whose predicted top class has the lowest confidence.",
-    "import_misc" : "from skactiveml.pool import UncertaintySampling",
+    "import_misc" : "from skactivemlsparse.pool import UncertaintySampling",
     "init_qs" : "UncertaintySampling(method='least_confident')",
     "query_params" : "X=X, y=y, clf=clf"
   },
@@ -41,7 +41,7 @@
     "refs" : ["settles2009active"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** US (entropy) selects samples with the highest overall predictive uncertainty across classes.",
-    "import_misc" : "from skactiveml.pool import UncertaintySampling",
+    "import_misc" : "from skactivemlsparse.pool import UncertaintySampling",
     "init_qs" : "UncertaintySampling(method='entropy')",
     "query_params" : "X=X, y=y, clf=clf"
   },
@@ -63,7 +63,7 @@
       "refs"
     ],
     "text_0" : "**Idea:** USAP selects samples with the highest expected improvement in average precision under the model's current predictions.",
-    "import_misc" : "from skactiveml.pool import UncertaintySampling",
+    "import_misc" : "from skactivemlsparse.pool import UncertaintySampling",
     "init_qs" : "UncertaintySampling(method='expected_average_precision')",
     "query_params" : "X=X, y=y, clf=clf",
     "plot_utility_params" : "candidates=X"
@@ -79,8 +79,8 @@
     "refs" : ["donmez2007dual"],
     "sequence" : ["title", "text_0", "plot", "refs"],
     "text_0" : "**Idea:** DWUS ranks each unlabeled sample by its uncertainty multiplied by a representativeness score estimated from the pool (for example, average similarity or k-NN density), then selects the highest scorers.",
-    "import_clf" : "from sklearn.linear_model import LogisticRegression\nfrom sklearn.mixture import GaussianMixture\nfrom skactiveml.classifier import SklearnClassifier",
-    "import_misc" : ["from skactiveml.pool import UncertaintySampling", "from skactiveml.utils import unlabeled_indices"],
+    "import_clf" : "from sklearn.linear_model import LogisticRegression\nfrom sklearn.mixture import GaussianMixture\nfrom skactivemlsparse.classifier import SklearnClassifier",
+    "import_misc" : ["from skactivemlsparse.pool import UncertaintySampling", "from skactivemlsparse.utils import unlabeled_indices"],
     "init_qs" : "UncertaintySampling(method='least_confident', random_state=random_state)",
     "init_clf" : "SklearnClassifier(LogisticRegression(), classes=np.unique(y_true))",
     "preproc" : "gmm = GaussianMixture(init_params='kmeans', n_components=5)\ngmm.fit(X)\ndensity = np.exp(gmm.score_samples(X))",

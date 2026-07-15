@@ -18,13 +18,13 @@ from matplotlib import pyplot as plt, animation
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
 
-from skactiveml.utils import MISSING_LABEL, labeled_indices
-from skactiveml.visualization import (
+from skactivemlsparse.utils import MISSING_LABEL, labeled_indices
+from skactivemlsparse.visualization import (
     plot_decision_boundary,
     plot_contour_for_samples,
 )
 
-"$import_clf|from skactiveml.classifier import ParzenWindowClassifier"
+"$import_clf|from skactivemlsparse.classifier import ParzenWindowClassifier"
 "$import_misc"
 
 # Set a fixed random state for reproducibility.

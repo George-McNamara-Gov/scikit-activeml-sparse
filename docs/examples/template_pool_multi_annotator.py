@@ -21,18 +21,18 @@ from matplotlib import pyplot as plt, animation
 from matplotlib.ticker import MaxNLocator
 from sklearn.datasets import make_blobs
 
-from skactiveml.utils import (
+from skactivemlsparse.utils import (
     MISSING_LABEL,
     majority_vote,
     is_labeled,
 )
-from skactiveml.visualization import (
+from skactivemlsparse.visualization import (
     plot_utilities,
     plot_decision_boundary,
     mesh,
 )
 
-"$import_clf|from skactiveml.classifier import ParzenWindowClassifier"
+"$import_clf|from skactivemlsparse.classifier import ParzenWindowClassifier"
 "$import_misc"
 
 random_state = np.random.RandomState(0)

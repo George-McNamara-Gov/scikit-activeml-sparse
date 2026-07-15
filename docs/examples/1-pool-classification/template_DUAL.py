@@ -18,14 +18,14 @@ from matplotlib import pyplot as plt, animation
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
 
-from skactiveml.utils import MISSING_LABEL, is_labeled, simple_batch
-from skactiveml.visualization import plot_decision_boundary, \
+from skactivemlsparse.utils import MISSING_LABEL, is_labeled, simple_batch
+from skactivemlsparse.visualization import plot_decision_boundary, \
     plot_contour_for_samples
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.mixture import GaussianMixture
-from skactiveml.classifier import SklearnClassifier
-from skactiveml.pool import UncertaintySampling
+from skactivemlsparse.classifier import SklearnClassifier
+from skactivemlsparse.pool import UncertaintySampling
 
 random_state = np.random.RandomState(0)
 

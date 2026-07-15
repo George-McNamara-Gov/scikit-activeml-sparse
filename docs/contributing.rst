@@ -1148,7 +1148,7 @@ The JSON file supports the following entries:
 |                  | ``["title", "text_0", "plot", "refs"]``.                 |
 +------------------+----------------------------------------------------------+
 | ``import_misc``  | Python code for imports (e.g.,                           |
-|                  | ``from skactiveml.pool import RandomSampling``).         |
+|                  | ``from skactivemlsparse.pool import RandomSampling``).         |
 +------------------+----------------------------------------------------------+
 | ``n_samples``    | Number of samples in the example dataset.                |
 +------------------+----------------------------------------------------------+

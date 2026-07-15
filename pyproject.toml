@@ -6,7 +6,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name            = "scikit-activeml"
+name            = "scikit-activeml-sparse"
 description     = "scikit-activeml is a Python library for active learning on top of SciPy and scikit-learn."
 readme          = { file = "README-pypi.rst", content-type = "text/x-rst" }
 requires-python = ">=3.10"
@@ -40,7 +40,7 @@ dynamic = [
 ]
 
 [tool.setuptools.dynamic]
-version = { attr = "skactiveml.__version__" }
+version = { attr = "skactivemlsparse.__version__" }
 dependencies = { file = ["requirements.txt"] }
 
 [tool.setuptools.dynamic.optional-dependencies]
@@ -50,11 +50,11 @@ opt = { file = ["requirements_opt.txt"] }
 opt_max = { file = ["requirements_opt_max.txt"] }
 
 [tool.setuptools.packages.find]
-include = ["skactiveml", "skactiveml.*"]
+include = ["skactivemlsparse", "skactivemlsparse.*"]
 exclude = [
-  "skactiveml.tests",
-  "skactiveml.*.tests",
-  "skactiveml.*.tests.*",
+  "skactivemlsparse.tests",
+  "skactivemlsparse.*.tests",
+  "skactivemlsparse.*.tests.*",
 ]
 
 [project.urls]

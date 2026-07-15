@@ -1,0 +1,26 @@
+"""
+The :mod:`skactiveml.regressor` module.
+"""
+
+from skactivemlsparse.regressor._nic_kernel_regressor import (
+    NICKernelRegressor,
+    NadarayaWatsonRegressor,
+)
+from skactivemlsparse.regressor._wrapper import (
+    SklearnRegressor,
+    SklearnNormalRegressor,
+)
+
+__all__ = [
+    "NICKernelRegressor",
+    "NadarayaWatsonRegressor",
+    "SklearnRegressor",
+    "SklearnNormalRegressor",
+]
+
+try:
+    from ._wrapper import SkorchRegressor  # noqa: F401
+
+    __all__ += ["SkorchRegressor"]
+except ImportError:  # pragma: no cover
+    pass

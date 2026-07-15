@@ -94,8 +94,8 @@ Note that you might need to adjust this command for GPU support with
    from sentence_transformers import SentenceTransformer
    from skorch.callbacks import LRScheduler
 
-   from skactiveml.classifier import SkorchClassifier
-   from skactiveml.pool import Badge
+   from skactivemlsparse.classifier import SkorchClassifier
+   from skactivemlsparse.pool import Badge
 
    # Define the device depending on its availability.
    device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -231,8 +231,8 @@ Note that you might need to adjust this command for GPU support with
    from skorch.callbacks import LRScheduler
    from transformers import AutoImageProcessor, Dinov2Model
 
-   from skactiveml.classifier import SkorchClassifier
-   from skactiveml.stream import Split
+   from skactivemlsparse.classifier import SkorchClassifier
+   from skactivemlsparse.stream import Split
 
    # Define the device depending on its availability.
    device = "cuda" if torch.cuda.is_available() else "cpu"
